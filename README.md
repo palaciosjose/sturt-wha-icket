@@ -30,12 +30,14 @@ presiona solo enter, sin responder nada
 
 **[5] EJECUTA LA INSTALACIÓN**
 * copia este script y ejecutalo:
-sudo apt install -y git && git clone https://github.com/leopoldohuacasiv/masterwaticket1009.git && sudo chmod -R 777 instalador-whaticket-main-v1009 && cd instalador-whaticket-main-v1009 && sudo ./install_primaria
+sudo apt install -y git && git clone https://github.com/weliton2k/instalador-whaticket-main-v.10.0.1.git && sudo chmod -R 777 instalador-whaticket-main-v.10.0.1 && cd instalador-whaticket-main-v.10.0.1 && sudo ./install_primaria
 * Ingresa valor "0" = Instalación
 * Ingresa nombre de la base de datos = tubasededatos
 * Ingresa el link del codigo fuente github = https://github.com/leopoldohuacasiv/waticketsaas.git
 * Ingresa el sub dominio app = app.subdominio.com
 * Ingresa el sub dominio api = api.subdominio.com
+* Número de Usuarios = 999
+* Número de Conexiones = 999
 * Ingresa conexión 1 = 3000
 * Ingresa conexión 2 = 4000
 * Ingresa conexión 3 = 5000
