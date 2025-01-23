@@ -82,7 +82,7 @@ sudo apt update && sudo apt install -y git \
 - **Conexión 2:** `4000`
 - **Conexión 3:** `5000`
 
-> **Nota:** La instalación puede tardar entre **40 y 60 minutos**.
+> **Nota:** La instalación puede tardar entre **40 y 60 minutos** dependera de la velovidad del servidor VPS que contrate.
 
 ---
 
