@@ -74,6 +74,7 @@ sudo apt update && sudo apt install -y git \
 - **Tipo de instalación:** `0` (Instalación)
 - **Nombre de la base de datos:** `tubasededatos`
 - **Repositorio de GitHub:** `https://github.com/leopoldohuacasiv/waticketsaas.git`
+- **Instancia/Empresa:** `ponunnombre`
 - **Valor de QR:** `999`
 - **Usuarios conectados:** `999`
 - **Subdominio app:** `app.subdominio.com`
