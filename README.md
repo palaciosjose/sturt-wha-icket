@@ -103,3 +103,11 @@ Contraseña: 123456
 ---
 
 ### ¡Instalación completada con éxito! 🎉
+
+## Dato Extra
+
+Descarga el archivo .js de potugues a español accediendo al grupo de whatsapp:
+```
+[GrupoWhatsApp](https://chat.whatsapp.com/HR9PZZLqsRHAP8ZA8s0H5G)
+```
+Y escribe la palabra clave en el chat del grupo "traduciraespañol" para que el BOT te comparta el link de descarga
