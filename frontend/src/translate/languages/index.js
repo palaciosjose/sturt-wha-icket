@@ -5,7 +5,7 @@ import { messages as spanishMessages } from "./es";
 const messages = {
 	...portugueseMessages,
 	...englishMessages,
-	...spanishMessages,	
+	...spanishMessages, // El español debe tener prioridad
 };
 
 export { messages };

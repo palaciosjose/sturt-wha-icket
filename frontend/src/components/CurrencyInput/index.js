@@ -4,12 +4,12 @@ import MaskedInput from 'react-text-mask'
 import createNumberMask from 'text-mask-addons/dist/createNumberMask'
 
 const defaultMaskOptions = {
-  prefix: 'R$',
+  prefix: '$',
   suffix: '',
   includeThousandsSeparator: true,
-  thousandsSeparatorSymbol: '.',
+  thousandsSeparatorSymbol: ',',
   allowDecimal: true,
-  decimalSymbol: ',',
+  decimalSymbol: '.',
   decimalLimit: 2, // how many digits allowed after the decimal
   integerLimit: 7, // limit length of integer numbers
   allowNegative: false,

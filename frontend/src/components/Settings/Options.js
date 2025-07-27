@@ -7,16 +7,14 @@ import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 import FormHelperText from "@material-ui/core/FormHelperText";
 import TextField from "@material-ui/core/TextField";
-import Title from "../Title";
-import Paper from "@material-ui/core/Paper";
-import Typography from "@material-ui/core/Typography";
 import useSettings from "../../hooks/useSettings";
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import { makeStyles } from "@material-ui/core/styles";
 import { grey, blue } from "@material-ui/core/colors";
 import { Tabs, Tab } from "@material-ui/core";
 import OnlyForSuperUser from '../../components/OnlyForSuperUser';
 import useAuth from '../../hooks/useAuth.js';
+import { i18n } from '../../translate/i18n.js';
 
 //import 'react-toastify/dist/ReactToastify.css';
  
@@ -85,25 +83,20 @@ export default function Options(props) {
 
   const [currentUser, setCurrentUser] = useState({});
   const { getCurrentUserInfo } = useAuth();
-  const [loading, setLoading] = useState(false);
   useEffect(() => {
     async function findData() {
-      setLoading(true);
       try {
         const user = await getCurrentUserInfo();
         setCurrentUser(user);
       } catch (e) {
         toast.error(e);
       }
-      setLoading(false);
     }
     findData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isSuper = () => {
-    return currentUser.super;
-  }; 
+ 
 
   const [userRating, setUserRating] = useState("disabled");
   const [scheduleType, setScheduleType] = useState("disabled");
@@ -113,25 +106,13 @@ export default function Options(props) {
 
   const [loadingUserRating, setLoadingUserRating] = useState(false);
   const [loadingScheduleType, setLoadingScheduleType] = useState(false);
-  const [loadingCallType, setLoadingCallType] = useState(false);
+      const [loadingCallType, setLoadingCallType] = useState(false);
   const [loadingChatbotType, setLoadingChatbotType] = useState(false);
-  const [loadingCheckMsgIsGroup, setCheckMsgIsGroup] = useState(false);
-
-
-  const [ipixcType, setIpIxcType] = useState("");
-  const [loadingIpIxcType, setLoadingIpIxcType] = useState(false);
-  const [tokenixcType, setTokenIxcType] = useState("");
-  const [loadingTokenIxcType, setLoadingTokenIxcType] = useState(false);
-
-  const [ipmkauthType, setIpMkauthType] = useState("");
-  const [loadingIpMkauthType, setLoadingIpMkauthType] = useState(false);
-  const [clientidmkauthType, setClientIdMkauthType] = useState("");
-  const [loadingClientIdMkauthType, setLoadingClientIdMkauthType] = useState(false);
-  const [clientsecretmkauthType, setClientSecrectMkauthType] = useState("");
-  const [loadingClientSecrectMkauthType, setLoadingClientSecrectMkauthType] = useState(false);
-
-  const [asaasType, setAsaasType] = useState("");
-  const [loadingAsaasType, setLoadingAsaasType] = useState(false);
+  const [loadingCheckMsgIsGroup, setLoadingCheckMsgIsGroup] = useState(false);
+ 
+  // Configuración de zona horaria
+  const [timezoneType, setTimezoneType] = useState("America/Lima");
+  const [loadingTimezoneType, setLoadingTimezoneType] = useState(false);
   
   // recursos a mais...
   const [trial, settrial] = useState('3');
@@ -151,6 +132,10 @@ export default function Options(props) {
   
   const [sendGreetingMessageOneQueues, setSendGreetingMessageOneQueues] = useState("disabled");
   const [loadingSendGreetingMessageOneQueues, setLoadingSendGreetingMessageOneQueues] = useState(false);
+
+  // HUB NOTIFICAME TOKEN
+  const [hubNotificaMeToken, setHubNotificaMeToken] = useState("");
+  const [loadingHubNotificaMeToken, setLoadingHubNotificaMeToken] = useState(false);
 
   const { update } = useSettings();
 
@@ -178,19 +163,15 @@ export default function Options(props) {
         setallowregister(allowregister.value);
       }
       
-	  {/*PLW DESIGN SAUDAÇÃO*/}
       const SendGreetingAccepted = settings.find((s) => s.key === "sendGreetingAccepted");
       if (SendGreetingAccepted) {
         setSendGreetingAccepted(SendGreetingAccepted.value);
-      }	 
-	  {/*PLW DESIGN SAUDAÇÃO*/}	 
+      }
 	  
-	  {/*TRANSFERIR TICKET*/}	
 	  const SettingsTransfTicket = settings.find((s) => s.key === "sendMsgTransfTicket");
       if (SettingsTransfTicket) {
         setSettingsTransfTicket(SettingsTransfTicket.value);
       }
-	  {/*TRANSFERIR TICKET*/}
 
 
       const viewregister = settings.find((s) => s.key === 'viewregister');
@@ -201,8 +182,14 @@ export default function Options(props) {
       const sendGreetingMessageOneQueues = settings.find((s) => s.key === "sendGreetingMessageOneQueues");
       if (sendGreetingMessageOneQueues) {
         setSendGreetingMessageOneQueues(sendGreetingMessageOneQueues.value)
-      }	  
-	  
+      }
+
+      // HUB NOTIFICAME: leer valor actual del token
+      const hubToken = settings.find((s) => s.key === "hubToken");
+      if (hubToken) {
+        setHubNotificaMeToken(hubToken.value);
+      }
+
       const chatbotType = settings.find((s) => s.key === "chatBotType");
       if (chatbotType) {
         setChatbotType(chatbotType.value);
@@ -213,34 +200,15 @@ export default function Options(props) {
         settrial(trial.value);
       }
 
-      const ipixcType = settings.find((s) => s.key === "ipixc");
-      if (ipixcType) {
-        setIpIxcType(ipixcType.value);
-      }
-
-      const tokenixcType = settings.find((s) => s.key === "tokenixc");
-      if (tokenixcType) {
-        setTokenIxcType(tokenixcType.value);
-      }
-
-      const ipmkauthType = settings.find((s) => s.key === "ipmkauth");
-      if (ipmkauthType) {
-        setIpMkauthType(ipmkauthType.value);
-      }
-
-      const clientidmkauthType = settings.find((s) => s.key === "clientidmkauth");
-      if (clientidmkauthType) {
-        setClientIdMkauthType(clientidmkauthType.value);
-      }
-
-      const clientsecretmkauthType = settings.find((s) => s.key === "clientsecretmkauth");
-      if (clientsecretmkauthType) {
-        setClientSecrectMkauthType(clientsecretmkauthType.value);
-      }
-
-      const asaasType = settings.find((s) => s.key === "asaas");
-      if (asaasType) {
-        setAsaasType(asaasType.value);
+      const timezoneType = settings.find((s) => s.key === "timezone");
+      if (timezoneType) {
+        setTimezoneType(timezoneType.value);
+        // Guardar en localStorage para uso inmediato
+        localStorage.setItem("timezone", timezoneType.value);
+      } else {
+        // Valor por defecto si no existe la configuración
+        setTimezoneType("America/Lima");
+        localStorage.setItem("timezone", "America/Lima");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,7 +221,7 @@ export default function Options(props) {
       key: "userRating",
       value,
     });
-    toast.success("Operação atualizada com sucesso.");
+    toast.success(i18n.t("settings.success"));
     setLoadingUserRating(false);
   }
 
@@ -264,7 +232,7 @@ export default function Options(props) {
       key: 'allowregister',
       value,
     });
-    toast.success('Operação atualizada com sucesso.');
+    toast.success(i18n.t("settings.success"));
     setLoadingallowregister(false);
   }
   
@@ -275,7 +243,7 @@ export default function Options(props) {
       key: "sendGreetingMessageOneQueues",
       value,
     });
-	toast.success("Operação atualizada com sucesso.");
+	toast.success(i18n.t("settings.success"));
     setLoadingSendGreetingMessageOneQueues(false);
   }
 
@@ -286,7 +254,7 @@ export default function Options(props) {
       key: 'viewregister',
       value,
     });
-    toast.success('Operação atualizada com sucesso.');
+    toast.success(i18n.t("settings.success"));
     setLoadingviewregister(false);
   }
   
@@ -297,7 +265,7 @@ export default function Options(props) {
       key: 'trial',
       value,
     });
-    toast.success('Operação atualizada com sucesso.');
+    toast.success(i18n.t("settings.success"));
     setLoadingtrial(false);
   }
 
@@ -309,20 +277,9 @@ export default function Options(props) {
       key: "scheduleType",
       value,
     });
-    //toast.success("Oraçãpeo atualizada com sucesso.");
-    toast.success('Operação atualizada com sucesso.', {
-      position: "top-right",
-      autoClose: 2000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: false,
-      draggable: true,
-      theme: "light",
-      });
+    toast.success(i18n.t("settings.success"));
     setLoadingScheduleType(false);
-    if (typeof scheduleTypeChanged === "function") {
-      scheduleTypeChanged(value);
-    }
+    scheduleTypeChanged(value);
   }
 
   async function handleCallType(value) {
@@ -332,7 +289,7 @@ export default function Options(props) {
       key: "call",
       value,
     });
-    toast.success("Operação atualizada com sucesso.");
+    toast.success(i18n.t("settings.success"));
     setLoadingCallType(false);
   }
 
@@ -343,25 +300,21 @@ export default function Options(props) {
       key: "chatBotType",
       value,
     });
-    toast.success("Operação atualizada com sucesso.");
+    toast.success(i18n.t("settings.success"));
     setLoadingChatbotType(false);
   }
 
   async function handleGroupType(value) {
     setCheckMsgIsGroupType(value);
-    setCheckMsgIsGroup(true);
+    setLoadingCheckMsgIsGroup(true);
     await update({
       key: "CheckMsgIsGroup",
       value,
     });
-    toast.success("Operação atualizada com sucesso.");
-    setCheckMsgIsGroupType(false);
-    /*     if (typeof scheduleTypeChanged === "function") {
-          scheduleTypeChanged(value);
-        } */
+    toast.success(i18n.t("settings.success"));
+    setLoadingCheckMsgIsGroup(false);
   }
   
-  {/*NOVO CÓDIGO*/}  
   async function handleSendGreetingAccepted(value) {
     setSendGreetingAccepted(value);
     setLoadingSendGreetingAccepted(true);
@@ -369,12 +322,9 @@ export default function Options(props) {
       key: "sendGreetingAccepted",
       value,
     });
-	toast.success("Operação atualizada com sucesso.");
+	toast.success(i18n.t("settings.success"));
     setLoadingSendGreetingAccepted(false);
   }  
-  
-  
-  {/*NOVO CÓDIGO*/}    
 
   async function handleSettingsTransfTicket(value) {
     setSettingsTransfTicket(value);
@@ -384,81 +334,48 @@ export default function Options(props) {
       value,
     });
 
-    toast.success("Operação atualizada com sucesso.");
+    toast.success(i18n.t("settings.success"));
     setLoadingSettingsTransfTicket(false);
   } 
  
-  async function handleChangeIPIxc(value) {
-    setIpIxcType(value);
-    setLoadingIpIxcType(true);
+
+
+  async function handleChangeTimezone(value) {
+    setTimezoneType(value);
+    setLoadingTimezoneType(true);
     await update({
-      key: "ipixc",
+      key: "timezone",
       value,
     });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingIpIxcType(false);
+    // Guardar en localStorage para uso inmediato en el frontend
+    localStorage.setItem("timezone", value);
+    toast.success(i18n.t("settings.success"));
+    setLoadingTimezoneType(false);
   }
 
-  async function handleChangeTokenIxc(value) {
-    setTokenIxcType(value);
-    setLoadingTokenIxcType(true);
-    await update({
-      key: "tokenixc",
-      value,
-    });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingTokenIxcType(false);
-  }
+  async function handleChangeHubNotificaMe(value) {
+    setHubNotificaMeToken(value);
 
-  async function handleChangeIpMkauth(value) {
-    setIpMkauthType(value);
-    setLoadingIpMkauthType(true);
-    await update({
-      key: "ipmkauth",
-      value,
-    });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingIpMkauthType(false);
-  }
-
-  async function handleChangeClientIdMkauth(value) {
-    setClientIdMkauthType(value);
-    setLoadingClientIdMkauthType(true);
-    await update({
-      key: "clientidmkauth",
-      value,
-    });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingClientIdMkauthType(false);
-  }
-
-  async function handleChangeClientSecrectMkauth(value) {
-    setClientSecrectMkauthType(value);
-    setLoadingClientSecrectMkauthType(true);
-    await update({
-      key: "clientsecretmkauth",
-      value,
-    });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingClientSecrectMkauthType(false);
-  }
-
-  async function handleChangeAsaas(value) {
-    setAsaasType(value);
-    setLoadingAsaasType(true);
-    await update({
-      key: "asaas",
-      value,
-    });
-    toast.success("Operação atualizada com sucesso.");
-    setLoadingAsaasType(false);
+    if (value.length === 36) {
+      // ✅ Solo si tiene 36 caracteres exactos
+      setLoadingHubNotificaMeToken(true);
+      await update({
+        key: "hubToken",
+        value,
+      });
+      toast.success(i18n.t("settings.success"));
+      setLoadingHubNotificaMeToken(false);
+    } else {
+      // Opcional: puedes mostrar un aviso si quieres
+      // toast.info("Debe tener exactamente 36 caracteres para guardar.");
+    }
   }
   return (
     <>
       <Grid spacing={3} container>
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="ratings-label">Avaliações</InputLabel>
+            <InputLabel id="ratings-label">{i18n.t("settings.options.userRating")}</InputLabel>
             <Select
               labelId="ratings-label"
               value={userRating}
@@ -466,18 +383,18 @@ export default function Options(props) {
                 handleChangeUserRating(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desabilitadas</MenuItem>
-              <MenuItem value={"enabled"}>Habilitadas</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.enabled")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingUserRating && "Atualizando..."}
+              {loadingUserRating && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
             <InputLabel id="schedule-type-label">
-              Gerenciamento de Expediente
+              {i18n.t("settings.options.scheduleType")}
             </InputLabel>
             <Select
               labelId="schedule-type-label"
@@ -486,19 +403,19 @@ export default function Options(props) {
                 handleScheduleType(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desabilitado</MenuItem>
-              <MenuItem value={"queue"}>Fila</MenuItem>
-              <MenuItem value={"company"}>Empresa</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.disabled")}</MenuItem>
+              <MenuItem value={"queue"}>{i18n.t("settings.states.queue")}</MenuItem>
+              <MenuItem value={"company"}>{i18n.t("settings.states.company")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingScheduleType && "Atualizando..."}
+              {loadingScheduleType && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
             <InputLabel id="group-type-label">
-              Ignorar Mensagens de Grupos
+              {i18n.t("settings.options.ignoreGroupMessages")}
             </InputLabel>
             <Select
               labelId="group-type-label"
@@ -507,18 +424,18 @@ export default function Options(props) {
                 handleGroupType(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desativado</MenuItem>
-              <MenuItem value={"enabled"}>Ativado</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.deactivated")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.activated")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingScheduleType && "Atualizando..."}
+              {loadingCheckMsgIsGroup && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
             <InputLabel id="call-type-label">
-              Aceitar Chamada
+              {i18n.t("settings.options.acceptCall")}
             </InputLabel>
             <Select
               labelId="call-type-label"
@@ -527,18 +444,18 @@ export default function Options(props) {
                 handleCallType(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Não Aceitar</MenuItem>
-              <MenuItem value={"enabled"}>Aceitar</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.notAccept")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.accept")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingCallType && "Atualizando..."}
+              {loadingCallType && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
        <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
             <InputLabel id="chatbot-type-label">
-              Tipo Chatbot
+              {i18n.t("settings.options.chatbotType")}
             </InputLabel>
             <Select
               labelId="chatbot-type-label"
@@ -547,19 +464,19 @@ export default function Options(props) {
                 handleChatbotType(e.target.value);
               }}
             >
-              <MenuItem value={"text"}>Texto</MenuItem>
+              <MenuItem value={"text"}>{i18n.t("settings.states.text")}</MenuItem>
 			 {/*<MenuItem value={"button"}>Botão</MenuItem>*/}
              {/*<MenuItem value={"list"}>Lista</MenuItem>*/}
             </Select>
             <FormHelperText>
-              {loadingChatbotType && "Atualizando..."}
+              {loadingChatbotType && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
 		{/* ENVIAR SAUDAÇÃO AO ACEITAR O TICKET */}
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendGreetingAccepted-label">Enviar saudação ao aceitar o ticket</InputLabel>
+            <InputLabel id="sendGreetingAccepted-label">{i18n.t("settings.options.sendGreetingAccepted")}</InputLabel>
             <Select
               labelId="sendGreetingAccepted-label"
               value={SendGreetingAccepted}
@@ -567,11 +484,11 @@ export default function Options(props) {
                 handleSendGreetingAccepted(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desabilitado</MenuItem>
-              <MenuItem value={"enabled"}>Habilitado</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.enabled")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingSendGreetingAccepted && "Atualizando..."}
+              {loadingSendGreetingAccepted && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -580,7 +497,7 @@ export default function Options(props) {
 		{/* ENVIAR MENSAGEM DE TRANSFERENCIA DE SETOR/ATENDENTE */}
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendMsgTransfTicket-label">Enviar mensagem de transferencia de Fila/agente</InputLabel>
+            <InputLabel id="sendMsgTransfTicket-label">{i18n.t("settings.options.sendTransferMessage")}</InputLabel>
             <Select
               labelId="sendMsgTransfTicket-label"
               value={SettingsTransfTicket}
@@ -588,11 +505,11 @@ export default function Options(props) {
                 handleSettingsTransfTicket(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desabilitado</MenuItem>
-              <MenuItem value={"enabled"}>Habilitado</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.enabled")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingSettingsTransfTicket && "Atualizando..."}
+              {loadingSettingsTransfTicket && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -600,7 +517,7 @@ export default function Options(props) {
 		{/* ENVIAR SAUDAÇÃO QUANDO HOUVER SOMENTE 1 FILA */}
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendGreetingMessageOneQueues-label">Enviar saudação quando houver somente 1 fila</InputLabel>
+            <InputLabel id="sendGreetingMessageOneQueues-label">{i18n.t("settings.options.sendGreetingOneQueue")}</InputLabel>
             <Select
               labelId="sendGreetingMessageOneQueues-label"
               value={sendGreetingMessageOneQueues}
@@ -608,11 +525,11 @@ export default function Options(props) {
                 handleSendGreetingMessageOneQueues(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>Desabilitado</MenuItem>
-              <MenuItem value={"enabled"}>Habilitado</MenuItem>
+              <MenuItem value={"disabled"}>{i18n.t("settings.states.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.states.enabled")}</MenuItem>
             </Select>
             <FormHelperText>
-              {loadingSendGreetingMessageOneQueues && "Atualizando..."}
+              {loadingSendGreetingMessageOneQueues && i18n.t("settings.states.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -626,6 +543,7 @@ export default function Options(props) {
 				  <>
 					<Grid spacing={3} container>
 					  <Tabs
+						value={0}
 						indicatorColor='primary'
 						textColor='primary'
 						scrollButtons='on'
@@ -636,7 +554,7 @@ export default function Options(props) {
 						  marginTop: 20,
 						}}
 					  >
-						<Tab label='Configurações Globais' />
+						<Tab label={i18n.t("settings.options.globalSettings")} />
 					  </Tabs>
 					</Grid>
 
@@ -644,7 +562,7 @@ export default function Options(props) {
             <Grid xs={12} sm={12} md={12} item>
                 <FormControl className={classes.selectContainer}>
                   <InputLabel id='allowregister-label'>
-                    Registro (Inscrição) Permitida?
+                    {i18n.t("settings.options.registrationAllowed")}
                   </InputLabel>
                   <Select
                     labelId='allowregister-label'
@@ -653,11 +571,11 @@ export default function Options(props) {
                       handleallowregister(e.target.value);
                     }}
                   >
-                    <MenuItem value={'disabled'}>Não</MenuItem>
-                    <MenuItem value={'enabled'}>Sim</MenuItem>
+                    <MenuItem value={'disabled'}>{i18n.t("settings.states.no")}</MenuItem>
+                    <MenuItem value={'enabled'}>{i18n.t("settings.states.yes")}</MenuItem>
                   </Select>
                   <FormHelperText>
-                    {loadingallowregister && 'Atualizando...'}
+                    {loadingallowregister && i18n.t("settings.states.updating")}
                   </FormHelperText>
                 </FormControl>
               </Grid>
@@ -665,7 +583,7 @@ export default function Options(props) {
 				  <Grid xs={12} sm={12} md={12} item>
                 <FormControl className={classes.selectContainer}>
                   <InputLabel id='viewregister-label'>
-                    Registro (Inscrição) Visível?
+                    {i18n.t("settings.options.registrationVisible")}
                   </InputLabel>
                   <Select
                     labelId='viewregister-label'
@@ -674,18 +592,18 @@ export default function Options(props) {
                       handleviewregister(e.target.value);
                     }}
                   >
-                    <MenuItem value={'disabled'}>Não</MenuItem>
-                    <MenuItem value={'enabled'}>Sim</MenuItem>
+                    <MenuItem value={'disabled'}>{i18n.t("settings.states.no")}</MenuItem>
+                    <MenuItem value={'enabled'}>{i18n.t("settings.states.yes")}</MenuItem>
                   </Select>
                   <FormHelperText>
-                    {loadingviewregister && 'Atualizando...'}
+                    {loadingviewregister && i18n.t("settings.states.updating")}
                   </FormHelperText>
                 </FormControl>
               </Grid>
 			  
 			                <Grid xs={12} sm={12} md={12} item>
                 <FormControl className={classes.selectContainer}>
-                  <InputLabel id='trial-label'>Tempo de Trial?</InputLabel>
+                  <InputLabel id='trial-label'>{i18n.t("settings.options.trialTime")}</InputLabel>
                   <Select
                     labelId='trial-label'
                     value={trial}
@@ -710,179 +628,79 @@ export default function Options(props) {
       </>
         )}
       />
-	        <Grid spacing={3} container>
-        <Tabs
-          indicatorColor="primary"
-          textColor="primary"
-          scrollButtons="on"
-          variant="scrollable"
-          className={classes.tab}
-          style={{
-            marginBottom: 20,
-            marginTop: 20
-          }}
-        >
-          <Tab
-
-            label="INTEGRAÇÕES" />
-
-        </Tabs>
-
-      </Grid>
-      {/*-----------------IXC-----------------*/}
+	        {/*-----------------CONFIGURACIÓN DE ZONA HORARIA-----------------*/}
       <Grid spacing={3} container
         style={{ marginBottom: 10 }}>
         <Tabs
+          value={0}
           indicatorColor="primary"
           textColor="primary"
           scrollButtons="on"
           variant="scrollable"
           className={classes.tab}
         >
-          <Tab
-
-            label="IXC" />
-
+          <Tab label="ZONA HORARIA" />
         </Tabs>
-        <Grid xs={12} sm={6} md={6} item>
+        <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
-            <TextField
-              id="ipixc"
-              name="ipixc"
-              margin="dense"
-              label="IP do IXC"
-              variant="outlined"
-              value={ipixcType}
+            <InputLabel id="timezone-label">Zona Horaria para Campañas</InputLabel>
+            <Select
+              labelId="timezone-label"
+              id="timezone"
+              name="timezone"
+              value={timezoneType}
               onChange={async (e) => {
-                handleChangeIPIxc(e.target.value);
+                handleChangeTimezone(e.target.value);
               }}
-            >
-            </TextField>
-            <FormHelperText>
-              {loadingIpIxcType && "Atualizando..."}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-        <Grid xs={12} sm={6} md={6} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="tokenixc"
-              name="tokenixc"
-              margin="dense"
-              label="Token do IXC"
               variant="outlined"
-              value={tokenixcType}
-              onChange={async (e) => {
-                handleChangeTokenIxc(e.target.value);
-              }}
             >
-            </TextField>
+              <MenuItem value="America/Lima">Perú (America/Lima)</MenuItem>
+              <MenuItem value="America/Sao_Paulo">Brasil (America/Sao_Paulo)</MenuItem>
+              <MenuItem value="America/Argentina/Buenos_Aires">Argentina (America/Argentina/Buenos_Aires)</MenuItem>
+              <MenuItem value="America/Santiago">Chile (America/Santiago)</MenuItem>
+              <MenuItem value="America/Bogota">Colombia (America/Bogota)</MenuItem>
+              <MenuItem value="America/Mexico_City">México (America/Mexico_City)</MenuItem>
+              <MenuItem value="America/New_York">Estados Unidos - Este (America/New_York)</MenuItem>
+              <MenuItem value="America/Los_Angeles">Estados Unidos - Oeste (America/Los_Angeles)</MenuItem>
+              <MenuItem value="Europe/Madrid">España (Europe/Madrid)</MenuItem>
+              <MenuItem value="Europe/London">Reino Unido (Europe/London)</MenuItem>
+              <MenuItem value="Asia/Tokyo">Japón (Asia/Tokyo)</MenuItem>
+              <MenuItem value="UTC">UTC (Tiempo Universal)</MenuItem>
+            </Select>
             <FormHelperText>
-              {loadingTokenIxcType && "Atualizando..."}
+              {loadingTimezoneType ? "Actualizando..." : "Selecciona tu zona horaria para campañas masivas"}
             </FormHelperText>
           </FormControl>
         </Grid>
       </Grid>
-      {/*-----------------MK-AUTH-----------------*/}
-      <Grid spacing={3} container
-        style={{ marginBottom: 10 }}>
+
+      {/*-----------------HUB NOTIFICAME-----------------*/}
+      <Grid spacing={3} container style={{ marginBottom: 10 }}>
         <Tabs
+          value={0}
           indicatorColor="primary"
           textColor="primary"
           scrollButtons="on"
           variant="scrollable"
           className={classes.tab}
         >
-          <Tab label="MK-AUTH" />
-
-        </Tabs>
-        <Grid xs={12} sm={12} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="ipmkauth"
-              name="ipmkauth"
-              margin="dense"
-              label="Ip Mk-Auth"
-              variant="outlined"
-              value={ipmkauthType}
-              onChange={async (e) => {
-                handleChangeIpMkauth(e.target.value);
-              }}
-            >
-            </TextField>
-            <FormHelperText>
-              {loadingIpMkauthType && "Atualizando..."}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-        <Grid xs={12} sm={12} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="clientidmkauth"
-              name="clientidmkauth"
-              margin="dense"
-              label="Client Id"
-              variant="outlined"
-              value={clientidmkauthType}
-              onChange={async (e) => {
-                handleChangeClientIdMkauth(e.target.value);
-              }}
-            >
-            </TextField>
-            <FormHelperText>
-              {loadingClientIdMkauthType && "Atualizando..."}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-        <Grid xs={12} sm={12} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="clientsecretmkauth"
-              name="clientsecretmkauth"
-              margin="dense"
-              label="Client Secret"
-              variant="outlined"
-              value={clientsecretmkauthType}
-              onChange={async (e) => {
-                handleChangeClientSecrectMkauth(e.target.value);
-              }}
-            >
-            </TextField>
-            <FormHelperText>
-              {loadingClientSecrectMkauthType && "Atualizando..."}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-      </Grid>
-      {/*-----------------ASAAS-----------------*/}
-      <Grid spacing={3} container
-        style={{ marginBottom: 10 }}>
-        <Tabs
-          indicatorColor="primary"
-          textColor="primary"
-          scrollButtons="on"
-          variant="scrollable"
-          className={classes.tab}
-        >
-          <Tab label="ASAAS" />
-
+          <Tab label="HUB NOTIFICAME" />
         </Tabs>
         <Grid xs={12} sm={12} md={12} item>
           <FormControl className={classes.selectContainer}>
             <TextField
-              id="asaas"
-              name="asaas"
+              id="HubNotificaMe"
+              name="HubNotificaMe"
               margin="dense"
-              label="Token Asaas"
+              label="Token Account"
               variant="outlined"
-              value={asaasType}
+              value={hubNotificaMeToken}
               onChange={async (e) => {
-                handleChangeAsaas(e.target.value);
+                handleChangeHubNotificaMe(e.target.value);
               }}
-            >
-            </TextField>
+            />
             <FormHelperText>
-              {loadingAsaasType && "Atualizando..."}
+              {loadingHubNotificaMeToken && "Actualizando..."}
             </FormHelperText>
           </FormControl>
         </Grid>

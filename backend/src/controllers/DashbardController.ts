@@ -10,15 +10,38 @@ type IndexQuery = {
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const params: Params = req.query;
-  const { companyId } = req.user;
-  let daysInterval = 3;
+  try {
+    console.log("🔍 DashboardController.index - Iniciando...");
+    let params: Params = req.query;
+    const { companyId } = req.user;
 
-  const dashboardData: DashboardData = await DashboardDataService(
-    companyId,
-    params
-  );
-  return res.status(200).json(dashboardData);
+    // ✅ MEJORAR MANEJO DE PARÁMETROS - Si no hay parámetros, usar últimos 7 días por defecto
+    if (!params || Object.keys(params).length === 0) {
+      params = {
+        days: 7,
+      };
+    }
+
+    const dashboardData: DashboardData = await DashboardDataService(
+      companyId,
+      params
+    );
+
+    // ✅ MEJORAR RESPUESTA - Asegurar que siempre devuelva datos válidos
+    const response = {
+      counters: dashboardData.counters || {},
+      attendants: dashboardData.attendants || [],
+    };
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("❌ Error en DashboardController:", error);
+    return res.status(500).json({
+      counters: {},
+      attendants: [],
+      error: "Error interno del servidor",
+    });
+  }
 };
 
 export const reportsUsers = async (req: Request, res: Response): Promise<Response> => {

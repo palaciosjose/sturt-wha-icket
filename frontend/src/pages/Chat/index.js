@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 
 import { useParams, useHistory } from "react-router-dom";
+import { i18n } from "../../translate/i18n";
 
 import {
   Button,
@@ -344,7 +345,7 @@ function Chat(props) {
                 color="primary"
                 variant="contained"
               >
-                Nova
+                {i18n.t("chat.buttons.new")}
               </Button>
             </div>
           
@@ -400,7 +401,7 @@ function Chat(props) {
                 color="primary"
                 variant="contained"
               >
-                Novo
+                {i18n.t("chat.buttons.new")}
               </Button>
             </div>
             <ChatList

@@ -4,11 +4,16 @@ import { getIO } from "../libs/socket";
 import AppError from "../errors/AppError";
 
 import CreateService from "../services/ScheduleServices/CreateService";
+import { CreateReminderSystemService } from "../services/ScheduleServices/ReminderSystemService";
+import { CancelReminderSystemService } from "../services/ScheduleServices/CancelReminderSystemService";
+import { RescheduleReminderSystemService } from "../services/ScheduleServices/RescheduleReminderSystemService";
+import { CancelScheduleService } from "../services/ScheduleServices/CancelScheduleService";
 import ListService from "../services/ScheduleServices/ListService";
 import UpdateService from "../services/ScheduleServices/UpdateService";
 import ShowService from "../services/ScheduleServices/ShowService";
 import DeleteService from "../services/ScheduleServices/DeleteService";
 import Schedule from "../models/Schedule";
+import Ticket from "../models/Ticket";
 import path from "path";
 import fs from "fs";
 import { head } from "lodash";
@@ -40,17 +45,45 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     body,
     sendAt,
     contactId,
-    userId
+    userId,
+    whatsappId, // Nuevo parámetro para especificar WhatsApp
+    useReminderSystem = true, // Nuevo parámetro para activar el sistema de recordatorios
+    ticketId // Nuevo parámetro para obtener WhatsApp específico del ticket
   } = req.body;
   const { companyId } = req.user;
 
-  const schedule = await CreateService({
-    body,
-    sendAt,
-    contactId,
-    companyId,
-    userId
-  });
+  // Buscar el ticket para obtener su whatsappId si no se proporciona explícitamente
+  let finalWhatsappId: number | undefined = whatsappId;
+  if (!finalWhatsappId && ticketId) {
+    const ticket = await Ticket.findByPk(ticketId);
+    if (ticket && ticket.companyId === companyId) {
+      finalWhatsappId = ticket.whatsappId;
+      
+    }
+  }
+
+  let schedule;
+
+  if (useReminderSystem) {
+    // Usar el nuevo sistema de recordatorios
+    schedule = await CreateReminderSystemService({
+      body,
+      sendAt,
+      contactId,
+      companyId,
+      userId,
+      whatsappId: finalWhatsappId
+    });
+  } else {
+    // Usar el sistema original
+    schedule = await CreateService({
+      body,
+      sendAt,
+      contactId,
+      companyId,
+      userId
+    });
+  }
 
   const io = getIO();
   io.to(`company-${companyId}-mainchannel`).emit("schedule", {
@@ -80,8 +113,28 @@ export const update = async (
 
   const { scheduleId } = req.params;
   const scheduleData = req.body;
-  const { companyId } = req.user;
+  const { companyId, id: userId } = req.user;
 
+  // Verificar si es un agendamiento del sistema de recordatorios y si cambió la fecha
+  const originalSchedule = await Schedule.findByPk(scheduleId);
+  
+  if (originalSchedule && 
+      originalSchedule.isReminderSystem && 
+      originalSchedule.reminderType === 'start' &&
+      originalSchedule.sendAt.toISOString() !== scheduleData.sendAt) {
+    
+    // Es una reprogramación del sistema de recordatorios
+    const newSchedule = await RescheduleReminderSystemService({
+      scheduleId: Number(scheduleId),
+      newSendAt: scheduleData.sendAt,
+      companyId,
+      userId: Number(userId)
+    });
+
+    return res.status(200).json(newSchedule);
+  }
+
+  // Actualización normal
   const schedule = await UpdateService({ scheduleData, id: scheduleId, companyId });
 
   const io = getIO();
@@ -151,4 +204,36 @@ export const deleteMedia = async (
     } catch (err: any) {
       throw new AppError(err.message);
   }
+};
+
+export const cancelReminderSystem = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { scheduleId } = req.params;
+  const { companyId, id: userId } = req.user;
+
+  await CancelReminderSystemService({
+    scheduleId: Number(scheduleId),
+    companyId,
+    userId: Number(userId)
+  });
+
+  return res.status(200).json({ message: "Reunión cancelada exitosamente" });
+};
+
+export const cancelSchedule = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { scheduleId } = req.params;
+  const { companyId, id: userId } = req.user;
+
+  await CancelScheduleService({
+    scheduleId: Number(scheduleId),
+    companyId,
+    userId: Number(userId)
+  });
+
+  return res.status(200).json({ message: "Agendamiento cancelado exitosamente" });
 };

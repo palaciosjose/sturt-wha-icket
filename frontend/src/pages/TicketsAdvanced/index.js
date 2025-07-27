@@ -13,7 +13,7 @@ import Ticket from "../../components/Ticket/";
 import TicketAdvancedLayout from "../../components/TicketAdvancedLayout";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
 
-import { i18n } from "../../translate/i18n";
+
 
 const useStyles = makeStyles(theme => ({
     header: {
@@ -59,7 +59,7 @@ const TicketAdvanced = (props) => {
     }, [currentTicket])
 
 
-	const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/login.png`;
+	const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
     const randomValue = Math.random(); // Generate a random number
   
     const logoWithRandom = `${logo}?r=${randomValue}`;
@@ -67,11 +67,11 @@ const TicketAdvanced = (props) => {
 	const renderPlaceholder = () => {
 		return <Box className={classes.placeholderContainer}>
              {/*<div className={classes.placeholderItem}>{i18n.t("chat.noTicketMessage")}</div>*/}
-			//Whaticket Saas//
+			{/*Whaticket Saas*/}
 			<div>
 			<center><img style={{ margin: "0 auto", width: "80%" }} src={logoWithRandom} alt={`${process.env.REACT_APP_NAME_SYSTEM}`} /></center>
 			</div>
-			//Whaticket Saas//
+			{/*Whaticket Saas*/}
 			<br />
             <Button onClick={() => setOption(1)} variant="contained" color="primary">
                 Selecionar Ticket

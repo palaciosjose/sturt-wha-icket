@@ -4,7 +4,7 @@ module.exports = {
   up: (queryInterface: QueryInterface) => {
     return Promise.all([
       queryInterface.addColumn("Queues", "schedules", {
-        type: DataTypes.JSONB,
+        type: DataTypes.JSON,
         defaultValue: []
       }),
       queryInterface.addColumn("Queues", "outOfHoursMessage", {

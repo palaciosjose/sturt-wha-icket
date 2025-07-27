@@ -17,6 +17,12 @@ contactRoutes.post(
   ImportPhoneContactsController.store
 );
 
+contactRoutes.get(
+  "/contacts/count",
+  isAuth,
+  ImportPhoneContactsController.count
+);
+
 routes.post(
   "/contacts/upload",
   isAuth,
@@ -36,6 +42,10 @@ contactRoutes.put("/contacts/:contactId", isAuth, ContactController.update);
 
 contactRoutes.delete("/contacts/:contactId", isAuth, ContactController.remove);
 
+contactRoutes.delete("/contacts", isAuth, ContactController.removeMultiple);
+
 contactRoutes.get("/contact", isAuth, ContactController.getContactVcard);
+
+contactRoutes.get("/contacts/download-template", isAuth, ContactController.downloadTemplate);
 
 export default contactRoutes;

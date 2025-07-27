@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useContext } from "react";
 import { toast } from "react-toastify";
-import { useHistory } from "react-router-dom";
+
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
@@ -18,13 +18,18 @@ import toastError from "../../errors/toastError";
 import moment from "moment";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import usePlans from "../../hooks/usePlans";
 import { Calendar, momentLocalizer } from "react-big-calendar";
-import "moment/locale/pt-br";
+import "moment/locale/es";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import SearchIcon from "@material-ui/icons/Search";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
+import Table from "@material-ui/core/Table";
+import TableBody from "@material-ui/core/TableBody";
+import TableCell from "@material-ui/core/TableCell";
+import TableHead from "@material-ui/core/TableHead";
+import TableRow from "@material-ui/core/TableRow";
+import IconButton from "@material-ui/core/IconButton";
 
 import "./Schedules.css"; // Importe o arquivo CSS
 
@@ -43,29 +48,34 @@ const eventTitleStyle = {
 
 const localizer = momentLocalizer(moment);
 var defaultMessages = {
-  date: "Data",
+  date: "Fecha",
   time: "Hora",
   event: "Evento",
-  allDay: "Dia Todo",
+  allDay: "Día Completo",
   week: "Semana",
-  work_week: "Agendamentos",
-  day: "Dia",
-  month: "Mês",
+  work_week: "Agendamientos",
+  day: "Día",
+  month: "Mes",
   previous: "Anterior",
-  next: "Próximo",
-  yesterday: "Ontem",
-  tomorrow: "Amanhã",
-  today: "Hoje",
+  next: "Siguiente",
+  yesterday: "Ayer",
+  tomorrow: "Mañana",
+  today: "Hoy",
   agenda: "Agenda",
-  noEventsInRange: "Não há agendamentos no período.",
+  noEventsInRange: "No hay agendamientos en este período.",
   showMore: function showMore(total) {
-    return "+" + total + " mais";
+    return "+" + total + " más";
   }
 };
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_SCHEDULES") {
-    return [...state, ...action.payload];
+    // Si es la primera página, reemplazar completamente
+    if (action.payload.pageNumber === 1) {
+      return action.payload.schedules;
+    }
+    // Si es paginación, concatenar
+    return [...state, ...action.payload.schedules];
   }
 
   if (action.type === "UPDATE_SCHEDULES") {
@@ -103,7 +113,6 @@ const useStyles = makeStyles((theme) => ({
 
 const Schedules = () => {
   const classes = useStyles();
-  const history = useHistory();
 
   const { user } = useContext(AuthContext);
 
@@ -117,6 +126,7 @@ const Schedules = () => {
   const [schedules, dispatch] = useReducer(reducer, []);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [contactId, setContactId] = useState(+getUrlParam("contactId"));
+  const [viewMode, setViewMode] = useState("calendar"); // "calendar" o "table"
 
 
   const fetchSchedules = useCallback(async () => {
@@ -125,7 +135,7 @@ const Schedules = () => {
         params: { searchParam, pageNumber },
       });
 
-      dispatch({ type: "LOAD_SCHEDULES", payload: data.schedules });
+      dispatch({ type: "LOAD_SCHEDULES", payload: { schedules: data.schedules, pageNumber } });
       setHasMore(data.hasMore);
       setLoading(false);
     } catch (err) {
@@ -204,18 +214,32 @@ const Schedules = () => {
 
   const handleDeleteSchedule = async (scheduleId) => {
     try {
-      await api.delete(`/schedules/${scheduleId}`);
-      toast.success(i18n.t("schedules.toasts.deleted"));
+      // Buscar el schedule para verificar su estado
+      const schedule = schedules.find(s => s.id === scheduleId);
+      
+      if (schedule && schedule.isReminderSystem) {
+        // Si es del sistema de recordatorios, usar la lógica de cancelar
+        await api.post(`/schedules/${scheduleId}/cancel-reminder`);
+        toast.success("Reunión cancelada exitosamente");
+      } else {
+        // Cancelar agendamiento normal (sin eliminar)
+        await api.post(`/schedules/${scheduleId}/cancel`);
+        toast.success("Agendamiento cancelado exitosamente");
+      }
+      
+      setDeletingSchedule(null);
+      setSearchParam("");
+      setPageNumber(1);
+
+      dispatch({ type: "RESET" });
+      setPageNumber(1);
+      await fetchSchedules();
+      
+      // Forzar actualización de página para eliminar residuos
+      window.location.reload();
     } catch (err) {
       toastError(err);
     }
-    setDeletingSchedule(null);
-    setSearchParam("");
-    setPageNumber(1);
-
-    dispatch({ type: "RESET" });
-    setPageNumber(1);
-    await fetchSchedules();
   };
 
   const loadMore = () => {
@@ -237,18 +261,39 @@ const Schedules = () => {
     return str;
   };
 
+  const getScheduleStatus = (schedule) => {
+    const now = new Date();
+    const scheduleDate = new Date(schedule.sendAt);
+    
+    // Verificar estado específico del agendamiento
+    if (schedule.status === "CANCELADO") {
+      return { text: "Cancelado", color: "gray" };
+    } else if (schedule.sentAt) {
+      return { text: "Enviado", color: "green" };
+    } else if (scheduleDate < now) {
+      return { text: "Vencido", color: "red" };
+    } else {
+      return { text: "Pendiente", color: "orange" };
+    }
+  };
+
   return (
     <MainContainer>
       <ConfirmationModal
         title={
           deletingSchedule &&
-          `${i18n.t("schedules.confirmationModal.deleteTitle")}`
+          (deletingSchedule.isReminderSystem 
+            ? "¿Cancelar reunión?" 
+            : "¿Cancelar agendamiento?")
         }
         open={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
         onConfirm={() => handleDeleteSchedule(deletingSchedule.id)}
       >
-        {i18n.t("schedules.confirmationModal.deleteMessage")}
+        {deletingSchedule && deletingSchedule.isReminderSystem 
+          ? "¿Estás seguro de que deseas cancelar esta reunión? Se eliminarán todos los recordatorios asociados."
+          : "¿Estás seguro de que deseas cancelar este agendamiento? Se enviará un mensaje de cancelación al contacto."
+        }
       </ConfirmationModal>
       <ScheduleModal
         open={scheduleModalOpen}
@@ -260,7 +305,7 @@ const Schedules = () => {
         cleanContact={cleanContact}
       />
       <MainHeader>
-        <Title>{i18n.t("schedules.title")} ({schedules.length})</Title>
+        <Title>Agendamientos ({schedules.length})</Title>
         <MainHeaderButtonsWrapper>
           <TextField
             placeholder={i18n.t("contacts.searchPlaceholder")}
@@ -276,29 +321,45 @@ const Schedules = () => {
             }}
           />
           <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => setViewMode(viewMode === "calendar" ? "table" : "calendar")}
+            style={{ marginRight: 8 }}
+          >
+            {viewMode === "calendar" ? "Vista Tabla" : "Vista Calendario"}
+          </Button>
+          <Button
             variant="contained"
             color="primary"
             onClick={handleOpenScheduleModal}
           >
-            {i18n.t("schedules.buttons.add")}
+            Nuevo Agendamiento
           </Button>
         </MainHeaderButtonsWrapper>
       </MainHeader>
       <Paper className={classes.mainPaper} variant="outlined" onScroll={handleScroll}>
-        <Calendar
-          messages={defaultMessages}
-          formats={{
-          agendaDateFormat: "DD/MM ddd",
-          weekdayFormat: "dddd"
-      }}
-          localizer={localizer}
-          events={schedules.map((schedule) => ({
-            title: (
+        {viewMode === "calendar" ? (
+          <Calendar
+            messages={defaultMessages}
+            formats={{
+            agendaDateFormat: "DD/MM ddd",
+            weekdayFormat: "dddd"
+        }}
+            localizer={localizer}
+            events={schedules.map((schedule) => ({
+                          title: (
               <div className="event-container">
                 <div style={eventTitleStyle}>{schedule.contact.name}</div>
                 <DeleteOutlineIcon
-                  onClick={() => handleDeleteSchedule(schedule.id)}
+                  onClick={() => {
+                    setDeletingSchedule(schedule);
+                    setConfirmModalOpen(true);
+                  }}
                   className="delete-icon"
+                  style={{ 
+                    opacity: (schedule.sentAt || new Date(schedule.sendAt) < new Date()) ? 0.3 : 1,
+                    cursor: (schedule.sentAt || new Date(schedule.sendAt) < new Date()) ? 'not-allowed' : 'pointer'
+                  }}
                 />
                 <EditIcon
                   onClick={() => {
@@ -306,16 +367,99 @@ const Schedules = () => {
                     setScheduleModalOpen(true);
                   }}
                   className="edit-icon"
+                  style={{ 
+                    opacity: new Date(schedule.sendAt) < new Date() ? 0.3 : 1,
+                    cursor: new Date(schedule.sendAt) < new Date() ? 'not-allowed' : 'pointer'
+                  }}
                 />
               </div>
             ),
-            start: new Date(schedule.sendAt),
-            end: new Date(schedule.sendAt),
-          }))}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: 500 }}
-        />
+              start: new Date(schedule.sendAt),
+              end: new Date(schedule.sendAt),
+            }))}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: 500 }}
+          />
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell align="center">Fecha</TableCell>
+                <TableCell align="center">Hora</TableCell>
+                <TableCell align="center">Contacto</TableCell>
+                <TableCell align="center">Conexión</TableCell>
+                <TableCell align="center">Mensaje</TableCell>
+                <TableCell align="center">Estado</TableCell>
+                <TableCell align="center">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {schedules.map((schedule) => {
+                const status = getScheduleStatus(schedule);
+                const scheduleDate = new Date(schedule.sendAt);
+                return (
+                  <TableRow key={schedule.id}>
+                    <TableCell align="center">
+                      {scheduleDate.toLocaleDateString('es-ES', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric' 
+                      })}
+                    </TableCell>
+                    <TableCell align="center">
+                      {scheduleDate.toLocaleTimeString('es-ES', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </TableCell>
+                    <TableCell align="center">
+                      {schedule.contact?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {schedule.whatsapp?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {truncate(schedule.body, 50)}
+                    </TableCell>
+                    <TableCell align="center">
+                      <span style={{ 
+                        color: status.color, 
+                        fontWeight: 'bold',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: status.color === 'green' ? '#e8f5e8' : 
+                                       status.color === 'red' ? '#ffe8e8' : '#fff3e0'
+                      }}>
+                        {status.text}
+                      </span>
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        onClick={() => handleEditSchedule(schedule)}
+                        disabled={scheduleDate < new Date() || schedule.status === "CANCELADO"}
+                        size="small"
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => {
+                          setDeletingSchedule(schedule);
+                          setConfirmModalOpen(true);
+                        }}
+                        disabled={schedule.sentAt || scheduleDate < new Date() || schedule.status === "CANCELADO"}
+                        size="small"
+                        title={schedule.status === "CANCELADO" ? "Ya cancelado" : "Cancelar agendamiento"}
+                      >
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
     </MainContainer>
   );

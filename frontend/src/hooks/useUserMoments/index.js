@@ -56,7 +56,7 @@ const useUserMoments = () => {
         socket.off(`company-${companyId}-appMessage`, onAppMessage);
       };
     }
-  }, [user.id, socket]); // Dependências especificadas aqui  
+  }, [user.id, socket, user.companyId, isUpdate]); // Dependências especificadas aqui  
 
   return { users };
 };

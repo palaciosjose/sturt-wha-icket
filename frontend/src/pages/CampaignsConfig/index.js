@@ -27,6 +27,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  Divider,
 } from "@material-ui/core";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
@@ -109,7 +110,7 @@ const CampaignsConfig = () => {
 
   const saveSettings = async () => {
     await api.post("/campaign-settings", { settings });
-    toast.success("Configurações salvas");
+    toast.success(i18n.t("campaignsConfig.messages.saveSuccess"));
   };
 
   return (
@@ -132,8 +133,24 @@ const CampaignsConfig = () => {
       <Paper className={classes.mainPaper} variant="outlined">
         <Box className={classes.tabPanelsContainer}>
           <Grid spacing={2} container>
+            {/* ✅ INFORMACIÓN DE AYUDA */}
             <Grid xs={12} item>
-              <Typography component={"h3"}>Intervalos</Typography>
+              <Paper style={{ padding: 16, marginBottom: 16, backgroundColor: "#e3f2fd", border: "1px solid #2196f3" }}>
+                <Typography variant="body2">
+                  <strong><span role="img" aria-label="idea">💡</span> ¿Para qué sirve esta configuración?</strong><br/>
+                  • <strong>Intervalos:</strong> Controlan el tiempo entre mensajes para evitar bloqueos de WhatsApp<br/>
+                  • <strong>Variables:</strong> Crean atajos personalizados para usar en tus mensajes de campaña
+                </Typography>
+              </Paper>
+            </Grid>
+            
+            <Grid xs={12} item>
+              <Typography component={"h3"} variant="h6" style={{ marginBottom: 8 }}>
+                {i18n.t("campaignsConfig.intervals")}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                {i18n.t("campaignsConfig.help.intervals")}
+              </Typography>
             </Grid>
             <Grid xs={12} md={4} item>
               <FormControl
@@ -142,21 +159,21 @@ const CampaignsConfig = () => {
                 fullWidth
               >
                 <InputLabel id="messageInterval-label">
-                  Intervalo Randômico de Disparo
+                  {i18n.t("campaignsConfig.form.randomTriggerInterval")}
                 </InputLabel>
                 <Select
                   name="messageInterval"
                   id="messageInterval"
                   labelId="messageInterval-label"
-                  label="Intervalo Randômico de Disparo"
+                  label={i18n.t("campaignsConfig.form.randomTriggerInterval")}
                   value={settings.messageInterval}
                   onChange={(e) => handleOnChangeSettings(e)}
                 >
-                  <MenuItem value={0}>Sem Intervalo</MenuItem>
-                  <MenuItem value={5}>5 segundos</MenuItem>
-                  <MenuItem value={10}>10 segundos</MenuItem>
-                  <MenuItem value={15}>15 segundos</MenuItem>
-                  <MenuItem value={20}>20 segundos</MenuItem>
+                  <MenuItem value={0}>{i18n.t("campaignsConfig.form.noInterval")}</MenuItem>
+                  <MenuItem value={5}>5 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={10}>10 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={15}>15 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={20}>20 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -167,28 +184,28 @@ const CampaignsConfig = () => {
                 fullWidth
               >
                 <InputLabel id="longerIntervalAfter-label">
-                  Intervalo Maior Após
+                  {i18n.t("campaignsConfig.form.longerIntervalAfter")}
                 </InputLabel>
                 <Select
                   name="longerIntervalAfter"
                   id="longerIntervalAfter"
                   labelId="longerIntervalAfter-label"
-                  label="Intervalo Maior Após"
+                  label={i18n.t("campaignsConfig.form.longerIntervalAfter")}
                   value={settings.longerIntervalAfter}
                   onChange={(e) => handleOnChangeSettings(e)}
                 >
-                  <MenuItem value={0}>Não definido</MenuItem>
-                  <MenuItem value={1}>1 segundo</MenuItem>
-                  <MenuItem value={5}>5 segundos</MenuItem>
-                  <MenuItem value={10}>10 segundos</MenuItem>
-                  <MenuItem value={15}>15 segundos</MenuItem>
-                  <MenuItem value={20}>20 segundos</MenuItem>
-                  <MenuItem value={30}>30 segundos</MenuItem>
-                  <MenuItem value={40}>40 segundos</MenuItem>
-                  <MenuItem value={60}>60 segundos</MenuItem>
-                  <MenuItem value={80}>80 segundos</MenuItem>
-                  <MenuItem value={100}>100 segundos</MenuItem>
-                  <MenuItem value={120}>120 segundos</MenuItem>
+                  <MenuItem value={0}>{i18n.t("campaignsConfig.form.notDefined")}</MenuItem>
+                  <MenuItem value={1}>1 {i18n.t("campaignsConfig.form.second")}</MenuItem>
+                  <MenuItem value={5}>5 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={10}>10 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={15}>15 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={20}>20 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={30}>30 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={40}>40 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={60}>60 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={80}>80 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={100}>100 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={120}>120 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -199,67 +216,93 @@ const CampaignsConfig = () => {
                 fullWidth
               >
                 <InputLabel id="greaterInterval-label">
-                  Intervalo de Disparo Maior
+                  {i18n.t("campaignsConfig.form.greaterTriggerInterval")}
                 </InputLabel>
                 <Select
                   name="greaterInterval"
                   id="greaterInterval"
                   labelId="greaterInterval-label"
-                  label="Intervalo de Disparo Maior"
+                  label={i18n.t("campaignsConfig.form.greaterTriggerInterval")}
                   value={settings.greaterInterval}
                   onChange={(e) => handleOnChangeSettings(e)}
                 >
-                  <MenuItem value={0}>Sem Intervalo</MenuItem>
-                  <MenuItem value={1}>1 segundo</MenuItem>
-                  <MenuItem value={5}>5 segundos</MenuItem>
-                  <MenuItem value={10}>10 segundos</MenuItem>
-                  <MenuItem value={15}>15 segundos</MenuItem>
-                  <MenuItem value={20}>20 segundos</MenuItem>
-                  <MenuItem value={30}>30 segundos</MenuItem>
-                  <MenuItem value={40}>40 segundos</MenuItem>
-                  <MenuItem value={60}>60 segundos</MenuItem>
-                  <MenuItem value={80}>80 segundos</MenuItem>
-                  <MenuItem value={100}>100 segundos</MenuItem>
-                  <MenuItem value={120}>120 segundos</MenuItem>
+                  <MenuItem value={0}>{i18n.t("campaignsConfig.form.noInterval")}</MenuItem>
+                  <MenuItem value={1}>1 {i18n.t("campaignsConfig.form.second")}</MenuItem>
+                  <MenuItem value={5}>5 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={10}>10 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={15}>15 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={20}>20 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={30}>30 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={40}>40 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={60}>60 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={80}>80 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={100}>100 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
+                  <MenuItem value={120}>120 {i18n.t("campaignsConfig.form.seconds")}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
+            {/* ✅ SECCIÓN DE VARIABLES */}
+            <Grid xs={12} item>
+              <Divider style={{ margin: "24px 0" }} />
+              <Typography component={"h3"} variant="h6" style={{ marginBottom: 8 }}>
+                Variables Personalizadas
+              </Typography>
+              <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                {i18n.t("campaignsConfig.help.variables")}
+              </Typography>
+            </Grid>
+            
             <Grid xs={12} className={classes.textRight} item>
               <Button
                 onClick={() => setShowVariablesForm(!showVariablesForm)}
                 color="primary"
                 style={{ marginRight: 10 }}
               >
-                Adicionar Variável
+                {i18n.t("campaignsConfig.buttons.addVariable")}
               </Button>
               <Button
                 onClick={saveSettings}
                 color="primary"
                 variant="contained"
               >
-                Salvar Configurações
+                {i18n.t("campaignsConfig.buttons.saveConfigurations")}
               </Button>
             </Grid>
             {showVariablesForm && (
               <>
+                {/* ✅ INFORMACIÓN DE AYUDA PARA VARIABLES */}
+                <Grid xs={12} item>
+                  <Paper style={{ padding: 16, marginBottom: 16, backgroundColor: "#e8f5e8", border: "1px solid #4caf50" }}>
+                    <Typography variant="body2">
+                      <strong><span role="img" aria-label="herramienta">🔧</span> Variables Personalizadas</strong><br/>
+                      {i18n.t("campaignsConfig.help.variables")}<br/>
+                      <strong>Ejemplo:</strong> {i18n.t("campaignsConfig.help.example")}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
                 <Grid xs={12} md={6} item>
                   <TextField
-                    label="Atalho"
+                    label={i18n.t("campaignsConfig.variables.shortcut")}
                     variant="outlined"
                     value={variable.key}
                     name="key"
                     onChange={handleOnChangeVariable}
                     fullWidth
+                    placeholder="Ej: empresa"
+                    helperText="Palabra clave para usar en mensajes"
                   />
                 </Grid>
                 <Grid xs={12} md={6} item>
                   <TextField
-                    label="Conteúdo"
+                    label={i18n.t("campaignsConfig.variables.content")}
                     variant="outlined"
                     value={variable.value}
                     name="value"
                     onChange={handleOnChangeVariable}
                     fullWidth
+                    placeholder="Ej: Mi Empresa S.A."
+                    helperText="Valor que reemplazará el atajo"
                   />
                 </Grid>
                 <Grid xs={12} className={classes.textRight} item>
@@ -268,14 +311,14 @@ const CampaignsConfig = () => {
                     color="primary"
                     style={{ marginRight: 10 }}
                   >
-                    Fechar
+                    {i18n.t("campaignsConfig.buttons.close")}
                   </Button>
                   <Button
                     onClick={addVariable}
                     color="primary"
                     variant="contained"
                   >
-                    Adicionar
+                    {i18n.t("campaignsConfig.buttons.add")}
                   </Button>
                 </Grid>
               </>
@@ -286,8 +329,8 @@ const CampaignsConfig = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell style={{ width: "1%" }}></TableCell>
-                      <TableCell>Atalho</TableCell>
-                      <TableCell>Conteúdo</TableCell>
+                      <TableCell>{i18n.t("campaignsConfig.variables.shortcut")}</TableCell>
+                      <TableCell>{i18n.t("campaignsConfig.variables.content")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

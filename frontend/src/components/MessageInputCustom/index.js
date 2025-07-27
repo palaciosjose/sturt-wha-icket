@@ -20,7 +20,10 @@ import ClearIcon from "@material-ui/icons/Clear";
 import MicIcon from "@material-ui/icons/Mic";
 import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
 import HighlightOffIcon from "@material-ui/icons/HighlightOff";
-import { FormControlLabel, Switch } from "@material-ui/core";
+import CloseIcon from "@material-ui/icons/Close";
+import FlashOnIcon from "@material-ui/icons/FlashOn";
+import FolderIcon from "@material-ui/icons/Folder";
+import { FormControlLabel, Switch, Menu, MenuItem } from "@material-ui/core";
 import Autocomplete from "@material-ui/lab/Autocomplete";
 import { isString, isEmpty, isObject, has } from "lodash";
 
@@ -36,9 +39,11 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import toastError from "../../errors/toastError";
 
 import Compressor from 'compressorjs';
-import LinearWithValueLabel from "./ProgressBarCustom";
+
 
 import useQuickMessages from "../../hooks/useQuickMessages";
+import useFiles from "../../hooks/useFiles";
+import logger from "../../utils/logger";
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
@@ -243,14 +248,17 @@ const FileInput = (props) => {
         disabled={disableOption()}
         className={classes.uploadInput}
         onChange={handleChangeMedias}
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
       />
       <label htmlFor="upload-button">
         <IconButton
           aria-label="upload"
           component="span"
           disabled={disableOption()}
+          title="Adjuntar archivos (múltiples) - NUEVO"
+          style={{ backgroundColor: '#e3f2fd', borderRadius: '50%' }}
         >
-          <AttachFileIcon className={classes.sendMessageIcons} />
+          <AttachFileIcon className={classes.sendMessageIcons} style={{ color: '#2196f3' }} />
         </IconButton>
       </label>
     </>
@@ -271,18 +279,50 @@ const ActionButtons = (props) => {
     showSelectMessageCheckbox
   } = props;
   const classes = useStyles();
-  if (inputMessage || showSelectMessageCheckbox) {
+  
+  // ✅ FUNCIÓN PARA CANCELAR SELECCIÓN DE MENSAJES
+  const handleCancelSelection = () => {
+    const { setShowSelectMessageCheckbox, setSelectedMessages } = props;
+    setShowSelectMessageCheckbox(false);
+    setSelectedMessages([]);
+  };
+  
+  if (showSelectMessageCheckbox) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* ✅ BOTÓN CANCELAR */}
+        <IconButton
+          aria-label="cancelSelection"
+          component="span"
+          onClick={handleCancelSelection}
+          disabled={loading}
+          style={{ color: '#f44336' }}
+          title="Cancelar selección"
+        >
+          <HighlightOffIcon className={classes.sendMessageIcons} />
+        </IconButton>
+        <IconButton
+          aria-label="forwardMessage"
+          component="span"
+          onClick={handleOpenModalForward}
+          disabled={loading}
+        >
+          <Reply className={classes.ForwardMessageIcons} />
+        </IconButton>
+      </div>
+    );
+  } else if (inputMessage) {
     return (
       <IconButton
-      aria-label="sendMessage"
-      component="span"
-      onClick={showSelectMessageCheckbox ? handleOpenModalForward : handleSendMessage}
-      disabled={loading}
-    >
-      {showSelectMessageCheckbox ?
-        <Reply className={classes.ForwardMessageIcons} /> : <SendIcon className={classes.sendMessageIcons} />}      </IconButton>
-  );
-} else if (recording) {
+        aria-label="sendMessage"
+        component="span"
+        onClick={handleSendMessage}
+        disabled={loading}
+      >
+        <SendIcon className={classes.sendMessageIcons} />
+      </IconButton>
+    );
+  } else if (recording) {
     return (
       <div className={classes.recorderWrapper}>
         <IconButton
@@ -337,55 +377,10 @@ const CustomInput = (props) => {
     handleInputPaste,
     disableOption,
     handleQuickAnswersClick,
-    replyingMessage
+    options,
+    popupOpen
   } = props;
   const classes = useStyles();
-  const [quickMessages, setQuickMessages] = useState([]);
-  const [options, setOptions] = useState([]);
-  const [popupOpen, setPopupOpen] = useState(false);
-  const { user } = useContext(AuthContext);
-
-  const { list: listQuickMessages } = useQuickMessages();
-
-  useEffect(() => {
-    async function fetchData() {
-      const companyId = localStorage.getItem("companyId");
-      const messages = await listQuickMessages({ companyId, userId: user.id });
-      const options = messages.map((m) => {
-        let truncatedMessage = m.message;
-        if (isString(truncatedMessage) && truncatedMessage.length > 35) {
-          truncatedMessage = m.message.substring(0, 35) + "...";
-        }
-        return {
-          value: m.message,
-          label: `/${m.shortcode} - ${truncatedMessage}`,
-          mediaPath: m.mediaPath,
-        };
-      });
-      setQuickMessages(options);
-    }
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (
-      isString(inputMessage) &&
-      !isEmpty(inputMessage) &&
-      inputMessage.length > 1
-    ) {
-      const firstWord = inputMessage.charAt(0);
-      setPopupOpen(firstWord.indexOf("/") > -1);
-
-      const filteredOptions = quickMessages.filter(
-        (m) => m.label.indexOf(inputMessage) > -1
-      );
-      setOptions(filteredOptions);
-    } else {
-      setPopupOpen(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputMessage]);
 
   const onKeyPress = (e) => {
     if (loading || e.shiftKey) return;
@@ -402,7 +397,7 @@ const CustomInput = (props) => {
 
   const renderPlaceholder = () => {
     if (ticketStatus === "open") {
-      return i18n.t("messagesInput.placeholderOpen");
+      return i18n.t("messagesInput.placeholderOpen") + " (usa / para respuestas rápidas)";
     }
     return i18n.t("messagesInput.placeholderClosed");
   };
@@ -420,7 +415,7 @@ const CustomInput = (props) => {
       <Autocomplete
         freeSolo
         open={popupOpen}
-        id="grouped-demo"
+        id="quick-messages-autocomplete"
         value={inputMessage}
         options={options}
         closeIcon={null}
@@ -475,14 +470,23 @@ const CustomInput = (props) => {
 };
 
 const MessageInputCustom = (props) => {
+
   const { ticketStatus, ticketId } = props;
   const classes = useStyles();
-  const [percentLoading, setPercentLoading] = useState(0);
+
   const [medias, setMedias] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [quickMessages, setQuickMessages] = useState([]);
+  const [options, setOptions] = useState([]);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [fileLists, setFileLists] = useState([]);
+  const [fileListOptions, setFileListOptions] = useState([]);
+  const [fileListAnchorEl, setFileListAnchorEl] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({});
   const inputRef = useRef();
   const { setReplyingMessage, replyingMessage } =
     useContext(ReplyMessageContext);
@@ -493,7 +497,88 @@ const MessageInputCustom = (props) => {
   const {
     selectedMessages,
     setForwardMessageModalOpen,
-    showSelectMessageCheckbox } = useContext(ForwardMessageContext);
+    showSelectMessageCheckbox,
+    setShowSelectMessageCheckbox,
+    setSelectedMessages } = useContext(ForwardMessageContext);
+
+  const { list: listQuickMessages } = useQuickMessages();
+  const { list: listFiles } = useFiles();
+
+  // Cargar respuestas rápidas
+  useEffect(() => {
+    async function fetchData() {
+      const companyId = localStorage.getItem("companyId");
+      const messages = await listQuickMessages({ companyId, userId: user.id });
+      const options = messages.map((m) => {
+        let truncatedMessage = m.message;
+        if (isString(truncatedMessage) && truncatedMessage.length > 35) {
+          truncatedMessage = m.message.substring(0, 35) + "...";
+        }
+        return {
+          value: m.message,
+          label: `/${m.shortcode} - ${truncatedMessage}`,
+          shortcode: m.shortcode,
+          message: m.message,
+          mediaPath: m.mediaPath,
+        };
+      });
+      setQuickMessages(options);
+    }
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cargar listas de archivos
+  useEffect(() => {
+    async function fetchFileLists() {
+      const companyId = localStorage.getItem("companyId");
+      const files = await listFiles({ companyId, userId: user.id });
+      const options = files.map((fileList) => {
+        let truncatedName = fileList.name;
+        if (isString(truncatedName) && truncatedName.length > 35) {
+          truncatedName = fileList.name.substring(0, 35) + "...";
+        }
+        return {
+          value: fileList,
+          label: `📁 ${truncatedName}`,
+          name: fileList.name,
+          message: fileList.message,
+          options: fileList.options,
+        };
+      });
+      setFileLists(options);
+    }
+    fetchFileLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Manejar autocompletado de respuestas rápidas
+  useEffect(() => {
+    if (
+      isString(inputMessage) &&
+      !isEmpty(inputMessage) &&
+      inputMessage.startsWith("/")
+    ) {
+      setPopupOpen(true);
+
+      // Si solo hay "/", mostrar todas las opciones
+      if (inputMessage === "/") {
+        setOptions(quickMessages);
+      } else {
+        // Filtrar por lo que se escriba después de "/"
+        const searchTerm = inputMessage.substring(1).toLowerCase();
+        const filteredOptions = quickMessages.filter(
+          (m) => 
+            m.shortcode.toLowerCase().includes(searchTerm) ||
+            m.message.toLowerCase().includes(searchTerm)
+        );
+        setOptions(filteredOptions);
+      }
+    } else {
+      setPopupOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputMessage]);
 
   useEffect(() => {
     inputRef.current.focus();
@@ -502,6 +587,7 @@ const MessageInputCustom = (props) => {
   useEffect(() => {
     inputRef.current.focus();
     return () => {
+  
       setInputMessage("");
       setShowEmoji(false);
       setMedias([]);
@@ -537,47 +623,209 @@ const MessageInputCustom = (props) => {
     }
 
     const selectedMedias = Array.from(e.target.files);
-    setMedias(selectedMedias);
+    // ✅ MEJORA: Acumular archivos en lugar de reemplazar
+    setMedias(prevMedias => {
+      return [...prevMedias, ...selectedMedias];
+    });
   };
 
   const handleInputPaste = (e) => {
-    if (e.clipboardData.files[0]) {
-      setMedias([e.clipboardData.files[0]]);
+    const items = e.clipboardData.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+  
+          setMedias(prevMedias => [...prevMedias, file]);
+        }
+      }
     }
   };
 
-  const handleUploadQuickMessageMedia = async (blob, message) => {
-    setLoading(true);
-    try {
-      const extension = blob.type.split("/")[1];
+  // ✅ MEJORA: Drag & Drop múltiple
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
 
-      const formData = new FormData();
-      const filename = `${new Date().getTime()}.${extension}`;
-      formData.append("medias", blob, filename);
-      formData.append("body",  message);
-      formData.append("fromMe", true);
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
 
-      await api.post(`/messages/${ticketId}`, formData);
-    } catch (err) {
-      toastError(err);
-      setLoading(false);
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragOver(false);
     }
-    setLoading(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    
+    if (files.length > 0) {
+      setMedias(prevMedias => {
+        return [...prevMedias, ...files];
+      });
+    }
+  };
+
+  // ✅ MEJORA: Eliminar archivo específico
+  const handleRemoveMedia = (indexToRemove) => {
+    setMedias(prevMedias => prevMedias.filter((_, index) => index !== indexToRemove));
+  };
+
+  // ✅ MEJORA: Función para obtener el tipo de archivo
+  const getFileType = (file) => {
+    if (file.type.startsWith('image/')) return <span role="img" aria-label="imagen">🖼️</span>;
+    if (file.type.startsWith('video/')) return <span role="img" aria-label="video">🎥</span>;
+    if (file.type.startsWith('audio/')) return <span role="img" aria-label="audio">🎵</span>;
+    if (file.type.includes('pdf')) return <span role="img" aria-label="documento pdf">📄</span>;
+    if (file.type.includes('document') || file.type.includes('word')) return <span role="img" aria-label="documento">📝</span>;
+    if (file.type.includes('sheet') || file.type.includes('excel')) return <span role="img" aria-label="hoja de cálculo">📊</span>;
+    return <span role="img" aria-label="archivo">📎</span>;
+  };
+
+  const handleUploadQuickMessageMedia = async (blob, originalFileName) => {
+    try {
+      if (logger && logger.media) {
+        logger.media.debug("Procesando multimedia para envío, tipo:", blob.type);
+        logger.media.debug("Nombre original del archivo:", originalFileName);
+      }
+      
+      // Mantener el nombre original del archivo
+      let filename = originalFileName;
+      
+      // Si el nombre es muy extenso (más de 50 caracteres), truncarlo
+              if (filename && filename.length > 50) {
+          const extension = filename.split('.').pop();
+          const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
+          const truncatedName = nameWithoutExt.substring(0, 47) + '...';
+          filename = `${truncatedName}.${extension}`;
+          if (logger && logger.media) {
+            logger.media.debug("Nombre truncado:", filename);
+          }
+        }
+        
+        // Si no hay nombre original, generar uno con timestamp
+        if (!filename) {
+          const extension = blob.type.split("/")[1] || 'bin';
+          filename = `${new Date().getTime()}.${extension}`;
+          if (logger && logger.media) {
+            logger.media.debug("Nombre generado:", filename);
+          }
+        }
+        
+        if (logger && logger.media) {
+          logger.media.debug("Nombre final del archivo:", filename);
+        }
+
+        const formData = new FormData();
+        formData.append("medias", blob, filename);
+        formData.append("body", filename); // Usar el nombre del archivo como body
+        formData.append("fromMe", true);
+
+        if (logger && logger.media) {
+          logger.media.debug("Enviando multimedia al servidor...");
+        }
+        
+        await api.post(`/messages/${ticketId}`, formData);
+        
+        if (logger && logger.media) {
+          logger.media.info("Multimedia enviada exitosamente");
+        }
+      } catch (err) {
+        if (logger && logger.media) {
+          logger.media.error("Error al enviar multimedia:", err);
+        }
+        toastError(err);
+        throw err; // Re-lanzar el error para que lo maneje la función padre
+      }
   };
   
   const handleQuickAnswersClick = async (value) => {
     if (value.mediaPath) {
+      setLoading(true);
       try {
+        if (logger && logger.media) {
+          logger.media.debug("Descargando multimedia desde:", value.mediaPath);
+          logger.media.debug("URL completa:", value.mediaPath);
+        }
+        
+        // ✅ Validar que la URL sea válida
+        if (!value.mediaPath || value.mediaPath === 'null' || value.mediaPath === 'undefined' || value.mediaPath.includes('undefined')) {
+          if (logger && logger.media) {
+            logger.media.warn("URL de multimedia inválida:", value.mediaPath);
+          }
+          toastError(new Error("URL de multimedia inválida - Contacte al administrador"));
+          setLoading(false);
+          setInputMessage(value.value);
+          return;
+        }
+        
         const { data } = await axios.get(value.mediaPath, {
           responseType: "blob",
+          timeout: 10000, // 10 segundos de timeout
         });
 
-        handleUploadQuickMessageMedia(data, value.value);
+        if (logger && logger.media) {
+          logger.media.debug("Multimedia descargada exitosamente, tamaño:", data.size);
+        }
+        
+        // ✅ EXTRAER NOMBRE REAL DEL ARCHIVO DESDE LA URL
+        let fileName = value.value; // Fallback al texto de respuesta rápida
+        
+        if (value.mediaPath) {
+          // Extraer nombre desde la URL del archivo
+          const urlParts = value.mediaPath.split('/');
+          const lastPart = urlParts[urlParts.length - 1];
+          
+          if (lastPart && lastPart.includes('.')) {
+            fileName = lastPart;
+            if (logger && logger.media) {
+              logger.media.debug("Nombre extraído desde URL:", fileName);
+            }
+          }
+        }
+        
+        await handleUploadQuickMessageMedia(data, fileName);
         setInputMessage("");
+        setLoading(false);
         return;
-        //  handleChangeMedias(response)
       } catch (err) {
-        toastError(err);
+        console.error("Error al procesar multimedia de respuesta rápida:", err);
+        console.error("URL que falló:", value.mediaPath);
+        
+        // Mostrar error más específico
+        let errorMessage = "Error al procesar multimedia";
+        if (err.response) {
+          if (err.response.status === 404) {
+            errorMessage = "Archivo multimedia no encontrado";
+          } else if (err.response.status === 403) {
+            errorMessage = "Sin permisos para acceder al archivo";
+          } else {
+            errorMessage = `Error del servidor: ${err.response.status}`;
+          }
+        } else if (err.code === 'ECONNABORTED') {
+          errorMessage = "Tiempo de espera agotado";
+        }
+        
+        toastError(new Error(errorMessage));
+        setLoading(false);
+        
+        // Si falla la multimedia, al menos enviar el texto
+        setInputMessage(value.value);
+        return;
       }
     }
 
@@ -585,83 +833,159 @@ const MessageInputCustom = (props) => {
     setInputMessage(value.value);
   };
 
+  const handleFileListClick = async (value) => {
+    if (logger && logger.media) {
+      logger.media.debug("Valor recibido en handleFileListClick:", value);
+    }
+    
+    // Verificar si value.value.options existe (estructura correcta)
+    if (!value.value || !value.value.options || value.value.options.length === 0) {
+      if (logger && logger.media) {
+        logger.media.warn("No hay archivos en la lista. value.value:", value.value);
+      }
+      toastError("Esta lista de archivos no contiene archivos");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (logger && logger.media) {
+        logger.media.debug("Enviando lista de archivos:", value.name);
+        logger.media.debug("Archivos en la lista:", value.value.options.length);
+      }
+
+      // Enviar cada archivo de la lista
+      for (const fileOption of value.value.options) {
+        try {
+          if (logger && logger.media) {
+            logger.media.debug("Procesando archivo:", fileOption.name);
+          }
+          
+          // Construir URL del archivo
+          const publicFolder = "public/fileList";
+          const fileUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/${publicFolder}/${value.value.id}/${fileOption.path}`;
+          
+          if (logger && logger.media) {
+            logger.media.debug("URL del archivo:", fileUrl);
+          }
+          
+          // Extraer nombre del archivo desde la ruta
+          const fileName = fileOption.path || fileOption.name || 'documento';
+          if (logger && logger.media) {
+            logger.media.debug("Nombre del archivo extraído:", fileName);
+          }
+          
+          // Descargar archivo
+          const { data } = await axios.get(fileUrl, {
+            responseType: "blob",
+            timeout: 10000,
+          });
+
+          if (logger && logger.media) {
+            logger.media.debug("Archivo descargado:", fileName, "tamaño:", data.size);
+          }
+          
+          // Enviar archivo
+          await handleUploadQuickMessageMedia(data, fileName);
+          
+          // Pequeña pausa entre archivos para no sobrecargar
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (err) {
+          if (logger && logger.media) {
+            logger.media.error("Error procesando archivo:", fileOption.name, err);
+          }
+          toastError(`Error al procesar archivo: ${fileOption.name}`);
+        }
+      }
+      
+      if (logger && logger.media) {
+        logger.media.info("Lista de archivos enviada exitosamente");
+      }
+      setLoading(false);
+      
+    } catch (err) {
+      if (logger && logger.media) {
+        logger.media.error("Error al enviar lista de archivos:", err);
+      }
+      toastError("Error al enviar lista de archivos");
+      setLoading(false);
+    }
+  };
+
   const handleUploadMedia = async (e) => {
     setLoading(true);
     e.preventDefault();
 
-    const formData = new FormData();
-    formData.append("fromMe", true);
-
-    medias.forEach(async (media, idx) => {
-
-      const file = media;
-
-      if (!file) { return; }
-
-      if (media?.type.split('/')[0] == 'image') {
-        new Compressor(file, {
-          quality: 0.7,
-
-          async success(media) {
-            //const formData = new FormData();
-            // The third parameter is required for server
-            //formData.append('file', result, result.name);
-
-            formData.append("medias", media);
-            formData.append("body", media.name);
-
-          },
-          error(err) {
-            alert('erro')
-            console.log(err.message);
-          },
-
-        });
-      } else {
-        formData.append("medias", media);
-        formData.append("body", media.name);
-
-      }
-
-
-    },);
-
-    setTimeout(async()=> {
+    // ✅ MEJORA: Enviar cada archivo por separado
+    for (let i = 0; i < medias.length; i++) {
+      const media = medias[i];
+      const currentIndex = i; // Capturar el índice para evitar problemas de closure
 
       try {
-        await api.post(`/messages/${ticketId}`, formData, {
-          onUploadProgress: (event) => {
-            let progress = Math.round(
-              (event.loaded * 100) / event.total
-            );
-            setPercentLoading(progress);
-            console.log(
-              `A imagem  está ${progress}% carregada... `
-            );
-          },
-        })
-          .then((response) => {
-            setLoading(false)
-            setMedias([])
-            setPercentLoading(0);
-            console.log(
-              `A imagem á foi enviada para o servidor!`
+        // Actualizar progreso
+        setUploadProgress(prev => ({
+          ...prev,
+          [currentIndex]: 0
+        }));
 
-            );
-          })
-          .catch((err) => {
-            console.error(
-              `Houve um problema ao realizar o upload da imagem.`
-            );
-            console.log(err);
+        if (media?.type.split('/')[0] === 'image') {
+          // ✅ MEJORA: Manejar compresión de imágenes correctamente
+          await new Promise((resolve, reject) => {
+            new Compressor(media, {
+              quality: 0.7,
+              async success(compressedMedia) {
+                try {
+                  const formData = new FormData();
+                  formData.append("fromMe", true);
+                  formData.append("medias", compressedMedia);
+                  formData.append("body", media.name);
+
+                  await api.post(`/messages/${ticketId}`, formData, {
+                    onUploadProgress: (event) => {
+                      const progress = Math.round((event.loaded * 100) / event.total);
+                      setUploadProgress(prev => ({
+                        ...prev,
+                        [currentIndex]: progress
+                      }));
+                    },
+                  });
+
+                  resolve();
+                } catch (err) {
+                  reject(err);
+                }
+              },
+              error(err) {
+                reject(err);
+              },
+            });
           });
+        } else {
+          // ✅ MEJORA: Enviar archivos no-imagen directamente
+          const formData = new FormData();
+          formData.append("fromMe", true);
+          formData.append("medias", media);
+          formData.append("body", media.name);
+
+          await api.post(`/messages/${ticketId}`, formData, {
+            onUploadProgress: (event) => {
+              const progress = Math.round((event.loaded * 100) / event.total);
+              setUploadProgress(prev => ({
+                ...prev,
+                [currentIndex]: progress
+              }));
+            },
+          });
+        }
       } catch (err) {
         toastError(err);
       }
+    }
 
-
-    },2000)
-
+    setLoading(false);
+    setMedias([]);
+    setUploadProgress({});
   }
 
   const handleSendMessage = async () => {
@@ -736,6 +1060,32 @@ const MessageInputCustom = (props) => {
     }
   };
 
+  const handleQuickReplyButtonClick = () => {
+    setInputMessage("/");
+    // Forzar que se muestren las opciones inmediatamente
+    setTimeout(() => {
+      setPopupOpen(true);
+      setOptions(quickMessages);
+    }, 100);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const handleFileListButtonClick = (event) => {
+    setFileListAnchorEl(event.currentTarget);
+    setFileListOptions(fileLists);
+  };
+
+  const handleFileListMenuClose = () => {
+    setFileListAnchorEl(null);
+  };
+
+  const handleFileListSelect = (fileList) => {
+    handleFileListClick(fileList);
+    handleFileListMenuClose();
+  };
+
   const disableOption = () => {
     return loading || recording || ticketStatus !== "open";
   };
@@ -772,41 +1122,181 @@ const MessageInputCustom = (props) => {
 
   if (medias.length > 0)
     return (
-      <Paper elevation={0} square className={classes.viewMediaInputWrapper}>
-        <IconButton
-          aria-label="cancel-upload"
-          component="span"
-          onClick={(e) => setMedias([])}
-        >
-          <CancelIcon className={classes.sendMessageIcons} />
-        </IconButton>
-
-        {loading ? (
-          <div>
-            {/*<CircularProgress className={classes.circleLoading} />*/}
-            <LinearWithValueLabel progress={percentLoading} />
+      <Paper 
+        elevation={0} 
+        square 
+        className={classes.viewMediaInputWrapper}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          border: isDragOver ? "2px dashed #2196f3" : "none",
+          backgroundColor: isDragOver ? "#f0f8ff" : "#f5f5f5",
+          transition: "all 0.3s ease",
+          position: "relative"
+        }}
+      >
+        {/* Indicador de drag & drop para vista de archivos */}
+        {isDragOver && (
+          <div style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(33, 150, 243, 0.9)",
+            color: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            zIndex: 1000,
+            pointerEvents: "none",
+            fontSize: "16px",
+            fontWeight: "bold",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
+          }}>
+            <span role="img" aria-label="carpeta">📁</span> SUELTA AQUÍ PARA ADJUNTAR MÁS ARCHIVOS - NUEVO
           </div>
-        ) : (
-          <span>
-            {medias[0]?.name}
-            {/* <img src={media.preview} alt=""></img> */}
-          </span>
         )}
-        <IconButton
-          aria-label="send-upload"
-          component="span"
-          onClick={handleUploadMedia}
-          disabled={loading}
-        >
-          <SendIcon className={classes.sendMessageIcons} />
-        </IconButton>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+          {medias.map((media, index) => (
+            <div key={index} style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              background: "#fff", 
+              border: "1px solid #ddd", 
+              borderRadius: "8px", 
+              padding: "6px 10px", 
+              maxWidth: "200px", 
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)" 
+            }}>
+              <span style={{ 
+                fontSize: "12px", 
+                color: "#333", 
+                marginRight: "8px", 
+                overflow: "hidden", 
+                textOverflow: "ellipsis", 
+                whiteSpace: "nowrap", 
+                flex: 1 
+              }}>
+                {getFileType(media)} {media.name}
+                {uploadProgress[index] !== undefined && (
+                  <span style={{ color: '#2196f3', fontSize: '10px' }}>
+                    {' '}({uploadProgress[index]}%)
+                  </span>
+                )}
+              </span>
+              <IconButton
+                aria-label="remove-media"
+                component="span"
+                onClick={() => handleRemoveMedia(index)}
+                size="small"
+                style={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </div>
+          ))}
+        </div>
+        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <IconButton
+              aria-label="cancel-upload"
+              component="span"
+              onClick={(e) => setMedias([])}
+            >
+              <CancelIcon className={classes.sendMessageIcons} />
+            </IconButton>
+            
+            {/* ✅ MEJORA: Botón para agregar más archivos */}
+            <input
+              multiple
+              type="file"
+              id="upload-more-button"
+              disabled={loading || recording || ticketStatus !== "open"}
+              className={classes.uploadInput}
+              onChange={handleChangeMedias}
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            />
+            <label htmlFor="upload-more-button">
+              <IconButton
+                aria-label="upload-more"
+                component="span"
+                disabled={loading || recording || ticketStatus !== "open"}
+                title="Agregar más archivos"
+                style={{ backgroundColor: '#e8f5e8', borderRadius: '50%' }}
+              >
+                <AttachFileIcon className={classes.sendMessageIcons} style={{ color: '#4caf50' }} />
+              </IconButton>
+            </label>
+          </div>
+
+          {loading ? (
+            <div>
+              <CircularProgress size={24} />
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
+              <span style={{ fontWeight: "bold", color: "#2196f3", fontSize: "14px" }}>
+                <span role="img" aria-label="carpeta">📁</span> {medias.length} archivo{medias.length > 1 ? 's' : ''} seleccionado{medias.length > 1 ? 's' : ''}
+              </span>
+              <span style={{ fontSize: "11px", color: "#666", textAlign: "center", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {medias.map(f => f.name).join(", ")}
+              </span>
+              <span style={{ fontSize: "10px", color: "#4caf50", textAlign: "center", marginTop: "4px" }}>
+                <span role="img" aria-label="bombilla">💡</span> Arrastra más archivos aquí o usa el botón verde
+              </span>
+            </div>
+          )}
+          
+          <IconButton
+            aria-label="send-upload"
+            component="span"
+            onClick={handleUploadMedia}
+            disabled={loading}
+          >
+            <SendIcon className={classes.sendMessageIcons} />
+          </IconButton>
+        </div>
       </Paper>
     );
   else {
     return (
       <Paper square elevation={0} className={classes.mainWrapper}>
         {replyingMessage && renderReplyingMessage(replyingMessage)}
-        <div className={classes.newMessageBox}>
+        <div 
+          className={classes.newMessageBox}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          style={{
+            border: isDragOver ? "2px dashed #2196f3" : "none",
+            backgroundColor: isDragOver ? "#f0f8ff" : "transparent",
+            transition: "all 0.3s ease",
+            position: "relative"
+          }}
+        >
+          {/* Indicador de drag & drop */}
+          {isDragOver && (
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(33, 150, 243, 0.9)",
+              color: "white",
+              padding: "20px",
+              borderRadius: "10px",
+              zIndex: 1000,
+              pointerEvents: "none",
+              fontSize: "16px",
+              fontWeight: "bold",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
+            }}>
+              <span role="img" aria-label="carpeta">📁</span> SUELTA AQUÍ PARA ADJUNTAR ARCHIVOS - NUEVO
+            </div>
+          )}
           <EmojiOptions
             disabled={disableOption()}
             handleAddEmoji={handleAddEmoji}
@@ -818,6 +1308,58 @@ const MessageInputCustom = (props) => {
             disableOption={disableOption}
             handleChangeMedias={handleChangeMedias}
           />
+
+          <IconButton
+            aria-label="quickReplies"
+            component="span"
+            disabled={disableOption()}
+            onClick={handleQuickReplyButtonClick}
+            title="Respuestas Rápidas"
+          >
+            <FlashOnIcon className={classes.sendMessageIcons} />
+          </IconButton>
+
+          <IconButton
+            aria-label="fileLists"
+            component="span"
+            disabled={disableOption()}
+            onClick={handleFileListButtonClick}
+            title="Listas de Archivos"
+          >
+            <FolderIcon className={classes.sendMessageIcons} />
+          </IconButton>
+
+          <Menu
+            anchorEl={fileListAnchorEl}
+            open={Boolean(fileListAnchorEl)}
+            onClose={handleFileListMenuClose}
+            PaperProps={{
+              style: {
+                maxHeight: 300,
+                width: 300,
+              },
+            }}
+          >
+            {fileListOptions.map((fileList) => (
+              <MenuItem
+                key={fileList.value.id}
+                onClick={() => handleFileListSelect(fileList)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  padding: '8px 16px'
+                }}
+              >
+                {fileList.label}
+              </MenuItem>
+            ))}
+            {fileListOptions.length === 0 && (
+              <MenuItem disabled>
+                No hay listas de archivos disponibles
+              </MenuItem>
+            )}
+          </Menu>
 
           <SignSwitch
             width={props.width}
@@ -837,6 +1379,8 @@ const MessageInputCustom = (props) => {
             disableOption={disableOption}
             replyingMessage={replyingMessage}
             handleQuickAnswersClick={handleQuickAnswersClick}
+            options={options}
+            popupOpen={popupOpen}
           />
 
           <ActionButtons
@@ -850,6 +1394,8 @@ const MessageInputCustom = (props) => {
             handleStartRecording={handleStartRecording}
             handleOpenModalForward={handleOpenModalForward}
             showSelectMessageCheckbox={showSelectMessageCheckbox}
+            setShowSelectMessageCheckbox={setShowSelectMessageCheckbox}
+            setSelectedMessages={setSelectedMessages}
           />
         </div>
       </Paper>

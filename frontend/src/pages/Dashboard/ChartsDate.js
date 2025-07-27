@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -10,13 +10,14 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import brLocale from 'date-fns/locale/pt-BR';
+import esLocale from 'date-fns/locale/es';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { Button, Stack, TextField } from '@mui/material';
 import Typography from "@material-ui/core/Typography";
 import api from '../../services/api';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
+import { i18n } from '../../translate/i18n';
 import './button.css';
 
 ChartJS.register(
@@ -59,19 +60,42 @@ export const options = {
 
 export const ChartsDate = () => {
 
-    const [initialDate, setInitialDate] = useState(new Date());
+    // ✅ ESTABLECER FECHAS POR DEFECTO - Última semana
+    const defaultInitialDate = new Date();
+    defaultInitialDate.setDate(defaultInitialDate.getDate() - 7);
+    
+    const [initialDate, setInitialDate] = useState(defaultInitialDate);
     const [finalDate, setFinalDate] = useState(new Date());
     const [ticketsData, setTicketsData] = useState({ data: [], count: 0 });
+    const [loading, setLoading] = useState(false);
 
     const companyId = localStorage.getItem("companyId");
 
+    const handleGetTicketsInformation = useCallback(async () => {
+        try {
+            setLoading(true);
+            const { data } = await api.get(`/dashboard/ticketsDay?initialDate=${format(initialDate, 'yyyy-MM-dd')}&finalDate=${format(finalDate, 'yyyy-MM-dd')}&companyId=${companyId}`);
+            setTicketsData(data);
+        } catch (error) {
+            console.error('Error cargando datos por fecha:', error);
+            setTicketsData({ data: [], count: 0 });
+            // ✅ NO MOSTRAR ERROR SI NO HAY DATOS - Es normal que no haya datos
+            if (error.response && error.response.status !== 404) {
+                toast.error(i18n.t("dashboard.errors.errorGettingConversationInfo"));
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [initialDate, finalDate, companyId]);
+
+    // ✅ CARGAR DATOS AUTOMÁTICAMENTE AL MOUNT
     useEffect(() => {
         handleGetTicketsInformation();
-    }, []);
+    }, [handleGetTicketsInformation]);
 
     const dataCharts = {
 
-        labels: ticketsData && ticketsData?.data.length > 0 && ticketsData?.data.map((item) => (item.hasOwnProperty('horario') ? `Das ${item.horario}:00 as ${item.horario}:59` : item.data)),
+        labels: ticketsData && ticketsData?.data.length > 0 && ticketsData?.data.map((item) => (item.hasOwnProperty('horario') ? `De ${item.horario}:00 a ${item.horario}:59` : item.data)),
         datasets: [
             {
                 // label: 'Dataset 1',
@@ -83,46 +107,43 @@ export const ChartsDate = () => {
         ],
     };
 
-    const handleGetTicketsInformation = async () => {
-        try {
-            const { data } = await api.get(`/dashboard/ticketsDay?initialDate=${format(initialDate, 'yyyy-MM-dd')}&finalDate=${format(finalDate, 'yyyy-MM-dd')}&companyId=${companyId}`);
-            setTicketsData(data);
-        } catch (error) {
-            toast.error('Erro ao buscar informações dos tickets');
-        }
-    }
-
     return (
         <>
             <Typography component="h2" variant="h6" color="primary" gutterBottom>
-                Total ({ticketsData?.count})
+                {i18n.t("dashboard.cards.totalAttendances")} ({ticketsData?.count})
             </Typography>
 
             <Stack direction={'row'} spacing={2} alignItems={'center'} sx={{ my: 2, }} >
 
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={brLocale}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
                     <DatePicker
                         value={initialDate}
                         onChange={(newValue) => { setInitialDate(newValue) }}
-                        label="Inicio"
-                        renderInput={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
+                        label={i18n.t("dashboard.filters.start")}
+                        textField={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
 
                     />
                 </LocalizationProvider>
 
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={brLocale}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
                     <DatePicker
                         value={finalDate}
                         onChange={(newValue) => { setFinalDate(newValue) }}
-                        label="Fim"
-                        renderInput={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
+                        label={i18n.t("dashboard.filters.end")}
+                        textField={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
                     />
                 </LocalizationProvider>
 
-                <Button className="buttonHover" onClick={handleGetTicketsInformation} variant='contained' >Filtrar</Button>
+                <Button className="buttonHover" onClick={handleGetTicketsInformation} variant='contained' >{i18n.t("dashboard.filters.filter")}</Button>
 
             </Stack>
-            <Bar options={options} data={dataCharts} style={{ maxWidth: '100%', maxHeight: '280px', }} />
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <Typography>Cargando datos...</Typography>
+                </div>
+            ) : (
+                <Bar options={options} data={dataCharts} style={{ maxWidth: '100%', maxHeight: '280px', }} />
+            )}
         </>
     );
 }

@@ -7,6 +7,7 @@ import Company from "./models/Company";
 import { startQueueProcess } from "./queues";
 import { TransferTicketQueue } from "./wbotTransferTicketQueue";
 import cron from "node-cron";
+import { diagnoseCampaignSystem } from "./utils/campaignDiagnostic";
 
 const server = app.listen(process.env.PORT, async () => {
   try {
@@ -19,6 +20,12 @@ const server = app.listen(process.env.PORT, async () => {
 
     await Promise.all(sessionPromises);
     startQueueProcess();
+    
+    // Ejecutar diagnóstico del sistema de campañas
+    setTimeout(async () => {
+      await diagnoseCampaignSystem();
+    }, 5000); // Esperar 5 segundos para que todo se inicialice
+    
     logger.info(`Server started on port: ${process.env.PORT}`);
   } catch (error) {
     logger.error("Error starting server:", error);
@@ -39,7 +46,10 @@ process.on("unhandledRejection", (reason, p) => {
 
 cron.schedule("* * * * *", async () => {
   try {
-    logger.info(`Serviço de transferência de tickets iniciado`);
+    // Solo log en desarrollo para evitar spam
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug(`[Transfer] Verificando transferencias de tickets`);
+    }
     await TransferTicketQueue();
   } catch (error) {
     logger.error("Error in cron job:", error);

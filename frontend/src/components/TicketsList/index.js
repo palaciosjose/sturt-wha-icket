@@ -247,7 +247,7 @@ const TicketsList = (props) => {
 
 
 
-	}, [tickets, status, searchParam, queues, profile]);
+	}, [tickets, status, searchParam, queues, profile, user.allTicket, settings]);
 
 	useEffect(() => {
 		const socket = openSocket();

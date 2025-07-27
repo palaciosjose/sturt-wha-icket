@@ -66,7 +66,7 @@ export const initIO = (httpServer: Server): SocketIO => {
             if ((c = counters.incrementCounter(`ticket-${ticketId}`)) === 1) {
               socket.join(ticketId);
             }
-            logger.debug(`joinChatbox[${c}]: Channel: ${ticketId} by user ${user.id}`)
+            logger.info(`💬 Chat iniciado - Ticket: ${ticketId}, Usuario: ${user.id}`)
           } else {
             logger.info(`Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`)
           }
@@ -88,7 +88,7 @@ export const initIO = (httpServer: Server): SocketIO => {
       if ((c = counters.decrementCounter(`ticket-${ticketId}`)) === 0) {
         socket.leave(ticketId);
       }
-      logger.debug(`leaveChatbox[${c}]: Channel: ${ticketId} by user ${user.id}`)
+      logger.info(`💬 Chat finalizado - Ticket: ${ticketId}, Usuario: ${user.id}`)
     });
 
     socket.on("joinNotification", async () => {

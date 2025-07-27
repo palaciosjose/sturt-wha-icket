@@ -2,15 +2,16 @@ import React, { useState, useEffect } from "react";
 
 import "react-toastify/dist/ReactToastify.css";
 import { QueryClient, QueryClientProvider } from "react-query";
-import lightBackground from '../src/assets/wa-background-light.png';
-import darkBackground from '../src/assets/wa-background-dark.jpg';
-import { ptBR } from "@material-ui/core/locale";
+
+import { esES } from "@material-ui/core/locale";
 import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { useMediaQuery } from "@material-ui/core";
 import ColorModeContext from "./layout/themeContext";
 import { SocketContext, SocketManager } from './context/Socket/SocketContext';
+import logger from "./utils/logger";
 
 import Routes from "./routes";
+// import DragDropTest from "./components/DragDropTest";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,13 @@ const App = () => {
     const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
     const preferredTheme = window.localStorage.getItem("preferredTheme");
     const [mode, setMode] = useState(preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light");
+
+    // Log de prueba al cargar la aplicación
+    useEffect(() => {
+        logger.debug("🎯 App.js cargado - Aplicación iniciada");
+        logger.whatsapp.debug("🧪 LOG DE PRUEBA - WhatsApp desde App.js");
+        logger.socket.debug("🧪 LOG DE PRUEBA - Socket desde App.js");
+    }, []);
 
     const colorMode = React.useMemo(
         () => ({
@@ -40,7 +48,7 @@ const App = () => {
                 },
                 "&::-webkit-scrollbar-thumb": {
                     boxShadow: 'inset 0 0 6px rgba(0, 0, 0, 0.3)',
-                    backgroundColor: "#2f0549",
+                    backgroundColor: "#1e3a8a",
 					borderRadius: "8px",
                 },
             },
@@ -50,41 +58,41 @@ const App = () => {
 					borderRadius: "8px",
                 },
                 "&::-webkit-scrollbar-thumb": {
-                    backgroundColor: mode === "light" ? "#F3F3F3" : "#333333",
+                    backgroundColor: mode === "light" ? "#F3F4F6" : "#374151",
 					borderRadius: "8px",
                 },
             },
             palette: {
                 type: mode,
-                primary: { main: mode === "light" ? "#2f0549" : "#FFFFFF" },
-				sair: { main: mode === "light" ? "#2f0549" : "#333" },
-				vcard: { main: mode === "light" ? "#2f0549" : "#666" },
-                textPrimary: mode === "light" ? "#2f0549" : "#FFFFFF",
-                borderPrimary: mode === "light" ? "#2f0549" : "#FFFFFF",
-                dark: { main: mode === "light" ? "#333333" : "#F3F3F3" },
-                light: { main: mode === "light" ? "#F3F3F3" : "#333333" },
-                tabHeaderBackground: mode === "light" ? "#EEE" : "#666",
-                optionsBackground: mode === "light" ? "#fafafa" : "#333",
-				options: mode === "light" ? "#fafafa" : "#666",
-				fontecor: mode === "light" ? "#128c7e" : "#fff",
-                fancyBackground: mode === "light" ? "#fafafa" : "#333",
-				bordabox: mode === "light" ? "#eee" : "#333",
-				newmessagebox: mode === "light" ? "#eee" : "#333",
-				inputdigita: mode === "light" ? "#fff" : "#666",
-				contactdrawer: mode === "light" ? "#fff" : "#666",
-				announcements: mode === "light" ? "#ededed" : "#333",
-				login: mode === "light" ? "#fff" : "#1C1C1C",
-				announcementspopover: mode === "light" ? "#fff" : "#666",
-				chatlist: mode === "light" ? "#eee" : "#666",
-				boxlist: mode === "light" ? "#ededed" : "#666",
-				boxchatlist: mode === "light" ? "#ededed" : "#333",
-                total: mode === "light" ? "#fff" : "#222",
-                messageIcons: mode === "light" ? "grey" : "#F3F3F3",
-                inputBackground: mode === "light" ? "#FFFFFF" : "#333",
-                barraSuperior: mode === "light" ? "linear-gradient(to right, #2f0549, #2f0549 , #2f0549)" : "#666",
-				boxticket: mode === "light" ? "#EEE" : "#666",
-				campaigntab: mode === "light" ? "#ededed" : "#666",
-				mediainput: mode === "light" ? "#ededed" : "#1c1c1c",
+                primary: { main: mode === "light" ? "#1e3a8a" : "#3b82f6" },
+				sair: { main: mode === "light" ? "#1e3a8a" : "#374151" },
+				vcard: { main: mode === "light" ? "#1e3a8a" : "#6b7280" },
+                textPrimary: mode === "light" ? "#1f2937" : "#f9fafb",
+                borderPrimary: mode === "light" ? "#1e3a8a" : "#3b82f6",
+                dark: { main: mode === "light" ? "#374151" : "#f3f4f6" },
+                light: { main: mode === "light" ? "#f9fafb" : "#374151" },
+                tabHeaderBackground: mode === "light" ? "#f3f4f6" : "#374151",
+                optionsBackground: mode === "light" ? "#ffffff" : "#1f2937",
+				options: mode === "light" ? "#ffffff" : "#374151",
+				fontecor: mode === "light" ? "#1e3a8a" : "#3b82f6",
+                fancyBackground: mode === "light" ? "#f9fafb" : "#111827",
+				bordabox: mode === "light" ? "#e5e7eb" : "#374151",
+				newmessagebox: mode === "light" ? "#f3f4f6" : "#374151",
+				inputdigita: mode === "light" ? "#ffffff" : "#374151",
+				contactdrawer: mode === "light" ? "#ffffff" : "#374151",
+				announcements: mode === "light" ? "#f3f4f6" : "#374151",
+				login: mode === "light" ? "#ffffff" : "#111827",
+				announcementspopover: mode === "light" ? "#ffffff" : "#374151",
+				chatlist: mode === "light" ? "#f3f4f6" : "#374151",
+				boxlist: mode === "light" ? "#f3f4f6" : "#374151",
+				boxchatlist: mode === "light" ? "#f3f4f6" : "#1f2937",
+                total: mode === "light" ? "#ffffff" : "#111827",
+                messageIcons: mode === "light" ? "#6b7280" : "#d1d5db",
+                inputBackground: mode === "light" ? "#ffffff" : "#374151",
+                barraSuperior: mode === "light" ? "linear-gradient(to right, #1e3a8a, #3b82f6, #1e3a8a)" : "#1f2937",
+				boxticket: mode === "light" ? "#f3f4f6" : "#374151",
+				campaigntab: mode === "light" ? "#f3f4f6" : "#374151",
+				mediainput: mode === "light" ? "#f3f4f6" : "#111827",
             },
             mode,
         },
@@ -96,8 +104,8 @@ const App = () => {
         const browserLocale =
             i18nlocale.substring(0, 2) + i18nlocale.substring(3, 5);
 
-        if (browserLocale === "ptBR") {
-            setLocale(ptBR);
+        if (browserLocale === "esES") {
+            setLocale(esES);
         }
     }, []);
 
@@ -113,6 +121,7 @@ const App = () => {
                 <QueryClientProvider client={queryClient}>
                   <SocketContext.Provider value={SocketManager}>
                       <Routes />
+                      {/* <DragDropTest /> */}
                   </SocketContext.Provider>
                 </QueryClientProvider>
             </ThemeProvider>

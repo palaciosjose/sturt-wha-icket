@@ -7,7 +7,6 @@ import { green } from "@material-ui/core/colors";
 import {
   Button,
   CircularProgress,
-  Divider,
   IconButton,
   makeStyles,
   Badge,
@@ -36,6 +35,16 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import { ForwardMessageContext } from "../../context/ForwarMessage/ForwardMessageContext";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import SelectMessageCheckbox from "./SelectMessageCheckbox";
+import { i18n } from "../../translate/i18n";
+
+// Función para formatear el tamaño del archivo
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'kB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
 
 const useStyles = makeStyles((theme) => ({
   messagesListWrapper: {
@@ -76,16 +85,10 @@ const useStyles = makeStyles((theme) => ({
     height: "auto",
     display: "block",
     position: "relative",
-    "&:hover #messageActionsButton": {
-      display: "flex",
-      position: "absolute",
-      top: 0,
-      right: 0,
-    },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#ffffff",
-    color: "#303030",
+    backgroundColor: "#3b82f6",
+    color: "#ffffff",
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 8,
@@ -130,16 +133,10 @@ const useStyles = makeStyles((theme) => ({
     height: "auto",
     display: "block",
     position: "relative",
-    "&:hover #messageActionsButton": {
-      display: "flex",
-      position: "absolute",
-      top: 0,
-      right: 0,
-    },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#dcf8c6",
-    color: "#303030",
+    backgroundColor: "#10b981",
+    color: "#ffffff",
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
@@ -232,6 +229,8 @@ const useStyles = makeStyles((theme) => ({
     bottom: 0,
     right: 5,
     color: "#999",
+    display: "flex",
+    alignItems: "center",
   },
 
   dailyTimestamp: {
@@ -339,7 +338,6 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const messageOptionsMenuOpen = Boolean(anchorEl);
   const currentTicketId = useRef(ticketId);
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const socketManager = useContext(SocketContext);
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const { showSelectMessageCheckbox } = useContext(ForwardMessageContext);
@@ -523,22 +521,12 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
 
       //console.log(isIOS);
 
-      if (isIOS) {
-        message.mediaUrl = message.mediaUrl.replace("ogg", "mp3");
-
-        return (
-          <audio controls>
-            <source src={message.mediaUrl} type="audio/mp3"></source>
-          </audio>
-        );
-      } else {
-
-        return (
-          <audio controls>
-            <source src={message.mediaUrl} type="audio/ogg"></source>
-          </audio>
-        );
-      }
+      // Ahora todos los audios se envían como MP3 desde el backend
+      return (
+        <audio controls>
+          <source src={message.mediaUrl} type="audio/mp3"></source>
+        </audio>
+      );
     } else if (message.mediaType === "video") {
       return (
         <video
@@ -551,17 +539,165 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
       return (
         <>
           <div className={classes.downloadMedia}>
-            <Button
-              startIcon={<GetApp />}
-              color="primary"
-              variant="outlined"
-              target="_blank"
-              href={message.mediaUrl}
-            >
-              Download
-            </Button>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e9ecef',
+              marginBottom: '8px',
+              maxWidth: '300px'
+            }}>
+              {/* Icono del archivo */}
+              {(() => {
+                // ✅ USAR NOMBRE ORIGINAL DEL ARCHIVO PARA EL ICONO
+                let fileName = message.body || 'document';
+                
+                // Si el body contiene el nombre del archivo, usarlo
+                if (message.body && message.body.includes('.')) {
+                  fileName = message.body;
+                } else if (message.mediaUrl) {
+                  // Extraer nombre desde la URL si no hay body
+                  const urlFileName = message.mediaUrl.split('/').pop();
+                  if (urlFileName && urlFileName.includes('.')) {
+                    const parts = urlFileName.split('.');
+                    if (parts.length > 2 && /^\d+$/.test(parts[0])) {
+                      // Si la primera parte es un número (timestamp), usar el resto
+                      fileName = parts.slice(1).join('.');
+                    } else {
+                      fileName = urlFileName;
+                    }
+                  }
+                }
+                
+                const extension = fileName.split('.').pop()?.toLowerCase();
+                
+                // Colores e iconos según el tipo de archivo
+                let iconConfig;
+                if (['doc', 'docx'].includes(extension)) {
+                  iconConfig = { bg: '#2b579a', text: 'W' }; // Word - Azul
+                } else if (['xls', 'xlsx', 'csv'].includes(extension)) {
+                  iconConfig = { bg: '#217346', text: '📊' }; // Excel/CSV - Verde
+                } else if (['pdf'].includes(extension)) {
+                  iconConfig = { bg: '#dc3545', text: 'PDF' }; // PDF - Rojo
+                } else if (['ppt', 'pptx'].includes(extension)) {
+                  iconConfig = { bg: '#d24726', text: 'P' }; // PowerPoint - Naranja
+                } else if (['txt'].includes(extension)) {
+                  iconConfig = { bg: '#6c757d', text: 'T' }; // Texto - Gris
+                } else {
+                  iconConfig = { bg: '#6c757d', text: '📄' }; // Default - Gris
+                }
+                
+                return (
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: '12px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: 'white',
+                    backgroundColor: iconConfig.bg
+                  }}>
+                    {iconConfig.text}
+                  </div>
+                );
+              })()}
+              
+              {/* Información del archivo */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#212529',
+                  marginBottom: '2px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {(() => {
+                    // ✅ USAR NOMBRE ORIGINAL DEL ARCHIVO
+                    let fileName = message.body || 'Documento';
+                    
+                    // Si el body contiene el nombre del archivo, usarlo
+                    if (message.body && message.body.includes('.')) {
+                      fileName = message.body;
+                    } else if (message.mediaUrl) {
+                      // Extraer nombre desde la URL si no hay body
+                      const urlFileName = message.mediaUrl.split('/').pop();
+                      if (urlFileName && urlFileName.includes('.')) {
+                        const parts = urlFileName.split('.');
+                        if (parts.length > 2 && /^\d+$/.test(parts[0])) {
+                          // Si la primera parte es un número (timestamp), usar el resto
+                          fileName = parts.slice(1).join('.');
+                        } else {
+                          fileName = urlFileName;
+                        }
+                      }
+                    }
+                    
+                    return fileName;
+                  })()}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6c757d',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  {(() => {
+                    // ✅ USAR TAMAÑO REAL DEL ARCHIVO
+                    let fileName = message.body || 'document';
+                    
+                    // Si el body contiene el nombre del archivo, usarlo
+                    if (message.body && message.body.includes('.')) {
+                      fileName = message.body;
+                    } else if (message.mediaUrl) {
+                      // Extraer nombre desde la URL si no hay body
+                      const urlFileName = message.mediaUrl.split('/').pop();
+                      if (urlFileName && urlFileName.includes('.')) {
+                        const parts = urlFileName.split('.');
+                        if (parts.length > 2 && /^\d+$/.test(parts[0])) {
+                          // Si la primera parte es un número (timestamp), usar el resto
+                          fileName = parts.slice(1).join('.');
+                        } else {
+                          fileName = urlFileName;
+                        }
+                      }
+                    }
+                    
+                    const extension = fileName.split('.').pop()?.toUpperCase() || 'DOC';
+                    const fileSize = message.mediaSize || 0;
+                    
+                    return `${extension} • ${formatFileSize(fileSize)}`;
+                  })()}
+                </div>
+              </div>
+              
+              {/* Botón de descarga minimalista */}
+              <Button
+                size="small"
+                style={{
+                  minWidth: '32px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #dee2e6',
+                  color: '#6c757d',
+                  padding: 0
+                }}
+                target="_blank"
+                href={message.mediaUrl}
+              >
+                <GetApp style={{ fontSize: '16px' }} />
+              </Button>
+            </div>
           </div>
-          <Divider />
         </>
       );
     }
@@ -647,7 +783,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
     if (index < messagesList.length && index > 0) {
 
       let messageTicket = message.ticketId;
-      let connectionName = message.ticket?.whatsapp?.name;
+
       let previousMessageTicket = messagesList[index - 1].ticketId;
 
       if (messageTicket !== previousMessageTicket) {
@@ -702,7 +838,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
             && (
               <div className={classes.downloadMedia}>
                 <audio controls>
-                  <source src={message.quotedMsg.mediaUrl} type="audio/ogg"></source>
+                  <source src={message.quotedMsg.mediaUrl} type="audio/mp3"></source>
                 </audio>
               </div>
             )
@@ -732,10 +868,11 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
             )
           }
 
-          {message.quotedMsg.mediaType === "image"
-            && (
-              <ModalImageCors imageUrl={message.quotedMsg.mediaUrl} />)
-            || message.quotedMsg?.body}
+          {message.quotedMsg.mediaType === "image" ? (
+            <ModalImageCors imageUrl={message.quotedMsg.mediaUrl} />
+          ) : (
+            message.quotedMsg?.body
+          )}
 
         </div>
       </div>
@@ -753,16 +890,6 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
               {renderNumberTicket(message, index)}
               {renderMessageDivider(message, index)}
               <div className={classes.messageCenter}>
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id="messageActionsButton"
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={(e) => handleOpenMessageOptionsMenu(e, message)}
-                >
-                  <ExpandMore />
-                </IconButton>
                 {isGroup && (
                   <span className={classes.messageContactName}>
                     {message.contact?.name}
@@ -797,16 +924,6 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                   // setSelectedMessagesList={setSelectedMessagesList}
                   />
                 )}
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id="messageActionsButton"
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={(e) => handleOpenMessageOptionsMenu(e, message)}
-                >
-                  <ExpandMore />
-                </IconButton>
                 {message.isForwarded && (
                   <div>
                     <span className={classes.forwardMessage}
@@ -841,7 +958,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                 <div className={classes.textContentItem}>
                   {message.quotedMsg && renderQuotedMessage(message)}
                   {message.mediaType !== "reactionMessage" && (
-                    <MarkdownWrapper>
+                    <MarkdownWrapper message={message}>
                       {message.mediaType === "locationMessage" || message.mediaType === "contactMessage" 
                         ? null
                         : message.body}
@@ -850,8 +967,8 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                   {message.quotedMsg && message.mediaType === "reactionMessage" && message.body && (
                     <>
                       <span style={{ marginLeft: "0px", display: 'flex', alignItems: 'center' }}>
-                        <MarkdownWrapper>
-                          {"_*" + (message.fromMe ? 'Você' : (message?.contact?.name ?? 'Contato')) + "*_ reagiu... "}
+                        <MarkdownWrapper message={message}>
+                          {"_*" + (message.fromMe ? i18n.t("messagesList.reactions.you") : (message?.contact?.name ?? i18n.t("messagesList.reactions.contact"))) + "*_ " + i18n.t("messagesList.reactions.reacted") + " "}
                         </MarkdownWrapper>
                         <Badge 
                           className={classes.badge}
@@ -873,6 +990,20 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                                   
                   <span className={classes.timestamp}>
                     {format(parseISO(message.createdAt), "HH:mm")}
+                    <IconButton
+                      size="small"
+                      id="messageActionsButton"
+                      disabled={message.isDeleted}
+                      onClick={(e) => handleOpenMessageOptionsMenu(e, message)}
+                      style={{
+                        marginLeft: "8px",
+                        padding: "2px",
+                        color: "#999",
+                        fontSize: "12px"
+                      }}
+                    >
+                      <ExpandMore style={{ fontSize: "16px" }} />
+                    </IconButton>
                   </span>
                 </div>
               </div>
@@ -895,16 +1026,6 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                 // setSelectedMessagesList={setSelectedMessagesList}
                 />
               )}
-                <IconButton
-                  variant="contained"
-                  size="small"
-                  id="messageActionsButton"
-                  disabled={message.isDeleted}
-                  className={classes.messageActionsButton}
-                  onClick={(e) => handleOpenMessageOptionsMenu(e, message)}
-                >
-                  <ExpandMore />
-                </IconButton>
                 {message.isForwarded && (
                   <div>
                     <span className={classes.forwardMessage}
@@ -929,14 +1050,20 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                     />
                   )}
                   {message.quotedMsg && renderQuotedMessage(message)}
-                  {message.mediaType !== "reactionMessage" && message.mediaType !== "locationMessage" && (
-                    <MarkdownWrapper>{message.body}</MarkdownWrapper>
+                  {/* Solo mostrar el body si NO es un archivo (application, document, etc.) */}
+                  {message.mediaType !== "reactionMessage" && 
+                   message.mediaType !== "locationMessage" && 
+                   message.mediaType !== "application" && 
+                   message.mediaType !== "document" && 
+                   message.mediaType !== "text" && 
+                   message.body && (
+                    <MarkdownWrapper message={message}>{message.body}</MarkdownWrapper>
                   )}
                   {message.quotedMsg && message.mediaType === "reactionMessage" && message.body && (
                     <>
                       <span style={{ marginLeft: "0px", display: 'flex', alignItems: 'center' }}>
-                        <MarkdownWrapper>
-                          {"_*" + (message.fromMe ? 'Você' : (message?.contact?.name ?? 'Contato')) + "*_ reagiu... "}
+                        <MarkdownWrapper message={message}>
+                          {"_*" + (message.fromMe ? i18n.t("messagesList.reactions.you") : (message?.contact?.name ?? i18n.t("messagesList.reactions.contact"))) + "*_ " + i18n.t("messagesList.reactions.reacted") + " "}
                         </MarkdownWrapper>
                         <Badge 
                           className={classes.badge}
@@ -960,6 +1087,20 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                   <span className={classes.timestamp}>
                     {format(parseISO(message.createdAt), "HH:mm")}
                     {renderMessageAck(message)}
+                    <IconButton
+                      size="small"
+                      id="messageActionsButton"
+                      disabled={message.isDeleted}
+                      onClick={(e) => handleOpenMessageOptionsMenu(e, message)}
+                      style={{
+                        marginLeft: "8px",
+                        padding: "2px",
+                        color: "#999",
+                        fontSize: "12px"
+                      }}
+                    >
+                      <ExpandMore style={{ fontSize: "16px" }} />
+                    </IconButton>
                   </span>
                 </div>
               </div>
@@ -969,7 +1110,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
       });
       return viewMessagesList;
     } else {
-      return <div>Diga olá para seu novo contato!</div>;
+      return <div>{i18n.t("hardcodedElements.sayHelloToNewContact")}</div>;
     }
   };
 

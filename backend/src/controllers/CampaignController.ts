@@ -20,6 +20,7 @@ import ContactList from "../models/ContactList";
 import ContactListItem from "../models/ContactListItem";
 import Ticket from "../models/Ticket";
 import TicketTag from "../models/TicketTag";
+import Tag from "../models/Tag";
 import { CancelService } from "../services/CampaignService/CancelService";
 import { RestartService } from "../services/CampaignService/RestartService";
 
@@ -79,10 +80,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
     async function createContactListFromTag(tagId) {
 
-      const currentDate = new Date();
-      const formattedDate = currentDate.toISOString();
-
       try {
+        // Obtener información de la etiqueta
+        const tag = await Tag.findByPk(tagId);
+        if (!tag) {
+          throw new Error(`Etiqueta con ID ${tagId} no encontrada`);
+        }
+
         const ticketTags = await TicketTag.findAll({ where: { tagId } });
         const ticketIds = ticketTags.map((ticketTag) => ticketTag.ticketId);
 
@@ -91,8 +95,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
         const contacts = await Contact.findAll({ where: { id: contactIds } });
 
-        const randomName = `${campanhaNome} | TAG: ${tagId} - ${formattedDate}` // Implement your own function to generate a random name
-        const contactList = await ContactList.create({ name: randomName, companyId: companyId });
+        // Generar nombre amigable para la lista de contactos
+        const tagName = tag.name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g, ''); // Mantener tildes y ñ
+        const baseName = `EQ-${tagName}`;
+        
+        // Buscar el siguiente número disponible para esta etiqueta
+        let counter = 1;
+        let listName = `${baseName}-${counter.toString().padStart(2, '0')}`;
+        
+        while (await ContactList.findOne({ where: { name: listName, companyId } })) {
+          counter++;
+          listName = `${baseName}-${counter.toString().padStart(2, '0')}`;
+        }
+
+        const contactList = await ContactList.create({ name: listName, companyId: companyId });
 
         const { id: contactListId } = contactList;
 

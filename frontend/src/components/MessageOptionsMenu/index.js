@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import PropTypes from "prop-types";
 
 import AddCircleOutlineIcon from '@material-ui/icons/Add';
@@ -6,7 +6,7 @@ import AddCircleOutlineIcon from '@material-ui/icons/Add';
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
-import { Menu, MenuItem, MenuList, Grid, Popover, IconButton, makeStyles } from "@material-ui/core";
+import { Menu, MenuItem, Grid, Popover, IconButton, makeStyles } from "@material-ui/core";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import EditMessageModal from "../EditMessageModal";
 import { ForwardMessageContext } from "../../context/ForwarMessage/ForwardMessageContext";
@@ -54,7 +54,6 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 	const { setReplyingMessage } = useContext(ReplyMessageContext);
 	const [confirmationOpen, setConfirmationOpen] = useState(false);
 	const [confirmationEditOpen, setEditMessageOpenModal] = useState(false);
-	const [messageEdit, setMessageEdit] = useState(false);
 	const [reactionAnchorEl, setReactionAnchorEl] = useState(null);
 	const [moreAnchorEl, setMoreAnchorEl] = useState(null);
 	const {
@@ -74,8 +73,10 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 	};
 
 	const openReactionsMenu = (event) => {
-		setReactionAnchorEl(event.currentTarget);
-		handleClose();
+		if (event.currentTarget) {
+			setReactionAnchorEl(event.currentTarget);
+			handleClose();
+		}
 	};
 	
 	const closeReactionsMenu = () => {
@@ -84,13 +85,25 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 	};
 
 	const openMoreReactionsMenu = (event) => {
-		setMoreAnchorEl(event.currentTarget);
-		closeReactionsMenu();  // Fechar o primeiro popover
+		if (event.currentTarget) {
+			setMoreAnchorEl(event.currentTarget);
+			closeReactionsMenu();  // Cerrar el primer popover
+		}
 	};
 
 	const closeMoreReactionsMenu = () => {
 		setMoreAnchorEl(null);
+		// ✅ Asegurar que también se cierre el menú principal
+		handleClose();
 	};
+
+	// ✅ Limpiar estados cuando el componente se desmonte
+	useEffect(() => {
+		return () => {
+			setReactionAnchorEl(null);
+			setMoreAnchorEl(null);
+		};
+	}, []);
 
 	const handleReactToMessage = async (reactionType) => {
 		try {
@@ -99,8 +112,10 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 		} catch (err) {
 			toastError(err);
 		}
+		// ✅ Cerrar todos los menús de reacciones
+		closeReactionsMenu();
+		closeMoreReactionsMenu();
 		handleClose();
-		closeMoreReactionsMenu(); // Fechar o menu de reações ao reagir
 	};
 
 	// Array de emojis
@@ -139,7 +154,6 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 
 	const handleOpenEditMessageModal = e => {
 		setEditMessageOpenModal(true);
-		setMessageEdit(message)
 		handleClose();
 	};
 
@@ -205,7 +219,7 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 				</MenuItem>
 			</Menu>
 			<Popover
-					open={Boolean(reactionAnchorEl)}
+					open={Boolean(reactionAnchorEl) && reactionAnchorEl}
 					anchorEl={reactionAnchorEl}
 					onClose={closeReactionsMenu}
 					anchorOrigin={{
@@ -231,14 +245,14 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 						))}
 						<Grid item>
 						<IconButton className={classes.addCircleButton} onClick={openMoreReactionsMenu}>
-								<AddCircleOutlineIcon fontSize="normal" />
+								<AddCircleOutlineIcon />
 							</IconButton>
 						</Grid>
 					</Grid>
 					</div>
 				</Popover>
 				<Popover
-					open={Boolean(moreAnchorEl)}
+					open={Boolean(moreAnchorEl) && moreAnchorEl}
 					anchorEl={moreAnchorEl}
 					onClose={closeMoreReactionsMenu}
 					anchorOrigin={{

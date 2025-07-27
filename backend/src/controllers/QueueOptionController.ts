@@ -26,9 +26,11 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
+  console.log("🔄 POST /queue-options - Datos recibidos:", req.body);
   const queueOptionData = req.body;
 
   const queueOption = await CreateService(queueOptionData);
+  console.log("✅ POST /queue-options - Opción creada:", queueOption);
 
   return res.status(200).json(queueOption);
 };
@@ -45,10 +47,12 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
+  console.log("🔄 PUT /queue-options/" + req.params.queueOptionId + " - Datos recibidos:", req.body);
   const { queueOptionId } = req.params
   const queueOptionData = req.body;
 
   const queueOption = await UpdateService(queueOptionId, queueOptionData);
+  console.log("✅ PUT /queue-options/" + queueOptionId + " - Opción actualizada:", queueOption);
 
   return res.status(200).json(queueOption);
 };

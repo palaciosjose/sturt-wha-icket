@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-import * as Yup from "yup";
+
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 
@@ -56,37 +56,35 @@ const useStyles = makeStyles(theme => ({
     },
 }));
 
-const PromptSchema = Yup.object().shape({
-    name: Yup.string().min(5, "Muito curto!").max(100, "Muito longo!").required("Obrigatório"),
-    prompt: Yup.string().min(50, "Muito curto!").required("Descreva o treinamento para Inteligência Artificial"),
-    voice: Yup.string().required("Informe o modo para Voz"),
-    max_tokens: Yup.number().required("Informe o número máximo de tokens"),
-    temperature: Yup.number().required("Informe a temperatura"),
-    apikey: Yup.string().required("Informe a API Key"),
-    queueId: Yup.number().required("Informe a fila"),
-    max_messages: Yup.number().required("Informe o número máximo de mensagens")
-});
 
-const PromptModal = ({ open, onClose, promptId }) => {
+
+// Definir initialState fuera del componente para evitar recreación
+const initialState = {
+    name: "",
+    prompt: "",
+    voice: "texto",
+    voiceKey: "",
+    voiceRegion: "",
+    maxTokens: 100,
+    temperature: 1,
+    apiKey: "",
+    queueId: "", // Cambiado de null a string vacío
+    maxMessages: 10,
+    provider: "openrouter-deepseek"
+};
+
+const PromptModal = ({ open, onClose, promptId, onSave }) => {
     const classes = useStyles();
     const [selectedVoice, setSelectedVoice] = useState("texto");
     const [showApiKey, setShowApiKey] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState("openrouter-deepseek");
 
     const handleToggleApiKey = () => {
         setShowApiKey(!showApiKey);
     };
 
-    const initialState = {
-        name: "",
-        prompt: "",
-        voice: "texto",
-        voiceKey: "",
-        voiceRegion: "",
-        maxTokens: 100,
-        temperature: 1,
-        apiKey: "",
-        queueId: null,
-        maxMessages: 10
+    const handleChangeProvider = (e) => {
+        setSelectedProvider(e.target.value);
     };
 
     const [prompt, setPrompt] = useState(initialState);
@@ -103,17 +101,19 @@ const PromptModal = ({ open, onClose, promptId }) => {
                     return { ...prevState, ...data };
                 });
                 setSelectedVoice(data.voice);
+                setSelectedProvider(data.provider || "openrouter-deepseek");
             } catch (err) {
                 toastError(err);
             }
         };
 
         fetchPrompt();
-    }, [promptId, open]);
+    }, [promptId, open]); // Removido initialState de las dependencias
 
     const handleClose = () => {
         setPrompt(initialState);
         setSelectedVoice("texto");
+        setSelectedProvider("openrouter-deepseek");
         onClose();
     };
 
@@ -122,7 +122,7 @@ const PromptModal = ({ open, onClose, promptId }) => {
     };
 
     const handleSavePrompt = async values => {
-        const promptData = { ...values, voice: selectedVoice };
+        const promptData = { ...values, voice: selectedVoice, provider: selectedProvider };
         if (!values.queueId) {
             toastError("Informe o setor");
             return;
@@ -134,6 +134,11 @@ const PromptModal = ({ open, onClose, promptId }) => {
                 await api.post("/prompt", promptData);
             }
             toast.success(i18n.t("promptModal.success"));
+            
+            // ✅ AGREGAR CALLBACK PARA REFRESCAR LISTA
+            if (onSave) {
+                onSave();
+            }
         } catch (err) {
             toastError(err);
         }
@@ -198,6 +203,33 @@ const PromptModal = ({ open, onClose, promptId }) => {
                                             ),
                                         }}
                                     />
+                                </FormControl>
+                                <FormControl fullWidth margin="dense" variant="outlined">
+                                    <InputLabel>Proveedor de IA</InputLabel>
+                                    <Select
+                                        id="provider-select"
+                                        labelWidth={120}
+                                        name="provider"
+                                        value={selectedProvider}
+                                        onChange={handleChangeProvider}
+                                        multiple={false}
+                                    >
+                                        <MenuItem key={"openrouter-openai"} value={"openrouter-openai"}>
+                                            OpenRouter (OpenAI GPT-3.5/4)
+                                        </MenuItem>
+                                        <MenuItem key={"openrouter-deepseek"} value={"openrouter-deepseek"}>
+                                            OpenRouter (DeepSeek)
+                                        </MenuItem>
+                                        <MenuItem key={"openrouter-anthropic"} value={"openrouter-anthropic"}>
+                                            OpenRouter (Anthropic Claude)
+                                        </MenuItem>
+                                        <MenuItem key={"openrouter-gemini"} value={"openrouter-gemini"}>
+                                            OpenRouter (Google Gemini Pro)
+                                        </MenuItem>
+                                        <MenuItem key={"openrouter-qwen"} value={"openrouter-qwen"}>
+                                            OpenRouter (Qwen)
+                                        </MenuItem>
+                                    </Select>
                                 </FormControl>
                                 <Field
                                     as={TextField}

@@ -11,8 +11,7 @@ import Badge from "@material-ui/core/Badge";
 import MoveToInboxIcon from "@material-ui/icons/MoveToInbox";
 import CheckBoxIcon from "@material-ui/icons/CheckBox";
 import api from "../../services/api";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import Switch from "@material-ui/core/Switch";
+
 
 import PlaylistAddCheckOutlinedIcon from '@material-ui/icons/PlaylistAddCheckOutlined';
 
@@ -24,12 +23,13 @@ import {
 import NewTicketModal from "../NewTicketModal";
 import TicketsList from "../TicketsListCustom";
 import TabPanel from "../TabPanel";
+import TransferTicketModalCustom from "../TransferTicketModalCustom";
 
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { Can } from "../Can";
+
 import TicketsQueueSelect from "../TicketsQueueSelect";
-import { Button, Snackbar, IconButton } from "@material-ui/core";
+import { Button, Snackbar } from "@material-ui/core";
 import { TagsFilter } from "../TagsFilter";
 import { UsersFilter } from "../UsersFilter";
 
@@ -64,7 +64,7 @@ const useStyles = makeStyles(theme => ({
   snackbar: {
     display: "flex",
     justifyContent: "space-between",
-    backgroundColor: theme.palette.primary.main,
+    backgroundColor: "#1e3a8a",
     color: "white",
     borderRadius: 30,
     [theme.breakpoints.down("sm")]: {
@@ -77,27 +77,27 @@ const useStyles = makeStyles(theme => ({
 
   yesButton: {
     backgroundColor: "#FFF",
-    color: "rgba(0, 100, 0, 1)",
+    color: "#10b981",
     padding: "4px 4px",
     fontSize: "1em",
     fontWeight: "bold",
     textTransform: "uppercase",
     marginRight: theme.spacing(1),
     "&:hover": {
-      backgroundColor: "darkGreen",
+      backgroundColor: "#10b981",
       color: "#FFF",
     },
     borderRadius: 30,
   },
   noButton: {
     backgroundColor: "#FFF",
-    color: "rgba(139, 0, 0, 1)",
+    color: "#ef4444",
     padding: "4px 4px",
     fontSize: "1em",
     fontWeight: "bold",
     textTransform: "uppercase",
     "&:hover": {
-      backgroundColor: "darkRed",
+      backgroundColor: "#ef4444",
       color: "#FFF",
     },
     borderRadius: 30,
@@ -192,18 +192,15 @@ const TicketsManagerTabs = () => {
   const classes = useStyles();
   const history = useHistory();
   
-  const [isHoveredAll, setIsHoveredAll] = useState(false);
-  const [isHoveredNew, setIsHoveredNew] = useState(false);
-  const [isHoveredResolve, setIsHoveredResolve] = useState(false);
-  const [isHoveredOpen, setIsHoveredOpen] = useState(false);
-  const [isHoveredClosed, setIsHoveredClosed] = useState(false);
+
 
   
   const [searchParam, setSearchParam] = useState("");
   const [tab, setTab] = useState("open");
   const [tabOpen, setTabOpen] = useState("open");
   const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
-  const [showAllTickets, setShowAllTickets] = useState(false);
+  const [transferTicketModalOpen, setTransferTicketModalOpen] = useState(false);
+
   const searchInputRef = useRef();
   const { user } = useContext(AuthContext);
   const { profile } = user;
@@ -216,12 +213,7 @@ const TicketsManagerTabs = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  useEffect(() => {
-    if (user.profile.toUpperCase() === "ADMIN") {
-      setShowAllTickets(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
 
   useEffect(() => {
     if (tab === "search") {
@@ -280,7 +272,7 @@ const TicketsManagerTabs = () => {
 
   const CloseAllTicket = async () => {
     try {
-      const { data } = await api.post("/tickets/closeAll", {
+      await api.post("/tickets/closeAll", {
         status: tabOpen,
         selectedQueueIds,
       });
@@ -298,6 +290,14 @@ const TicketsManagerTabs = () => {
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
+  };
+
+  const handleOpenTransferModal = () => {
+    setTransferTicketModalOpen(true);
+  };
+
+  const handleCloseTransferModal = () => {
+    setTransferTicketModalOpen(false);
   };
 
   return (
@@ -378,73 +378,27 @@ const TicketsManagerTabs = () => {
                 </>
               }
             />
-            <Badge
+            <Button
+              variant="contained"
               color="primary"
-              invisible={
-                isHoveredAll ||
-                !isHoveredNew ||
-                isHoveredResolve ||
-                isHoveredOpen ||
-                isHoveredClosed
-              }
-              badgeContent={i18n.t("Novo")}
-              classes={{ badge: classes.tabsBadge }}
+              startIcon={<AddIcon />}
+              onClick={handleOpenTransferModal}
+              style={{ marginRight: 8 }}
             >
-              <IconButton
-                onMouseEnter={() => setIsHoveredNew(true)}
-                onMouseLeave={() => setIsHoveredNew(false)}
-                className={classes.button}
-                onClick={() => {
-                  setNewTicketModalOpen(true);
-                }}
-              >
-                <AddIcon className={classes.icon} />
-              </IconButton>
-            </Badge>
+              Asignar Ticket
+            </Button>
 			{user.profile === "admin" && (
-              <Badge
-                color="primary"
-                invisible={
-                  isHoveredAll ||
-                  isHoveredNew ||
-                  !isHoveredResolve ||
-                  isHoveredOpen ||
-                  isHoveredClosed
-                }
-                badgeContent={i18n.t("tickets.inbox.closedAll")}
-                classes={{ badge: classes.tabsBadge }}
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<PlaylistAddCheckOutlinedIcon style={{ color: "white" }} />}
+                onClick={handleSnackbarOpen}
+                style={{ marginRight: 8 }}
               >
-                <IconButton
-                  onMouseEnter={() => setIsHoveredResolve(true)}
-                  onMouseLeave={() => setIsHoveredResolve(false)}
-                  className={classes.button}
-                  onClick={handleSnackbarOpen}
-                >
-                  <PlaylistAddCheckOutlinedIcon style={{ color: "green" }} />
-                </IconButton>
-              </Badge>
-			   )}
-            <Can
-              role={user.profile}
-              perform="tickets-manager:showall"
-              yes={() => (
-                <FormControlLabel
-                  label={i18n.t("tickets.buttons.showAll")}
-                  labelPlacement="start"
-                  control={
-                    <Switch
-                      size="small"
-                      checked={showAllTickets}
-                      onChange={() =>
-                        setShowAllTickets((prevState) => !prevState)
-                      }
-                      name="showAllTickets"
-                      color="primary"
-                    />
-                  }
-                />
-              )}
-            />
+                Cerrar tickets
+              </Button>
+            )}
+
           </>
         )}
         <TicketsQueueSelect
@@ -490,7 +444,7 @@ const TicketsManagerTabs = () => {
         <Paper className={classes.ticketsWrapper}>
           <TicketsList
             status="open"
-            showAll={showAllTickets}
+            showAll={true}
             selectedQueueIds={selectedQueueIds}
             updateCount={(val) => setOpenCount(val)}
             style={applyPanelStyle("open")}
@@ -523,6 +477,11 @@ const TicketsManagerTabs = () => {
           selectedQueueIds={selectedQueueIds}
         />
       </TabPanel>
+      <TransferTicketModalCustom
+        modalOpen={transferTicketModalOpen}
+        onClose={handleCloseTransferModal}
+        ticketid={null}
+      />
     </Paper>
   );
 };

@@ -39,6 +39,7 @@ import Files from "../pages/Files/";
 import Prompts from "../pages/Prompts";
 import QueueIntegration from "../pages/QueueIntegration";
 import ForgetPassword from "../pages/ForgetPassWord/"; // Reset PassWd
+import HubNotificaMe from "../pages/HubNotificaMe"; // Hub NotificaMe
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -169,6 +170,13 @@ const Routes = () => {
                       exact
                       path="/campaigns-config"
                       component={CampaignsConfig}
+                      isPrivate
+                    />
+                    {/* Ruta HubNotificaMe */}
+                    <Route
+                      exact
+                      path="/hub-notificame"
+                      component={HubNotificaMe}
                       isPrivate
                     />
                   </>

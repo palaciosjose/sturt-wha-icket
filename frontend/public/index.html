@@ -6,6 +6,10 @@
         rel="stylesheet"
         href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700&display=swap"
     />
+    <!-- Fuentes Emoji para mejor compatibilidad -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
@@ -15,6 +19,43 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <style>
+        /* Configuración global para emojis */
+        * {
+            font-family: 'Open Sans', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+        }
+        
+        /* Asegurar que los emojis se muestren correctamente */
+        .emoji, [data-emoji] {
+            font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+            font-size: 1.2em;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        
+        /* Mejorar renderizado de emojis en mensajes */
+        .message-content, .chat-message {
+            font-family: 'Open Sans', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+        }
+        
+        /* Estilos específicos para emojis en el chat */
+        .textContentItem, .message-body {
+            font-family: 'Open Sans', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+        }
+        
+        /* Asegurar que los emojis tengan el tamaño correcto */
+        .textContentItem span, .message-body span {
+            font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Emoji', sans-serif;
+            font-size: 1.1em;
+            line-height: 1.2;
+        }
+        
+        /* Fallback para emojis no soportados */
+        @supports not (font-family: 'Noto Color Emoji') {
+            .emoji, [data-emoji] {
+                font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+            }
+        }
+
         #splash-screen {
             display: flex;
             align-items: center;

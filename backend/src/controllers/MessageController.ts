@@ -76,17 +76,41 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   SetTicketMessagesAsRead(ticket);
 
   console.log('bodyyyyyyyyyy:', body)
+  
+  const sentMessages = [];
+  
   if (medias) {
     await Promise.all(
       medias.map(async (media: Express.Multer.File, index) => {
-        await SendWhatsAppMedia({ media, ticket, body: Array.isArray(body) ? body[index] : body });
+        // ✅ CALCULAR TAMAÑO DEL ARCHIVO
+        let fileSize = 0;
+        try {
+          const fs = require('fs');
+          const stats = fs.statSync(media.path);
+          fileSize = stats.size;
+          console.log(`[MessageController] Tamaño del archivo ${media.originalname}: ${fileSize} bytes`);
+        } catch (error) {
+          console.log(`[MessageController] Error calculando tamaño: ${error.message}`);
+        }
+        
+        // No enviar el nombre del archivo como caption para evitar texto duplicado
+        const bodyToSend = "";
+        
+        const sentMessage = await SendWhatsAppMedia({ media, ticket, body: bodyToSend, fileSize });
+        sentMessages.push(sentMessage);
       })
     );
   } else {
-    const send = await SendWhatsAppMessage({ body, ticket, quotedMsg });
+    const sentMessage = await SendWhatsAppMessage({ body, ticket, quotedMsg });
+    sentMessages.push(sentMessage);
   }
 
-  return res.send();
+  // ✅ ENVIAR RESPUESTA CON INFORMACIÓN DE LOS MENSAJES ENVIADOS
+  return res.json({ 
+    success: true, 
+    messages: sentMessages,
+    ticketId: ticket.id 
+  });
 };
 
 export const remove = async (
@@ -112,17 +136,21 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
   const messageData: MessageData = req.body;
   const medias = req.files as Express.Multer.File[];
 
-  console.log('messageData;', messageData)
+  // ✅ LOGS SILENCIOSOS - Solo en modo debug
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('📨 API SEND - messageData:', messageData);
+    console.debug('📨 API SEND - whatsappId:', whatsappId);
+  }
 
   try {
     const whatsapp = await Whatsapp.findByPk(whatsappId);
 
     if (!whatsapp) {
-      throw new Error("Não foi possível realizar a operação");
+      throw new Error("Conexión WhatsApp no encontrada");
     }
 
     if (messageData.number === undefined) {
-      throw new Error("O número é obrigatório");
+      throw new Error("El número es obligatorio");
     }
 
     const numberToTest = messageData.number;
@@ -187,11 +215,12 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
     
     SetTicketMessagesAsRead(ticket);
 
-    return res.send({ mensagem: "Mensagem enviada" });
+    return res.send({ mensagem: "Mensaje enviado exitosamente" });
   } catch (err: any) {
+    console.error('❌ API SEND ERROR:', err);
     if (Object.keys(err).length === 0) {
       throw new AppError(
-        "Não foi possível enviar a mensagem, tente novamente em alguns instantes"
+        "No fue posible enviar el mensaje, intente nuevamente en unos instantes"
       );
     } else {
       throw new AppError(err.message);
@@ -222,9 +251,12 @@ export const addReaction = async (req: Request, res: Response): Promise<Response
       reactionType: type
     });
 
+    // ✅ Asegurar que reactions sea un array antes de agregar la nueva reacción
+    const currentReactions = message.reactions || [];
+    
     // Atualiza a mensagem com a nova reação no banco de dados (opcional, dependendo da necessidade)
     const updatedMessage = await message.update({
-      reactions: [...message.reactions, {type: type, userId: id}]
+      reactions: [...currentReactions, {type: type, userId: id}]
     });
 
     const io = getIO();

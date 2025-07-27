@@ -203,15 +203,15 @@ const Campaigns = () => {
   const formatStatus = (val) => {
     switch (val) {
       case "INATIVA":
-        return "Inativa";
+        return i18n.t("campaigns.report.statusValues.inactive");
       case "PROGRAMADA":
-        return "Programada";
+        return i18n.t("campaigns.report.statusValues.scheduled");
       case "EM_ANDAMENTO":
-        return "Em Andamento";
+        return i18n.t("campaigns.report.statusValues.inProgress");
       case "CANCELADA":
-        return "Cancelada";
+        return i18n.t("campaigns.report.statusValues.cancelled");
       case "FINALIZADA":
-        return "Finalizada";
+        return i18n.t("campaigns.report.statusValues.finished");
       default:
         return val;
     }
@@ -345,23 +345,25 @@ const Campaigns = () => {
                   </TableCell>
                   <TableCell align="center">
                     {campaign.contactListId
-                      ? campaign.contactList.name
-                      : "Não definida"}
+                      ? (campaign.contactList.name.length > 30 
+                          ? `${campaign.contactList.name.substring(0, 30)}...`
+                          : campaign.contactList.name)
+                      : i18n.t("campaigns.placeholders.notDefined")}
                   </TableCell>
                   <TableCell align="center">
                     {campaign.whatsappId
                       ? campaign.whatsapp.name
-                      : "Não definido"}
+                      : i18n.t("campaigns.placeholders.notDefinedMale")}
                   </TableCell>
                   <TableCell align="center">
                     {campaign.scheduledAt
                       ? datetimeToClient(campaign.scheduledAt)
-                      : "Sem agendamento"}
+                      : i18n.t("campaigns.placeholders.noScheduling")}
                   </TableCell>
                   <TableCell align="center">
                     {campaign.completedAt
                       ? datetimeToClient(campaign.completedAt)
-                      : "Não concluída"}
+                      : i18n.t("campaigns.placeholders.notCompleted")}
                   </TableCell>
                   {/* <TableCell align="center">
                     {campaign.confirmation ? "Habilitada" : "Desabilitada"}

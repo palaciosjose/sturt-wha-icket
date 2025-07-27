@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
@@ -17,9 +17,7 @@ import {
 	FormControl,
 	TextField,
 	InputAdornment,
-	IconButton,
-	Switch,
-	FormControlLabel
+	IconButton
   } from '@material-ui/core';
   
 import { Visibility, VisibilityOff } from '@material-ui/icons';
@@ -92,25 +90,37 @@ const UserModal = ({ open, onClose, userId }) => {
 	const [whatsappId, setWhatsappId] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
 	const { loading, whatsApps } = useWhatsApps();
+	const isMounted = useRef(true);
 
+	useEffect(() => {
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	useEffect(() => {
 		const fetchUser = async () => {
 			if (!userId) return;
 			try {
 				const { data } = await api.get(`/users/${userId}`);
-				setUser(prevState => {
-					return { ...prevState, ...data };
-				});
-				const userQueueIds = data.queues?.map(queue => queue.id);
-				setSelectedQueueIds(userQueueIds);
-				setWhatsappId(data.whatsappId ? data.whatsappId : '');
+				if (isMounted.current) {
+					setUser(prevState => {
+						return { ...prevState, ...data };
+					});
+					const userQueueIds = data.queues?.map(queue => queue.id);
+					setSelectedQueueIds(userQueueIds);
+					setWhatsappId(data.whatsappId ? data.whatsappId : '');
+				}
 			} catch (err) {
-				toastError(err);
+				if (isMounted.current) {
+					toastError(err);
+				}
 			}
 		};
 
-		fetchUser();
+		if (isMounted.current) {
+			fetchUser();
+		}
 	}, [userId, open]);
 
 	const handleClose = () => {

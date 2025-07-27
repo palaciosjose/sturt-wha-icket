@@ -6,7 +6,6 @@ import { makeStyles } from "@material-ui/core/styles";
 
 import TicketsManager from "../../components/TicketsManagerTabs/";
 import Ticket from "../../components/Ticket/";
-import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles(theme => ({
 	chatContainer: {
@@ -44,7 +43,7 @@ const useStyles = makeStyles(theme => ({
 	},
 }));
 
-const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/login.png`;
+const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
 const randomValue = Math.random(); // Generate a random number
   
 const logoWithRandom = `${logo}?r=${randomValue}`;

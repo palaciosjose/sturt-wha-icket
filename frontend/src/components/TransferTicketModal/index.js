@@ -28,18 +28,51 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 	const [loading, setLoading] = useState(false);
 	const [searchParam, setSearchParam] = useState("");
 	const [selectedUser, setSelectedUser] = useState(null);
+	const [autocompleteOpen, setAutocompleteOpen] = useState(false);
 
 	useEffect(() => {
-		if (!modalOpen || searchParam.length < 3) {
+		if (!modalOpen) {
 			setLoading(false);
 			return;
 		}
-		setLoading(true);
+
+		// ✅ CARGAR USUARIOS AUTOMÁTICAMENTE AL ABRIR EL MODAL
+		const fetchUsers = async () => {
+			setLoading(true);
+			try {
+				const { data } = await api.get("/users/", {
+					params: { 
+						searchParam: searchParam || "", // Si no hay búsqueda, traer todos
+						limit: 10 // Limitar a 10 usuarios inicialmente
+					},
+				});
+				setOptions(data.users);
+				setLoading(false);
+			} catch (err) {
+				setLoading(false);
+				toastError(err);
+			}
+		};
+
+		// ✅ CARGAR INMEDIATAMENTE AL ABRIR EL MODAL
+		fetchUsers();
+	}, [modalOpen]);
+
+	// ✅ BÚSQUEDA CON DEBOUNCE
+	useEffect(() => {
+		if (!modalOpen || !searchParam || searchParam.length < 2) {
+			return;
+		}
+
 		const delayDebounceFn = setTimeout(() => {
 			const fetchUsers = async () => {
+				setLoading(true);
 				try {
 					const { data } = await api.get("/users/", {
-						params: { searchParam },
+						params: { 
+							searchParam,
+							limit: 10
+						},
 					});
 					setOptions(data.users);
 					setLoading(false);
@@ -50,7 +83,8 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 			};
 
 			fetchUsers();
-		}, 500);
+		}, 300);
+
 		return () => clearTimeout(delayDebounceFn);
 	}, [searchParam, modalOpen]);
 
@@ -58,6 +92,8 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 		onClose();
 		setSearchParam("");
 		setSelectedUser(null);
+		setAutocompleteOpen(false);
+		setOptions([]);
 	};
 
 	const handleSaveTicket = async e => {
@@ -86,17 +122,40 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 				</DialogTitle>
 				<DialogContent dividers>
 					<Autocomplete
-						style={{ width: 300 }}
+						style={{ width: 400 }}
 						getOptionLabel={option => `${option.name}`}
 						onChange={(e, newValue) => {
 							setSelectedUser(newValue);
 						}}
 						options={options}
-						filterOptions={filterOptions}
-						freeSolo
+						filterOptions={(options, { inputValue }) => {
+							// ✅ FILTRO MEJORADO: Buscar por nombre y email
+							return options.filter(option => {
+								const searchTerm = inputValue.toLowerCase();
+								return (
+									option.name?.toLowerCase().includes(searchTerm) ||
+									option.email?.toLowerCase().includes(searchTerm)
+								);
+							});
+						}}
+						freeSolo={false}
 						autoHighlight
 						noOptionsText={i18n.t("transferTicketModal.noOptions")}
 						loading={loading}
+						open={autocompleteOpen}
+						onOpen={() => {
+							// ✅ ABRIR AUTCOMPLETE Y CARGAR USUARIOS
+							setAutocompleteOpen(true);
+							if (options.length === 0) {
+								setSearchParam("");
+							}
+						}}
+						onClose={() => {
+							setAutocompleteOpen(false);
+						}}
+						ListboxProps={{
+							style: { maxHeight: 200 }, // ✅ SCROLL CON ALTURA MÁXIMA
+						}}
 						renderInput={params => (
 							<TextField
 								{...params}
@@ -104,7 +163,10 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 								variant="outlined"
 								required
 								autoFocus
-								onChange={e => setSearchParam(e.target.value)}
+								onChange={e => {
+									setSearchParam(e.target.value);
+								}}
+								placeholder="Click aquí para ver usuarios disponibles"
 								InputProps={{
 									...params.InputProps,
 									endAdornment: (
@@ -117,6 +179,26 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid }) => {
 									),
 								}}
 							/>
+						)}
+						renderOption={(option) => (
+							<div style={{ 
+								display: 'flex', 
+								flexDirection: 'column',
+								padding: '8px 0'
+							}}>
+								<div style={{ fontWeight: 'bold' }}>
+									{option.name}
+								</div>
+								{option.email && (
+									<div style={{ 
+										fontSize: '12px', 
+										color: '#666',
+										marginTop: '2px'
+									}}>
+										{option.email}
+									</div>
+								)}
+							</div>
 						)}
 					/>
 				</DialogContent>

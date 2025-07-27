@@ -17,6 +17,7 @@ import ErrorIcon from '@material-ui/icons/Error';
 import moment from 'moment';
 
 import Rating from '@material-ui/lab/Rating';
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles(theme => ({
 	on: {
@@ -72,10 +73,10 @@ export default function TableAttendantsStatus(props) {
             <Table>
                 <TableHead>
                     <TableRow>
-                        <TableCell>Nome</TableCell>
-                        <TableCell align="center">Avaliações</TableCell>
-                        <TableCell align="center">T.M. de Atendimento</TableCell>
-                        <TableCell align="center">Status (Atual)</TableCell>
+                        <TableCell>{i18n.t("dashboard.table.name")}</TableCell>
+                        <TableCell align="center">{i18n.t("dashboard.table.assessments")}</TableCell>
+                        <TableCell align="center">{i18n.t("dashboard.table.avgServiceTime")}</TableCell>
+                        <TableCell align="center">{i18n.t("dashboard.table.status")}</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>

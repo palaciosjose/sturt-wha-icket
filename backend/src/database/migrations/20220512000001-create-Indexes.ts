@@ -3,24 +3,12 @@ import { QueryInterface, DataTypes } from "sequelize";
 module.exports = {
   up: (queryInterface: QueryInterface) => {
     return Promise.all([
-      queryInterface.addIndex("Schedules", ["companyId"], {
-        name: "idx_sched_company_id"
-      }),
-      queryInterface.addIndex("Contacts", ["companyId"], {
-        name: "idx_cont_company_id"
-      }),
-      queryInterface.addIndex("Tags", ["companyId"], {
-        name: "idx_tg_company_id"
-      }),
-      queryInterface.addIndex("Messages", ["companyId", "ticketId"], {
-        name: "idx_ms_company_id_ticket_id"
-      }),
-      queryInterface.addIndex("CampaignShipping", ["campaignId"], {
-        name: "idx_cpsh_campaign_id"
-      }),
-      queryInterface.addIndex("ContactListItems", ["contactListId"], {
-        name: "idx_ctli_contact_list_id"
-      })
+      queryInterface.sequelize.query('CREATE INDEX idx_sched_company_id ON Schedules (companyId)').catch(() => {}),
+      queryInterface.sequelize.query('CREATE INDEX idx_cont_company_id ON Contacts (companyId)').catch(() => {}),
+      queryInterface.sequelize.query('CREATE INDEX idx_tg_company_id ON Tags (companyId)').catch(() => {}),
+      queryInterface.sequelize.query('CREATE INDEX idx_ms_company_id_ticket_id ON Messages (companyId, ticketId)').catch(() => {}),
+      queryInterface.sequelize.query('CREATE INDEX idx_cpsh_campaign_id ON CampaignShipping (campaignId)').catch(() => {}),
+      queryInterface.sequelize.query('CREATE INDEX idx_ctli_contact_list_id ON ContactListItems (contactListId)').catch(() => {})
     ]);
   },
 

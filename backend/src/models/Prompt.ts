@@ -32,6 +32,10 @@ class Prompt extends Model<Prompt> {
   @Column
   apiKey: string;
 
+  @AllowNull(false)
+  @Column({ defaultValue: "openai" })
+  provider: string;
+
   @Column({ defaultValue: 10 })
   maxMessages: number;
 

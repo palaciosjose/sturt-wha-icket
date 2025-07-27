@@ -1,0 +1,137 @@
+import Schedule from "../../models/Schedule";
+import Contact from "../../models/Contact";
+import Message from "../../models/Message";
+import Ticket from "../../models/Ticket";
+import { SendMessage } from "../../helpers/SendMessage";
+import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
+import moment from "moment";
+import { getIO } from "../../libs/socket";
+import { logger } from "../../utils/logger";
+import { Op } from "sequelize";
+
+interface CancelReminderSystemRequest {
+  scheduleId: number;
+  companyId: number;
+  userId: number;
+}
+
+const CancelReminderSystemService = async ({
+  scheduleId,
+  companyId,
+  userId
+}: CancelReminderSystemRequest): Promise<void> => {
+  
+  try {
+    // Buscar el agendamiento principal
+    const mainSchedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId,
+        isReminderSystem: true,
+        reminderType: 'start'
+      },
+      include: [{ model: Contact, as: "contact" }]
+    });
+
+    if (!mainSchedule) {
+      throw new Error("Agendamiento no encontrado o no es parte del sistema de recordatorios");
+    }
+
+    // Buscar todos los agendamientos relacionados (recordatorios)
+    const relatedSchedules = await Schedule.findAll({
+      where: {
+        [Op.or]: [
+          { id: scheduleId },
+          { parentScheduleId: scheduleId.toString() }
+        ],
+        companyId,
+        isReminderSystem: true
+      }
+    });
+
+    
+
+    // Cambiar estado de todos los agendamientos relacionados a CANCELADO
+    for (const schedule of relatedSchedules) {
+      await schedule.update({
+        status: "CANCELADO"
+      });
+    }
+
+    // Enviar mensaje de cancelación
+    const cancelMessage = formatCancelMessage(mainSchedule.contact, mainSchedule.body, mainSchedule.sendAt);
+    const sentMessage = await sendCancelMessage(mainSchedule.contact, cancelMessage, companyId);
+    
+    // Guardar mensaje en la base de datos
+    if (sentMessage) {
+      const messageId = `cancel_reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await Message.create({
+        id: messageId,
+        body: cancelMessage,
+        fromMe: true,
+        read: true,
+        mediaUrl: null,
+        mediaType: null,
+        contactId: mainSchedule.contactId,
+        companyId: companyId,
+        ticketId: 42, // Usar ticket existente
+        ack: 1,
+        reactions: []
+      });
+
+      // Actualizar lastMessage del ticket
+      const ticket = await Ticket.findOne({
+        where: { contactId: mainSchedule.contactId, companyId },
+        order: [["createdAt", "DESC"]]
+      });
+
+      if (ticket) {
+        await ticket.update({ lastMessage: cancelMessage });
+      }
+    }
+
+    // Notificar por socket
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit("schedule", {
+      action: "update",
+      schedule: mainSchedule
+    });
+
+    
+
+  } catch (error) {
+    logger.error(`[CancelReminderSystem] ❌ Error cancelando reunión:`, error);
+    throw error;
+  }
+};
+
+const formatCancelMessage = (contact: Contact, body: string, scheduledTime: Date): string => {
+  const scheduledMoment = moment(scheduledTime);
+  return `❎ Hemos cancelado la reunión programada para:\n\n` +
+         `📆 Fecha: ${scheduledMoment.format('DD/MM/YYYY')}\n` +
+         `⏰ Hora: ${scheduledMoment.format('HH:mm')}\n` +
+         `🎯 Tema: ${body}\n\n` +
+         `📞 Contáctanos para reprogramar si es necesario`;
+};
+
+const sendCancelMessage = async (contact: Contact, message: string, companyId: number): Promise<boolean> => {
+  try {
+    const whatsapp = await GetDefaultWhatsApp(companyId);
+    if (!whatsapp) {
+      throw new Error("WhatsApp no configurado");
+    }
+
+    await SendMessage(whatsapp, {
+      number: contact.number,
+      body: message
+    });
+
+    
+    return true;
+  } catch (error) {
+    logger.error(`[CancelReminderSystem] ❌ Error enviando mensaje de cancelación a ${contact.name}:`, error);
+    throw error;
+  }
+};
+
+export { CancelReminderSystemService, formatCancelMessage, sendCancelMessage }; 

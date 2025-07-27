@@ -7,6 +7,7 @@ interface QueueData {
   option?: string;
   message?: string;
   parentId?: string;
+  transferQueueId?: number;
 }
 
 const UpdateService = async (

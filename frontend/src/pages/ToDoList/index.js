@@ -62,20 +62,20 @@ const ToDoList = () => {
 
   const handleAddTask = () => {
     if (!task.trim()) {
-      // Impede que o usuário crie uma tarefa sem texto
+      // Impede que o usuário crie una tarea sin texto
       return;
     }
 
     const now = new Date();
     if (editIndex >= 0) {
-      // Editar tarefa existente
+      // Editar tarea existente
       const newTasks = [...tasks];
       newTasks[editIndex] = {text: task, updatedAt: now, createdAt: newTasks[editIndex].createdAt};
       setTasks(newTasks);
       setTask('');
       setEditIndex(-1);
     } else {
-      // Adicionar nova tarefa
+      // Adicionar nueva tarea
       setTasks([...tasks, {text: task, createdAt: now, updatedAt: now}]);
       setTask('');
     }
@@ -97,13 +97,13 @@ const ToDoList = () => {
       <div className={classes.inputContainer}>
         <TextField
           className={classes.input}
-          label="Nova tarefa"
+          label="Nueva tarea"
           value={task}
           onChange={handleTaskChange}
           variant="outlined"
         />
         <Button variant="contained" color="primary" onClick={handleAddTask}>
-          {editIndex >= 0 ? 'Salvar' : 'Adicionar'}
+          {editIndex >= 0 ? 'Guardar' : 'Agregar'}
         </Button>
       </div>
       <div className={classes.listContainer}>

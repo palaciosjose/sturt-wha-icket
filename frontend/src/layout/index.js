@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
 import clsx from "clsx";
-import moment from "moment";
 import {
   makeStyles,
   Drawer,
@@ -27,7 +26,7 @@ import NotificationsVolume from "../components/NotificationsVolume";
 import UserModal from "../components/UserModal";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
-import DarkMode from "../components/DarkMode";
+
 import { i18n } from "../translate/i18n";
 import toastError from "../errors/toastError";
 import AnnouncementsPopover from "../components/AnnouncementsPopover";
@@ -41,6 +40,8 @@ import { useDate } from "../hooks/useDate";
 import ColorModeContext from "../layout/themeContext";
 import Brightness4Icon from '@material-ui/icons/Brightness4';
 import Brightness7Icon from '@material-ui/icons/Brightness7';
+import LoggerConfig from "../components/LoggerConfig";
+import SettingsIcon from '@material-ui/icons/Settings';
 
 const drawerWidth = 240;
 
@@ -54,11 +55,11 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.fancyBackground,
     '& .MuiButton-outlinedPrimary': {
       color: theme.mode === 'light' ? '#FFF' : '#FFF',
-	  backgroundColor: theme.mode === 'light' ? '#2f0549' : '#1c1c1c',
+	  backgroundColor: theme.mode === 'light' ? '#1e3a8a' : '#1f2937',
       //border: theme.mode === 'light' ? '1px solid rgba(0 124 102)' : '1px solid rgba(255, 255, 255, 0.5)',
     },
     '& .MuiTab-textColorPrimary.Mui-selected': {
-      color: theme.mode === 'light' ? '#2f0549' : '#FFF',
+      color: theme.mode === 'light' ? '#1e3a8a' : '#FFF',
     }
   },
   avatar: {
@@ -180,7 +181,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { handleLogout, loading } = useContext(AuthContext);
+  const [loggerConfigOpen, setLoggerConfigOpen] = useState(false);
+  const { loading } = useContext(AuthContext);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVariant, setDrawerVariant] = useState("permanent");
   // const [dueDate, setDueDate] = useState("");
@@ -300,10 +302,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     handleCloseMenu();
   };
 
-  const handleClickLogout = () => {
-    handleCloseMenu();
-    handleLogout();
-  };
+
 
   const drawerClose = () => {
     if (document.body.offsetWidth < 600) {
@@ -315,12 +314,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     window.location.reload(false);
   }
 
-  const handleMenuItemClick = () => {
-    const { innerWidth: width } = window;
-    if (width <= 600) {
-      setDrawerOpen(false);
-    }
-  };
+
 
   const toggleColorMode = () => {
     colorMode.toggleColorMode();
@@ -330,7 +324,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     return <BackdropLoading />;
   }
   
-  	const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/interno.png`;
+  	const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/interno.png`;
     const randomValue = Math.random(); // Generate a random number
   
     const logoWithRandom = `${logo}?r=${randomValue}`;
@@ -365,6 +359,10 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         onClose={() => setUserModalOpen(false)}
         userId={user?.id}
       />
+      <LoggerConfig
+        open={loggerConfigOpen}
+        onClose={() => setLoggerConfigOpen(false)}
+      />
       <AppBar
         position="absolute"
         className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
@@ -394,11 +392,11 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             {/* {greaterThenSm && user?.profile === "admin" && getDateAndDifDays(user?.company?.dueDate).difData < 7 ? ( */}
             {greaterThenSm && user?.profile === "admin" && user?.company?.dueDate ? (
               <>
-                Olá <b>{user.name}</b>, Bem vindo a <b>{user?.company?.name}</b>! (Ativo até {dateToClient(user?.company?.dueDate)})
+                ¡Hola <b>{user.name}</b>, Bienvenido a <b>{user?.company?.name}</b>! (Activo hasta {dateToClient(user?.company?.dueDate)})
               </>
             ) : (
               <>
-                Olá  <b>{user.name}</b>, Bem vindo a <b>{user?.company?.name}</b>!
+                ¡Hola <b>{user.name}</b>, Bienvenido a <b>{user?.company?.name}</b>!
               </>
             )}
           </Typography>
@@ -418,6 +416,15 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             color="inherit"
           >
             <CachedIcon style={{ color: "white" }} />
+          </IconButton>
+
+          <IconButton
+            onClick={() => setLoggerConfigOpen(true)}
+            aria-label="Configuración de Logs"
+            color="inherit"
+            title="Configuración de Logs"
+          >
+            <SettingsIcon style={{ color: "white" }} />
           </IconButton>
 
           {user.id && <NotificationsPopOver volume={volume} />}

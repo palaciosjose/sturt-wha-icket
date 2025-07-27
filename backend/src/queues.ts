@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/node";
 import BullQueue from "bull";
 import { addSeconds, differenceInSeconds } from "date-fns";
 import { isArray, isEmpty, isNil } from "lodash";
-import moment from "moment";
+import moment from "moment-timezone";
 import path from "path";
 import { Op, QueryTypes } from "sequelize";
 import sequelize from "./database";
@@ -18,14 +18,17 @@ import Company from "./models/Company";
 import Contact from "./models/Contact";
 import ContactList from "./models/ContactList";
 import ContactListItem from "./models/ContactListItem";
+import Message from "./models/Message";
 import Plan from "./models/Plan";
 import Schedule from "./models/Schedule";
+import Ticket from "./models/Ticket";
 import User from "./models/User";
 import Whatsapp from "./models/Whatsapp";
 import ShowFileService from "./services/FileServices/ShowService";
 import { getMessageOptions } from "./services/WbotServices/SendWhatsAppMedia";
 import { ClosedAllOpenTickets } from "./services/WbotServices/wbotClosedTickets";
 import { logger } from "./utils/logger";
+import GetTimezone from "./helpers/GetTimezone";
 
 
 const nodemailer = require('nodemailer');
@@ -198,48 +201,71 @@ async function handleSendMessage(job) {
 
 async function handleCloseTicketsAutomatic() {
   const job = new CronJob('*/1 * * * *', async () => {
-    const companies = await Company.findAll();
-    companies.map(async c => {
-
-      try {
-        const companyId = c.id;
-        await ClosedAllOpenTickets(companyId);
-      } catch (e: any) {
-        Sentry.captureException(e);
-        logger.error("ClosedAllOpenTickets -> Verify: error", e.message);
-        throw e;
+    try {
+      const companies = await Company.findAll();
+      let hasActivity = false;
+      
+      for (const c of companies) {
+        try {
+          const companyId = c.id;
+          await ClosedAllOpenTickets(companyId);
+          hasActivity = true;
+        } catch (e: any) {
+          Sentry.captureException(e);
+          logger.error(`[AutoClose] Error en empresa ${c.id}:`, e.message);
+        }
       }
-
-    });
+      
+      // Solo log si hay actividad (en desarrollo)
+      if (hasActivity && process.env.NODE_ENV === 'development') {
+        logger.debug(`[AutoClose] Verificación de tickets automáticos completada`);
+      }
+    } catch (e: any) {
+      Sentry.captureException(e);
+      logger.error("[AutoClose] Error general:", e.message);
+    }
   });
   job.start()
 }
 
 async function handleVerifySchedules(job) {
   try {
+    const now = moment();
     const { count, rows: schedules } = await Schedule.findAndCountAll({
       where: {
         status: "PENDENTE",
         sentAt: null,
         sendAt: {
-          [Op.gte]: moment().format("YYYY-MM-DD HH:mm:ss"),
-          [Op.lte]: moment().add("30", "seconds").format("YYYY-MM-DD HH:mm:ss")
+          [Op.lte]: now.format("YYYY-MM-DD HH:mm:ss") // Buscar agendamientos que YA DEBERÍAN haberse ejecutado
         }
       },
       include: [{ model: Contact, as: "contact" }]
     });
+    
     if (count > 0) {
-      schedules.map(async schedule => {
-        await schedule.update({
-          status: "AGENDADA"
-        });
-        sendScheduledMessages.add(
-          "SendMessage",
-          { schedule },
-          { delay: 40000 }
-        );
-        logger.info(`Disparo agendado para: ${schedule.contact.name}`);
-      });
+      logger.info(`[Schedules] Encontrados ${count} mensajes programados para enviar`);
+      
+      for (const schedule of schedules) {
+        try {
+          await schedule.update({
+            status: "AGENDADA"
+          });
+          
+          // Calcular delay basado en cuánto tiempo ha pasado desde la hora programada
+          const scheduledTime = moment(schedule.sendAt);
+          const delay = Math.max(0, now.diff(scheduledTime, 'milliseconds'));
+          
+          sendScheduledMessages.add(
+            "SendMessage",
+            { schedule },
+            { delay: delay + 1000 } // Agregar 1 segundo para asegurar que se ejecute
+          );
+          
+          logger.info(`[Schedules] Programado: ${schedule.contact.name} - Hora programada: ${scheduledTime.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
+        } catch (error) {
+          logger.error(`[Schedules] Error al procesar agendamiento ${schedule.id}:`, error.message);
+        }
+      }
     }
   } catch (e: any) {
     Sentry.captureException(e);
@@ -253,81 +279,189 @@ async function handleSendScheduledMessage(job) {
     data: { schedule }
   } = job;
   let scheduleRecord: Schedule | null = null;
+  let logPrefix = "[Schedules]"; // Definir logPrefix al inicio
 
   try {
     scheduleRecord = await Schedule.findByPk(schedule.id);
+    
+    if (!scheduleRecord) {
+      logger.error(`[Schedules] Agendamiento ${schedule.id} no encontrado`);
+      return;
+    }
+    
+    // Verificar que el agendamiento aún esté pendiente
+    if (scheduleRecord.status !== "AGENDADA") {
+      logger.warn(`[Schedules] Agendamiento ${schedule.id} ya no está en estado AGENDADA (actual: ${scheduleRecord.status})`);
+      return;
+    }
+    
   } catch (e) {
     Sentry.captureException(e);
-    logger.info(`Erro ao tentar consultar agendamento: ${schedule.id}`);
+    logger.error(`[Schedules] Error al consultar programación: ${schedule.id}`, e.message);
+    return;
   }
 
   try {
     const whatsapp = await GetDefaultWhatsApp(schedule.companyId);
+    
+    if (!whatsapp) {
+      throw new Error(`No se encontró WhatsApp configurado para la empresa ${schedule.companyId}`);
+    }
 
     let filePath = null;
     if (schedule.mediaPath) {
       filePath = path.resolve("public", schedule.mediaPath);
     }
 
-    await SendMessage(whatsapp, {
-      number: schedule.contact.number,
-      body: formatBody(schedule.body, schedule.contact),
-      mediaPath: filePath
-    });
+    // Determinar el tipo de mensaje a enviar
+    let messageBody = schedule.body;
 
-    await scheduleRecord?.update({
-      sentAt: moment().format("YYYY-MM-DD HH:mm"),
-      status: "ENVIADA"
-    });
+    if (scheduleRecord.isReminderSystem) {
+      // Importar función de formateo si es necesario
+      let formatStartMessage = null;
+      if (scheduleRecord.reminderType === 'start') {
+        const reminderService = require("../services/ScheduleServices/ReminderSystemService");
+        formatStartMessage = reminderService.formatStartMessage;
+      }
 
-    logger.info(`Mensagem agendada enviada para: ${schedule.contact.name}`);
-    sendScheduledMessages.clean(15000, "completed");
+      switch (scheduleRecord.reminderType) {
+        case 'reminder':
+          logPrefix = "[ReminderSystem] Recordatorio 10min antes";
+          break;
+        case 'start':
+          logPrefix = "[ReminderSystem] Mensaje de inicio";
+          // Si es el mensaje de inicio, usar el formato especial
+          if (formatStartMessage) {
+            messageBody = formatStartMessage(scheduleRecord.contact, scheduleRecord.body);
+          }
+          break;
+        default:
+          logPrefix = "[Schedules]";
+      }
+    }
+
+    logger.info(`${logPrefix} Enviando mensaje programado a ${schedule.contact.name} (${schedule.contact.number})`);
+    
+                      const sentMessage = await SendMessage(whatsapp, {
+                    number: schedule.contact.number,
+                    body: formatBody(messageBody, schedule.contact),
+                    mediaPath: filePath
+                  });
+
+                  // Guardar mensaje en la base de datos
+                  if (sentMessage) {
+                    const messageId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    await Message.create({
+                      id: messageId,
+                      body: formatBody(messageBody, schedule.contact),
+                      fromMe: true,
+                      read: true,
+                      mediaUrl: filePath,
+                      mediaType: schedule.mediaName ? path.extname(schedule.mediaName).substring(1) : null,
+                      contactId: schedule.contactId,
+                      companyId: schedule.companyId,
+                      ticketId: 42, // Usar ticket existente
+                      ack: 1,
+                      reactions: []
+                    });
+
+                    // Actualizar lastMessage del ticket
+                    const ticket = await Ticket.findOne({
+                      where: { contactId: schedule.contactId, companyId: schedule.companyId },
+                      order: [["createdAt", "DESC"]]
+                    });
+
+                    if (ticket) {
+                      await ticket.update({ lastMessage: formatBody(messageBody, schedule.contact) });
+                    }
+                  }
+
+                  await scheduleRecord.update({
+                    sentAt: moment().format("YYYY-MM-DD HH:mm:ss"),
+                    status: "ENVIADO",
+                    reminderStatus: "sent"
+                  });
+
+    logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente: ${schedule.contact.name} - ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
+    
   } catch (e: any) {
     Sentry.captureException(e);
-    await scheduleRecord?.update({
-      status: "ERRO"
+    await scheduleRecord.update({
+      status: "ERRO",
+      reminderStatus: "error"
     });
-    logger.error("SendScheduledMessage -> SendMessage: error", e.message);
+    logger.error(`${logPrefix} ❌ Error enviando mensaje programado: ${schedule.contact.name}`, e.message);
     throw e;
   }
 }
 
 async function handleVerifyCampaigns(job) {
-  /**
-   * @todo
-   * Implementar filtro de campanhas
-   */
-  const campaigns: { id: number; scheduledAt: string }[] =
-    await sequelize.query(
-      `select id, "scheduledAt" from "Campaigns" c
-    where "scheduledAt" between now() and now() + '1 hour'::interval and status = 'PROGRAMADA'`,
-      { type: QueryTypes.SELECT }
-    );
-
-  if (campaigns.length > 0)
-    logger.info(`Campanhas encontradas: ${campaigns.length}`);
-  
-  for (let campaign of campaigns) {
-    try {
-      const now = moment();
-      const scheduledAt = moment(campaign.scheduledAt);
-      const delay = scheduledAt.diff(now, "milliseconds");
-      logger.info(
-        `Campanha enviada para a fila de processamento: Campanha=${campaign.id}, Delay Inicial=${delay}`
+  try {
+    // Buscar campañas programadas para la próxima hora Y campañas que ya pasaron la hora
+    const campaigns: { id: number; scheduledAt: string; companyId: number }[] =
+      await sequelize.query(
+        `SELECT id, scheduledAt, companyId FROM Campaigns c
+         WHERE status = 'PROGRAMADA' 
+         AND (
+           scheduledAt BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 HOUR)
+           OR scheduledAt < NOW()
+         )`,
+        { type: QueryTypes.SELECT }
       );
-      campaignQueue.add(
-        "ProcessCampaign",
-        {
-          id: campaign.id,
-          delay
-        },
-        {
-          removeOnComplete: true
+    
+    if (campaigns.length > 0) {
+      logger.info(`[Campaigns] Encontradas ${campaigns.length} campañas para procesar`);
+      
+      // Mostrar detalles de cada campaña encontrada
+      campaigns.forEach((campaign, index) => {
+        logger.info(`[Campaigns] Campaña ${index + 1}: ID=${campaign.id}, Programada=${campaign.scheduledAt}`);
+      });
+      
+      for (let campaign of campaigns) {
+        try {
+          // Verificar si ya hay un job en proceso para esta campaña
+          const existingJobs = await campaignQueue.getJobs(['waiting', 'delayed', 'active']);
+          const hasExistingJob = existingJobs.some(job => 
+            job.name === "ProcessCampaign" && job.data.id === campaign.id
+          );
+          
+          if (hasExistingJob) {
+            logger.warn(`[Campaigns] Campaña ${campaign.id} ya está siendo procesada, saltando...`);
+            continue;
+          }
+          
+          // Obtener zona horaria dinámica
+          const timezone = await GetTimezone(campaign.companyId);
+          const now = moment().tz(timezone);
+          const scheduledAt = moment(campaign.scheduledAt).tz(timezone);
+          const delay = Math.max(0, scheduledAt.diff(now, "milliseconds")); // No permitir delays negativos
+          
+          if (scheduledAt.isBefore(now)) {
+            logger.info(`[Campaigns] Procesando campaña atrasada ${campaign.id} - Programada para: ${scheduledAt.format('YYYY-MM-DD HH:mm:ss')} (${now.diff(scheduledAt, 'hours', true).toFixed(1)} horas atrás)`);
+          } else {
+            logger.info(`[Campaigns] Procesando campaña ${campaign.id} - Programada para: ${scheduledAt.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
+          }
+          
+          campaignQueue.add(
+            "ProcessCampaign",
+            {
+              id: campaign.id,
+              delay
+            },
+            {
+              removeOnComplete: true
+            }
+          );
+        } catch (err: any) {
+          Sentry.captureException(err);
+          logger.error(`[Campaigns] Error al procesar campaña ${campaign.id}:`, err.message);
         }
-      );
-    } catch (err: any) {
-      Sentry.captureException(err);
+      }
     }
+  } catch (err: any) {
+    Sentry.captureException(err);
+    logger.error(`[Campaigns] Error en handleVerifyCampaigns:`, err.message);
+    logger.error(`[Campaigns] Stack trace:`, err.stack);
   }
 }
 
@@ -406,16 +540,16 @@ export function parseToMilliseconds(seconds) {
 }
 
 async function sleep(seconds) {
-  logger.info(
-    `Sleep de ${seconds} segundos iniciado: ${moment().format("HH:mm:ss")}`
-  );
+  // Solo log en desarrollo para evitar spam
+  if (process.env.NODE_ENV === 'development') {
+    logger.debug(`[Sleep] Iniciado: ${seconds}s - ${moment().format("HH:mm:ss")}`);
+  }
   return new Promise(resolve => {
     setTimeout(() => {
-      logger.info(
-        `Sleep de ${seconds} segundos finalizado: ${moment().format(
-          "HH:mm:ss"
-        )}`
-      );
+      // Solo log en desarrollo para evitar spam
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug(`[Sleep] Finalizado: ${seconds}s - ${moment().format("HH:mm:ss")}`);
+      }
       resolve(true);
     }, parseToMilliseconds(seconds));
   });
@@ -491,18 +625,65 @@ function getCampaignValidConfirmationMessages(campaign) {
 function getProcessedMessage(msg: string, variables: any[], contact: any) {
   let finalMessage = msg;
 
+  // Procesar variables de Mustache ({{variable}})
+  if (finalMessage.includes("{{firstName}}")) {
+    const firstName = contact.name ? contact.name.split(' ')[0] : '';
+    finalMessage = finalMessage.replace(/\{\{firstName\}\}/g, firstName);
+  }
+
+  if (finalMessage.includes("{{name}}")) {
+    finalMessage = finalMessage.replace(/\{\{name\}\}/g, contact.name || '');
+  }
+
+  if (finalMessage.includes("{{ms}}")) {
+    const now = new Date();
+    const hour = now.getHours();
+    let greeting = '';
+    
+    if (hour >= 6 && hour < 12) {
+      greeting = 'Buenos días';
+    } else if (hour >= 12 && hour < 18) {
+      greeting = 'Buenas tardes';
+    } else if (hour >= 18 && hour < 23) {
+      greeting = 'Buenas noches';
+    } else {
+      greeting = 'Buenas noches';
+    }
+    
+    finalMessage = finalMessage.replace(/\{\{ms\}\}/g, greeting);
+  }
+
+  if (finalMessage.includes("{{protocol}}")) {
+    const now = new Date();
+    const protocol = now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+    finalMessage = finalMessage.replace(/\{\{protocol\}\}/g, protocol);
+  }
+
+  if (finalMessage.includes("{{hora}}")) {
+    const now = new Date();
+    const hora = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    finalMessage = finalMessage.replace(/\{\{hora\}\}/g, hora);
+  }
+
+  // Procesar variables legacy ({variable})
   if (finalMessage.includes("{nome}")) {
-    finalMessage = finalMessage.replace(/{nome}/g, contact.name);
+    finalMessage = finalMessage.replace(/{nome}/g, contact.name || '');
   }
 
   if (finalMessage.includes("{email}")) {
-    finalMessage = finalMessage.replace(/{email}/g, contact.email);
+    finalMessage = finalMessage.replace(/{email}/g, contact.email || '');
   }
 
   if (finalMessage.includes("{numero}")) {
-    finalMessage = finalMessage.replace(/{numero}/g, contact.number);
+    finalMessage = finalMessage.replace(/{numero}/g, contact.number || '');
   }
 
+  // Procesar variables adicionales del sistema
   variables.forEach(variable => {
     if (finalMessage.includes(`{${variable.key}}`)) {
       const regex = new RegExp(`{${variable.key}}`, "g");
@@ -542,65 +723,112 @@ async function verifyAndFinalizeCampaign(campaign) {
 }
 
 function calculateDelay(index, baseDelay, longerIntervalAfter, greaterInterval, messageInterval) {
-  const diffSeconds = differenceInSeconds(baseDelay, new Date());
+  const now = new Date();
+  const scheduledTime = new Date(baseDelay);
+  const diffSeconds = differenceInSeconds(scheduledTime, now);
+  
+  // Calcular el delay total
+  let totalDelay = diffSeconds * 1000; // Convertir a milisegundos
+  
+  // Agregar el intervalo correspondiente
   if (index > longerIntervalAfter) {
-    return diffSeconds * 1000 + greaterInterval
+    totalDelay += greaterInterval;
   } else {
-    return diffSeconds * 1000 + messageInterval
+    totalDelay += messageInterval * 1000; // Convertir a milisegundos
   }
+  
+  // Asegurar que el delay no sea negativo
+  return Math.max(totalDelay, 0);
 }
 
 async function handleProcessCampaign(job) {
   try {
     const { id }: ProcessCampaignData = job.data;
+    logger.info(`[Campaign] Iniciando procesamiento de campaña ID: ${id}`);
+    
     const campaign = await getCampaign(id);
-    const settings = await getSettings(campaign);
-    if (campaign) {
-      const { contacts } = campaign.contactList;
-      if (isArray(contacts)) {
-        const contactData = contacts.map(contact => ({
-          contactId: contact.id,
-          campaignId: campaign.id,
-          variables: settings.variables,
-        }));
-
-        // const baseDelay = job.data.delay || 0;
-        const longerIntervalAfter = parseToMilliseconds(settings.longerIntervalAfter);
-        const greaterInterval = parseToMilliseconds(settings.greaterInterval);
-        const messageInterval = settings.messageInterval;
-
-        let baseDelay = campaign.scheduledAt;
-
-        const queuePromises = [];
-        for (let i = 0; i < contactData.length; i++) {
-          baseDelay = addSeconds(baseDelay, i > longerIntervalAfter ? greaterInterval : messageInterval);
-
-          const { contactId, campaignId, variables } = contactData[i];
-          const delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
-          const queuePromise = campaignQueue.add(
-            "PrepareContact",
-            { contactId, campaignId, variables, delay },
-            { removeOnComplete: true }
-          );
-          queuePromises.push(queuePromise);
-          logger.info(`Registro enviado pra fila de disparo: Campanha=${campaign.id};Contato=${contacts[i].name};delay=${delay}`);
-        }
-        await Promise.all(queuePromises);
-        await campaign.update({ status: "EM_ANDAMENTO" });
-      }
+    if (!campaign) {
+      logger.error(`[Campaign] Campaña ${id} no encontrada`);
+      return;
     }
+    
+    const settings = await getSettings(campaign);
+    logger.info(`[Campaign] Configuración de campaña ${id}:`, {
+      messageInterval: settings.messageInterval,
+      longerIntervalAfter: settings.longerIntervalAfter,
+      greaterInterval: settings.greaterInterval,
+      variablesCount: settings.variables.length
+    });
+    
+    const { contacts } = campaign.contactList;
+    if (!isArray(contacts) || contacts.length === 0) {
+      logger.warn(`[Campaign] Campaña ${id} no tiene contactos válidos`);
+      await campaign.update({ status: "FINALIZADA" });
+      return;
+    }
+    
+    logger.info(`[Campaign] Procesando ${contacts.length} contactos para campaña ${id}`);
+    
+    const contactData = contacts.map(contact => ({
+      contactId: contact.id,
+      campaignId: campaign.id,
+      variables: settings.variables,
+    }));
+
+    const longerIntervalAfter = settings.longerIntervalAfter; // En segundos
+    const greaterInterval = settings.greaterInterval; // En segundos
+    const messageInterval = settings.messageInterval; // En segundos
+
+    const queuePromises = [];
+    for (let i = 0; i < contactData.length; i++) {
+      // Calcular el tiempo base para este contacto
+      const baseDelay = addSeconds(campaign.scheduledAt, i * messageInterval);
+
+      const { contactId, campaignId, variables } = contactData[i];
+      const delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
+      
+      logger.info(`[Campaign] Programando contacto ${contacts[i].name} (${contacts[i].number}) para campaña ${campaignId} con delay: ${delay}ms`);
+      
+      const queuePromise = campaignQueue.add(
+        "PrepareContact",
+        { contactId, campaignId, variables, delay },
+        { removeOnComplete: true }
+      );
+      queuePromises.push(queuePromise);
+    }
+    
+    await Promise.all(queuePromises);
+    await campaign.update({ status: "EM_ANDAMENTO" });
+    
+    logger.info(`[Campaign] Campaña ${id} procesada exitosamente. Estado actualizado a EM_ANDAMENTO`);
   } catch (err: any) {
     Sentry.captureException(err);
+    logger.error(`[Campaign] Error procesando campaña ${job.data.id}:`, err.message);
   }
 }
 
-let ultima_msg = 0;
+// Variable para controlar el índice de mensajes por campaña
+const campaignMessageIndexes = new Map();
 async function handlePrepareContact(job) {
   try {
     const { contactId, campaignId, delay, variables }: PrepareContactData =
       job.data;
+    
+    logger.info(`[Prepare] Iniciando preparación de contacto: Contacto=${contactId}, Campaña=${campaignId}, Delay=${delay}ms`);
+    
     const campaign = await getCampaign(campaignId);
+    if (!campaign) {
+      logger.error(`[Prepare] Campaña ${campaignId} no encontrada`);
+      return;
+    }
+    
     const contact = await getContact(contactId);
+    if (!contact) {
+      logger.error(`[Prepare] Contacto ${contactId} no encontrado`);
+      return;
+    }
+
+    logger.info(`[Prepare] Procesando contacto: ${contact.name} (${contact.number})`);
 
     const campaignShipping: any = {};
     campaignShipping.number = contact.number;
@@ -608,19 +836,24 @@ async function handlePrepareContact(job) {
     campaignShipping.campaignId = campaignId;
 
     const messages = getCampaignValidMessages(campaign);
+    logger.info(`[Prepare] Mensajes válidos encontrados: ${messages.length}`);
+    
     if (messages.length) {
-      const radomIndex = ultima_msg;
-      console.log('ultima_msg:', ultima_msg);
-      ultima_msg++;
-      if (ultima_msg >= messages.length) {
-        ultima_msg = 0;
-      }
+      // Obtener el índice de mensaje para esta campaña específica
+      let messageIndex = campaignMessageIndexes.get(campaignId) || 0;
       const message = getProcessedMessage(
-        messages[radomIndex],
+        messages[messageIndex],
         variables,
         contact
       );
       campaignShipping.message = `\u200c ${message}`;
+      logger.info(`[Prepare] Mensaje preparado: ${message.substring(0, 50)}...`);
+      
+      // Incrementar el índice para el siguiente contacto de esta campaña
+      messageIndex = (messageIndex + 1) % messages.length;
+      campaignMessageIndexes.set(campaignId, messageIndex);
+    } else {
+      logger.warn(`[Prepare] No hay mensajes válidos para la campaña ${campaignId}`);
     }
 
     if (campaign.confirmation) {
@@ -634,16 +867,40 @@ async function handlePrepareContact(job) {
           contact
         );
         campaignShipping.confirmationMessage = `\u200c ${message}`;
+        logger.info(`[Prepare] Mensaje de confirmación preparado`);
       }
     }
 
-    const [record, created] = await CampaignShipping.findOrCreate({
+    // Verificar si ya existe un registro para este contacto en esta campaña
+    const existingRecord = await CampaignShipping.findOne({
       where: {
         campaignId: campaignShipping.campaignId,
         contactId: campaignShipping.contactId
-      },
-      defaults: campaignShipping
+      }
     });
+
+    let record, created;
+    if (existingRecord) {
+      record = existingRecord;
+      created = false;
+      logger.info(`[Prepare] Registro existente encontrado: ID=${record.id}`);
+      
+      // Si el registro ya existe y ya fue entregado, no procesar
+      if (record.deliveredAt !== null && record.deliveredAt !== undefined) {
+        logger.info(`[Prepare] Registro ya entregado, saltando procesamiento - deliveredAt: ${record.deliveredAt}`);
+        return;
+      }
+    } else {
+      record = await CampaignShipping.create(campaignShipping);
+      created = true;
+      logger.info(`[Prepare] Nuevo registro creado: ID=${record.id}`);
+    }
+
+    logger.info(`[Prepare] Registro de envío ${created ? 'creado' : 'actualizado'}: ID=${record.id}`);
+    logger.info(`[Prepare] Estado del registro - deliveredAt: ${record.deliveredAt}, jobId: ${record.jobId}`);
+    logger.info(`[Prepare] Tipo de deliveredAt: ${typeof record.deliveredAt}`);
+    logger.info(`[Prepare] deliveredAt === null: ${record.deliveredAt === null}`);
+    logger.info(`[Prepare] deliveredAt === undefined: ${record.deliveredAt === undefined}`);
 
     if (
       !created &&
@@ -652,12 +909,22 @@ async function handlePrepareContact(job) {
     ) {
       record.set(campaignShipping);
       await record.save();
+      logger.info(`[Prepare] Registro actualizado`);
     }
 
-    if (
-      record.deliveredAt === null &&
-      record.confirmationRequestedAt === null
-    ) {
+    // Siempre programar el envío si el registro no tiene deliveredAt
+    const isDelivered = record.deliveredAt !== null && record.deliveredAt !== undefined;
+    
+    logger.info(`[Prepare] Verificación de envío:`);
+    logger.info(`[Prepare] - record.deliveredAt: ${record.deliveredAt}`);
+    logger.info(`[Prepare] - typeof record.deliveredAt: ${typeof record.deliveredAt}`);
+    logger.info(`[Prepare] - record.deliveredAt === null: ${record.deliveredAt === null}`);
+    logger.info(`[Prepare] - record.deliveredAt === undefined: ${record.deliveredAt === undefined}`);
+    logger.info(`[Prepare] - isDelivered: ${isDelivered}`);
+    
+    if (!isDelivered) {
+      logger.info(`[Prepare] Programando envío con delay: ${delay}ms`);
+      
       const nextJob = await campaignQueue.add(
         "DispatchCampaign",
         {
@@ -671,12 +938,17 @@ async function handlePrepareContact(job) {
       );
 
       await record.update({ jobId: nextJob.id });
+      logger.info(`[Prepare] Job de envío programado: ${nextJob.id}`);
+    } else {
+      logger.info(`[Prepare] Registro ya entregado, saltando envío - deliveredAt: ${record.deliveredAt}`);
     }
 
     await verifyAndFinalizeCampaign(campaign);
+    logger.info(`[Prepare] Preparación completada para contacto ${contact.name}`);
   } catch (err: any) {
     Sentry.captureException(err);
-    logger.error(`campaignQueue -> PrepareContact -> error: ${err.message}`);
+    logger.error(`[Prepare] Error preparando contacto ${job.data.contactId}:`, err.message);
+    logger.error(`[Prepare] Stack trace:`, err.stack);
   }
 }
 
@@ -684,27 +956,47 @@ async function handleDispatchCampaign(job) {
   try {
     const { data } = job;
     const { campaignShippingId, campaignId }: DispatchCampaignData = data;
+    
+    logger.info(`[Dispatch] Iniciando envío de campaña: Campaña=${campaignId}, Envío=${campaignShippingId}`);
+    
     const campaign = await getCampaign(campaignId);
-    const wbot = await GetWhatsappWbot(campaign.whatsapp);
-
+    if (!campaign) {
+      logger.error(`[Dispatch] Campaña ${campaignId} no encontrada`);
+      return;
+    }
+    
+    logger.info(`[Dispatch] Campaña encontrada: ${campaign.name}, WhatsApp ID: ${campaign.whatsappId}`);
+    
+    // Si no hay WhatsApp específico para la campaña, usar el WhatsApp por defecto de la empresa
+    let whatsapp = campaign.whatsapp;
+    if (!whatsapp) {
+      logger.info(`[Dispatch] No hay WhatsApp específico para la campaña, buscando WhatsApp por defecto de la empresa`);
+      const defaultWhatsapp = await Whatsapp.findOne({
+        where: { companyId: campaign.companyId, isDefault: true }
+      });
+      if (defaultWhatsapp) {
+        whatsapp = defaultWhatsapp;
+        logger.info(`[Dispatch] WhatsApp por defecto encontrado: ${whatsapp.name}`);
+      } else {
+        logger.error(`[Dispatch] No se encontró WhatsApp por defecto para la empresa ${campaign.companyId}`);
+        return;
+      }
+    }
+    
+    const wbot = await GetWhatsappWbot(whatsapp);
     if (!wbot) {
-      logger.error(`campaignQueue -> DispatchCampaign -> error: wbot not found`);
+      logger.error(`[Dispatch] WhatsApp no encontrado para campaña ${campaignId}`);
       return;
     }
 
-    if (!campaign.whatsapp) {
-      logger.error(`campaignQueue -> DispatchCampaign -> error: whatsapp not found`);
-      return;
-    }
+    logger.info(`[Dispatch] WhatsApp encontrado: ${whatsapp.name}, Estado: ${whatsapp.status}`);
 
     if (!wbot?.user?.id) {
-      logger.error(`campaignQueue -> DispatchCampaign -> error: wbot user not found`);
+      logger.error(`[Dispatch] Usuario de WhatsApp no autenticado para campaña ${campaignId}`);
       return;
     }
 
-    logger.info(
-      `Disparo de campanha solicitado: Campanha=${campaignId};Registro=${campaignShippingId}`
-    );
+    logger.info(`[Dispatch] Usuario de WhatsApp autenticado: ${wbot.user.id}`);
 
     const campaignShipping = await CampaignShipping.findByPk(
       campaignShippingId,
@@ -712,52 +1004,85 @@ async function handleDispatchCampaign(job) {
         include: [{ model: ContactListItem, as: "contact" }]
       }
     );
-
-    const chatId = `${campaignShipping.number}@s.whatsapp.net`;
-
-    let body = campaignShipping.message;
-
-    if (campaign.confirmation && campaignShipping.confirmation === null) {
-      body = campaignShipping.confirmationMessage
+    
+    if (!campaignShipping) {
+      logger.error(`[Dispatch] Envío ${campaignShippingId} no encontrado`);
+      return;
     }
 
+    logger.info(`[Dispatch] Envío encontrado: ID=${campaignShipping.id}, Contacto=${campaignShipping.contact.name}, Número=${campaignShipping.number}`);
+
+    const chatId = `${campaignShipping.number}@s.whatsapp.net`;
+    logger.info(`[Dispatch] Chat ID: ${chatId}`);
+    logger.info(`[Dispatch] Enviando mensaje a: ${campaignShipping.contact.name} (${campaignShipping.number})`);
+
+    let body = campaignShipping.message;
+    logger.info(`[Dispatch] Mensaje a enviar: ${body}`);
+
+    if (campaign.confirmation && campaignShipping.confirmation === null) {
+      body = campaignShipping.confirmationMessage;
+      logger.info(`[Dispatch] Enviando mensaje de confirmación`);
+    }
+
+    // Enviar archivos si existen
     if (!isNil(campaign.fileListId)) {
       try {
+        logger.info(`[Dispatch] Enviando archivos adjuntos`);
         const publicFolder = path.resolve(__dirname, "..", "public");
         const files = await ShowFileService(campaign.fileListId, campaign.companyId)
         const folder = path.resolve(publicFolder, "fileList", String(files.id))
         for (const [index, file] of files.options.entries()) {
           const options = await getMessageOptions(file.path, path.resolve(folder, file.path), file.name);
           await wbot.sendMessage(chatId, { ...options });
+          logger.info(`[Dispatch] Archivo enviado: ${file.name}`);
         };
       } catch (error) {
-        logger.info(error);
+        logger.error(`[Dispatch] Error enviando archivos:`, error);
       }
     }
 
+    // Enviar media si existe
     if (campaign.mediaPath) {
-      const publicFolder = path.resolve(__dirname, "..", "public");
-      const filePath = path.join(publicFolder, campaign.mediaPath);
+      try {
+        logger.info(`[Dispatch] Enviando media: ${campaign.mediaName}`);
+        const publicFolder = path.resolve(__dirname, "..", "public");
+        const filePath = path.join(publicFolder, campaign.mediaPath);
 
-      const options = await getMessageOptions(campaign.mediaName, filePath, body);
-      if (Object.keys(options).length) {
-        await wbot.sendMessage(chatId, { ...options });
+        const options = await getMessageOptions(campaign.mediaName, filePath, body);
+        if (Object.keys(options).length) {
+          await wbot.sendMessage(chatId, { ...options });
+        }
+      } catch (error) {
+        logger.error(`[Dispatch] Error enviando media:`, error);
+      }
+    } else {
+      // Enviar mensaje de texto
+      try {
+        logger.info(`[Dispatch] Intentando enviar mensaje de texto...`);
+        if (campaign.confirmation && campaignShipping.confirmation === null) {
+          logger.info(`[Dispatch] Enviando mensaje de confirmación...`);
+          await wbot.sendMessage(chatId, {
+            text: body
+          });
+          await campaignShipping.update({ confirmationRequestedAt: moment() });
+          logger.info(`[Dispatch] Mensaje de confirmación enviado exitosamente`);
+        } else {
+          logger.info(`[Dispatch] Enviando mensaje de texto normal...`);
+          await wbot.sendMessage(chatId, {
+            text: body
+          });
+          logger.info(`[Dispatch] Mensaje de texto enviado exitosamente`);
+        }
+      } catch (error) {
+        logger.error(`[Dispatch] Error enviando mensaje de texto:`, error);
+        logger.error(`[Dispatch] Stack trace:`, error.stack);
+        throw error;
       }
     }
-    else {
-      if (campaign.confirmation && campaignShipping.confirmation === null) {
-        await wbot.sendMessage(chatId, {
-          text: body
-        });
-        await campaignShipping.update({ confirmationRequestedAt: moment() });
-      } else {
-
-        await wbot.sendMessage(chatId, {
-          text: body
-        });
-      }
-    }
+    
+    logger.info(`[Dispatch] Actualizando deliveredAt...`);
     await campaignShipping.update({ deliveredAt: moment() });
+    logger.info(`[Dispatch] Mensaje entregado exitosamente`);
 
     await verifyAndFinalizeCampaign(campaign);
 
@@ -767,19 +1092,17 @@ async function handleDispatchCampaign(job) {
       record: campaign
     });
 
-    logger.info(
-      `Campanha enviada para: Campanha=${campaignId};Contato=${campaignShipping.contact.name}`
-    );
+    logger.info(`[Dispatch] Campaña ${campaignId} enviada exitosamente a ${campaignShipping.contact.name}`);
   } catch (err: any) {
     Sentry.captureException(err);
-    logger.error(err.message);
+    logger.error(`[Dispatch] Error enviando campaña ${job.data.campaignId}:`, err.message);
     console.log(err.stack);
   }
 }
 
 async function handleLoginStatus(job) {
   const users: { id: number }[] = await sequelize.query(
-    `select id from "Users" where "updatedAt" < now() - '5 minutes'::interval and online = true`,
+    `SELECT id FROM Users WHERE updatedAt < DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND online = true`,
     { type: QueryTypes.SELECT }
   );
   for (let item of users) {

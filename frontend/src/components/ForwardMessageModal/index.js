@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
-import { useHistory } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
 
 import TextField from "@material-ui/core/TextField";
 import Dialog from "@material-ui/core/Dialog";
@@ -10,13 +9,14 @@ import Autocomplete, {
 	createFilterOptions,
 } from "@material-ui/lab/Autocomplete";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Button from "@material-ui/core/Button";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ButtonWithSpinner from "../ButtonWithSpinner";
 import ContactModal from "../ContactModal";
 import toastError from "../../errors/toastError";
-import { AuthContext } from "../../context/Auth/AuthContext";
+
 
 import { FormControlLabel, Switch, Typography } from "@material-ui/core";
 
@@ -27,10 +27,30 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 	const [selectedContact, setSelectedContact] = useState(null);
 	const [newContact, setNewContact] = useState({});
 	const [contactModalOpen, setContactModalOpen] = useState(false);
-	const { user } = useContext(AuthContext);
 	const [sending, setSending] = useState(false);
 	const [messageSending, setMessageSending] = useState('');
 	const [signMessage, setSignMessage] = useState(true);
+
+	const handleClose = useCallback(() => {
+		onClose();
+		setSearchParam("");
+		setSelectedContact(null);
+		setSending(false);
+	}, [onClose]);
+
+	// ✅ FUNCIONALIDAD DE TECLA ESC
+	useEffect(() => {
+		const handleKeyDown = (event) => {
+			if (event.key === 'Escape' && modalOpen) {
+				handleClose();
+			}
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		return () => {
+			document.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [modalOpen, handleClose]);
 
 	useEffect(() => {
 		if (!modalOpen || searchParam.length < 3) {
@@ -57,7 +77,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 		return () => clearTimeout(delayDebounceFn);
 	}, [searchParam, modalOpen]);
 
-	const history = useHistory();
+
 
 	const sleep = (ms) => {
 		return new Promise(resolve => setTimeout(resolve, ms));
@@ -90,12 +110,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 		}
 	};
 
-	const handleClose = () => {
-		onClose();
-		setSearchParam("");
-		setSelectedContact(null);
-		setSending(false);
-	};
+
 
 	const handleCloseContactModal = () => {
 		setContactModalOpen(false);
@@ -142,7 +157,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 			></ContactModal>
 			<Dialog open={modalOpen} onClose={handleClose}>
 				<DialogTitle id="form-dialog-title">
-					Encaminhar mensagem
+					{i18n.t("messageOptionsMenu.forward")} mensaje
 				</DialogTitle>
 				<DialogContent dividers>
 					<Autocomplete
@@ -210,6 +225,15 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 							/>
 						}
 					/>
+					{/* ✅ BOTÓN CANCELAR */}
+					<Button
+						variant="outlined"
+						onClick={handleClose}
+						disabled={sending}
+						color="secondary"
+					>
+						{i18n.t("transfersList.buttons.cancel")}
+					</Button>
 					<ButtonWithSpinner
 						variant="contained"
 						type="button"
@@ -218,7 +242,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 						color="primary"
 						loading={loading}
 					>
-						Encaminhar
+						{i18n.t("messageOptionsMenu.forward")}
 					</ButtonWithSpinner>
 				</DialogActions>
 			</Dialog>

@@ -42,7 +42,7 @@ const messages = {
           save: "Salvar",
           yes: "Sim",
           no: "Não",
-          money: "R$",
+          money: "$",
         },
       },
       companies: {
@@ -145,7 +145,6 @@ const messages = {
           expiresInactiveMessage: "Mensagem de encerramento por inatividade",
 		  greetingMessage: "Mensagem de saudação",
           complationMessage: "Mensagem de conclusão",
-		  sendIdQueue: "Fila",
         },
         buttons: {
           okAdd: "Adicionar",
@@ -170,14 +169,9 @@ const messages = {
           importTitle: "Importar contatos",
           deleteMessage: "Tem certeza que deseja deletar este contato? Todos os tickets relacionados serão perdidos.",
           deleteAllMessage: "Tem certeza que deseja deletar todos os contatos? Todos os tickets relacionados serão perdidos.",
-          importMessage: "Deseja importar todos os contatos do telefone?",
+          importMessage: "Esta ação irá importar os contatos salvos na agenda do WhatsApp. Alguns modelos podem não permitir essa funcionalidade ou de acordo com sua configuração de privacidade! Verifique em até 1 hora o resultado.",
+          importTitlte: "Importar contatos",
         },
-		confirmationModal:{
-			importTitlte: "Importar contatos",
-			importMessage: "Esta ação irá importar os contatos salvos na agenda do WhatsApp. Alguns modelos podem não permitir essa funcionalidade ou de acordo com sua configuração de privacidade! Verifique em até 1 hora o resultado.",
-			deleteTitle:"Deletar",
-			deleteMessage:"Tem certeza que deseja deletar este contato? Todos os atendimentos relacionados serão perdidos.",
-		},
         buttons: {
           import: "Importar Contatos",
 		  importSheet: "Import. Excel",
@@ -608,7 +602,6 @@ const messages = {
           add: "Adicionar",
           edit: "Editar",
           visao: "Permitir visão",
-		  geral: 'Global',
         },
         table: {
           shortcode: "Atalho",
@@ -1031,6 +1024,23 @@ const messages = {
           "Esta cor já está em uso, escolha outra.",
         ERR_WAPP_GREETING_REQUIRED:
           "A mensagem de saudação é obrigatório quando há mais de uma fila.",
+      },
+
+      hardcodedElements: {
+        atendimento: "ATENDIMENTOS",
+        tarefas: "TAREFAS",
+        gerencia: "GERÊNCIA",
+        campanhas: "CAMPANHAS",
+        listagem: "LISTAGEM",
+        configuracoes: "CONFIGURAÇÕES",
+        administracao: "ADMINISTRAÇÃO",
+        semFila: "SEM FILA",
+        sair: "SAIR",
+        sayHelloToNewContact: "Olá! Como posso ajudá-lo?",
+        admin: "ADMIN",
+        filas: "FILAS",
+        todos: "TODOS",
+        hey: "hey",
       },
     },
   },

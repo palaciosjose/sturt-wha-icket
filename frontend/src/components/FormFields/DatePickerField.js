@@ -17,22 +17,33 @@ export default function DatePickerField(props) {
 
   useEffect(() => {
     if (value) {
-      const date = new Date(value);
-      setSelectedDate(date);
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          setSelectedDate(date);
+        } else {
+          setSelectedDate(null);
+        }
+      } catch (error) {
+        setSelectedDate(null);
+      }
+    } else {
+      setSelectedDate(null);
     }
   }, [value]);
 
   function _onChange(date) {
-    if (date) {
+    if (date && !isNaN(date.getTime())) {
       setSelectedDate(date);
       try {
         const ISODateString = date.toISOString();
         setValue(ISODateString);
       } catch (error) {
-        setValue(date);
+        setValue(null);
       }
     } else {
-      setValue(date);
+      setSelectedDate(null);
+      setValue(null);
     }
   }
 

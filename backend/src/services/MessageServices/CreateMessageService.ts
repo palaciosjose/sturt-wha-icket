@@ -12,6 +12,7 @@ interface MessageData {
   read?: boolean;
   mediaType?: string;
   mediaUrl?: string;
+  mediaSize?: number;
   ack?: number;
   queueId?: number;
   isForwarded?: boolean;  

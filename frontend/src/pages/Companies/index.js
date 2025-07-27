@@ -1,28 +1,21 @@
 import React, { useState, useEffect } from "react";
-import qs from 'query-string'
+
 
 import * as Yup from "yup";
 import { useHistory } from "react-router-dom";
-import { Link as RouterLink } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Formik, Form, Field } from "formik";
 import usePlans from "../../hooks/usePlans";
-import Avatar from "@material-ui/core/Avatar";
 import Button from "@material-ui/core/Button";
 import CssBaseline from "@material-ui/core/CssBaseline";
 import TextField from "@material-ui/core/TextField";
-import Link from "@material-ui/core/Link";
 import Grid from "@material-ui/core/Grid";
-import Box from "@material-ui/core/Box";
 import InputMask from 'react-input-mask';
 import {
-	FormControl,
 	InputLabel,
 	MenuItem,
 	Select,
 } from "@material-ui/core";
-import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
-import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import { i18n } from "../../translate/i18n";
@@ -32,7 +25,7 @@ import toastError from "../../errors/toastError";
 import moment from "moment";
 
 
-const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/login.png`;
+const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
 const useStyles = makeStyles(theme => ({
 	paper: {
 		marginTop: theme.spacing(8),
@@ -65,12 +58,7 @@ const UserSchema = Yup.object().shape({
 const SignUp = () => {
 	const classes = useStyles();
 	const history = useHistory();
-	let companyId = null
 
-	const params = qs.parse(window.location.search)
-	if (params.companyId !== undefined) {
-		companyId = params.companyId
-	}
 
 	const initialState = { name: "", email: "", phone: "", password: "", planId: "", };
 
@@ -100,7 +88,7 @@ const SignUp = () => {
 			setPlans(list);
 		}
 		fetchData();
-	}, []);
+	}, [listPlans]);
 
 
 	return (
@@ -209,7 +197,7 @@ const SignUp = () => {
 									>
 										{plans.map((plan, key) => (
 											<MenuItem key={key} value={plan.id}>
-												{plan.name} - Atendentes: {plan.users} - WhatsApp: {plan.connections} - Filas: {plan.queues} - R$ {plan.value}
+												{plan.name} - Atendentes: {plan.users} - WhatsApp: {plan.connections} - Filas: {plan.queues} - $ {plan.value}
 											</MenuItem>
 										))}
 									</Field>

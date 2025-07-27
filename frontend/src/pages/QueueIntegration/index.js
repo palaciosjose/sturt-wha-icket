@@ -19,8 +19,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
-  Tooltip
+  TextField
 } from "@material-ui/core";
 
 import {
@@ -125,12 +124,14 @@ const QueueIntegration = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const planConfigs = await getPlanCompany(undefined, companyId);
-      if (!planConfigs.plan.useIntegrations) {
-        toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
-        setTimeout(() => {
-          history.push(`/`)
-        }, 1000);
+      if (companyId) {
+        const planConfigs = await getPlanCompany(undefined, companyId);
+        if (!planConfigs.plan.useIntegrations) {
+          toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
+          setTimeout(() => {
+            history.push(`/`)
+          }, 1000);
+        }
       }
     }
     fetchData();

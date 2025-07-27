@@ -19,7 +19,7 @@ import ContactModal from "../ContactModal";
 import toastError from "../../errors/toastError";
 import { makeStyles } from "@material-ui/core/styles";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import {  WhatsApp } from "@material-ui/icons";
+
 import { Grid, ListItemText, MenuItem, Select } from "@material-ui/core";
 import Typography from "@material-ui/core/Typography";
 import { toast } from "react-toastify";
@@ -55,9 +55,8 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
   const { user } = useContext(AuthContext);
   const { companyId, whatsappId } = user;
 
-  const [ openAlert, setOpenAlert ] = useState(false);
-	const [ userTicketOpen, setUserTicketOpen] = useState("");
-	const [ queueTicketOpen, setQueueTicketOpen] = useState("");
+
+
 
   useEffect(() => {
     if (initialContact?.id !== undefined) {
@@ -67,32 +66,46 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
   }, [initialContact]);
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
     const delayDebounceFn = setTimeout(() => {
       const fetchContacts = async () => {
-        api
-          .get(`/whatsapp`, { params: { companyId, session: 0 } })
-          .then(({ data }) => setWhatsapps(data));
+        try {
+          const { data } = await api.get(`/whatsapp`, { params: { companyId, session: 0 } });
+          if (isMounted) {
+            setWhatsapps(data);
+          }
+        } catch (error) {
+          console.error("Error fetching whatsapps:", error);
+        }
       };
 
-      if (whatsappId !== null && whatsappId!== undefined) {
-        setSelectedWhatsapp(whatsappId)
-      }
+      if (isMounted) {
+        if (whatsappId !== null && whatsappId !== undefined) {
+          setSelectedWhatsapp(whatsappId);
+        }
 
-      if (user.queues.length === 1) {
-        setSelectedQueue(user.queues[0].id)
+        if (user.queues.length === 1) {
+          setSelectedQueue(user.queues[0].id);
+        }
+        fetchContacts();
+        setLoading(false);
       }
-      fetchContacts();
-      setLoading(false);
     }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [])
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(delayDebounceFn);
+    };
+  }, [companyId, user.queues, whatsappId]);
 
   useEffect(() => {
     if (!modalOpen || searchParam.length < 3) {
       setLoading(false);
       return;
     }
+    
+    let isMounted = true;
     setLoading(true);
     const delayDebounceFn = setTimeout(() => {
       const fetchContacts = async () => {
@@ -100,16 +113,24 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
           const { data } = await api.get("contacts", {
             params: { searchParam },
           });
-          setOptions(data.contacts);
-          setLoading(false);
+          if (isMounted) {
+            setOptions(data.contacts);
+            setLoading(false);
+          }
         } catch (err) {
-          setLoading(false);
-          toastError(err);
+          if (isMounted) {
+            setLoading(false);
+            toastError(err);
+          }
         }
       };
       fetchContacts();
     }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(delayDebounceFn);
+    };
   }, [searchParam, modalOpen]);
 
   // const IconChannel = (channel) => {
@@ -128,19 +149,10 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
   const handleClose = () => {
     onClose();
     setSearchParam("");
-    setOpenAlert(false);
-    setUserTicketOpen("");
-    setQueueTicketOpen("");
     setSelectedContact(null);
   };
 
-  const handleCloseAlert = () => {
-    setOpenAlert(false);
-    setLoading(false);
-    setOpenAlert(false);
-    setUserTicketOpen("");
-    setQueueTicketOpen("");
-  };
+
 
   const handleSaveTicket = async contactId => {
     if (!contactId) return;
@@ -167,13 +179,9 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
       const ticket  = JSON.parse(err.response.data.error);
 
       if (ticket.userId !== user?.id) {
-        setOpenAlert(true);
-        setUserTicketOpen(ticket.user.name);
-        setQueueTicketOpen(ticket.queue.name);
+        // Ticket already open by another user
+        setLoading(false);
       } else {
-        setOpenAlert(false);
-        setUserTicketOpen("");
-        setQueueTicketOpen("");
         setLoading(false);
         onClose(ticket);
       }
@@ -402,12 +410,7 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
             {i18n.t("newTicketModal.buttons.ok")}
           </ButtonWithSpinner>
         </DialogActions>
-        {/* <ShowTicketOpen
-          isOpen={openAlert}
-          handleClose={handleCloseAlert}
-          user={userTicketOpen}
-          queue={queueTicketOpen}
-			  /> */}
+
       </Dialog >
     </>
   );

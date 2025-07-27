@@ -49,6 +49,13 @@ class QueueOption extends Model<QueueOption> {
 
   @BelongsTo(() => QueueOption, { foreignKey: 'parentId' })
   parent: QueueOption;
+
+  @ForeignKey(() => Queue)
+  @Column
+  transferQueueId: number;
+
+  @BelongsTo(() => Queue, { foreignKey: 'transferQueueId' })
+  transferQueue: Queue;
   
   @Column
   mediaPath: string;

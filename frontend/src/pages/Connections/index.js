@@ -26,7 +26,7 @@ import {
 	CropFree,
 	DeleteOutline,
 } from "@material-ui/icons";
-import formatSerializedId from '../../utils/formatSerializedId';
+
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
@@ -47,7 +47,7 @@ import { Can } from "../../components/Can";
 const useStyles = makeStyles(theme => ({
 	mainPaper: {
 		flex: 1,
-		padding: theme.spacing(1),
+		padding: theme.spacing(2),
 		overflowY: "scroll",
 		...theme.scrollbarStyles,
 	},
@@ -68,6 +68,23 @@ const useStyles = makeStyles(theme => ({
 	},
 	buttonProgress: {
 		color: green[500],
+	},
+	tableCell: {
+		padding: theme.spacing(1.5),
+		fontSize: '14px',
+	},
+	avatarCell: {
+		padding: theme.spacing(1),
+		textAlign: 'center',
+	},
+	tokenCell: {
+		padding: theme.spacing(1),
+		minWidth: '220px',
+		maxWidth: '250px',
+	},
+	instanceCell: {
+		padding: theme.spacing(1),
+		minWidth: '100px',
 	},
 }));
 
@@ -114,6 +131,12 @@ const Connections = () => {
 	const [confirmModalInfo, setConfirmModalInfo] = useState(
 		confirmationModalInitialState
 	);
+
+  // ✅ AGREGAR FUNCIÓN PARA REFRESCAR CONEXIONES
+  const refreshConnections = () => {
+    // Forzar re-render de las conexiones
+    window.location.reload();
+  };
 
   const restartWhatsapps = async () => {
     // const companyId = localStorage.getItem("companyId");
@@ -322,6 +345,7 @@ const Connections = () => {
 				open={whatsAppModalOpen}
 				onClose={handleCloseWhatsAppModal}
 				whatsAppId={!qrModalOpen && selectedWhatsApp?.id}
+				onSave={refreshConnections}
 			/>
 			<MainHeader>
 				<Title>{i18n.t("connections.title")}</Title>
@@ -343,7 +367,7 @@ const Connections = () => {
             					color="primary"
             					onClick={restartWhatsapps}
           					>
-            					{i18n.t("REINICIAR CONEXÕES")}
+            					{i18n.t("connections.buttons.restart")}
           					</Button>
 							</>
 						)}
@@ -357,9 +381,18 @@ const Connections = () => {
 							<TableCell align="center">
 								{i18n.t("connections.table.name")}
 							</TableCell>
+														<TableCell align="center">
+								{i18n.t("connections.table.number")}
+                            </TableCell>
 							<TableCell align="center">
-                            	{i18n.t("connections.table.number")}
-                            </TableCell>							
+								Avatar
+							</TableCell>
+							<TableCell align="center">
+								Instancia
+							</TableCell>
+							<TableCell align="center">
+								Token
+							</TableCell>							
 							<TableCell align="center">
 								{i18n.t("connections.table.status")}
 							</TableCell>
@@ -373,10 +406,10 @@ const Connections = () => {
 								)}
 							/>
 							<TableCell align="center">
-								{i18n.t("connections.table.lastUpdate")}
+								Fecha
 							</TableCell>
 							<TableCell align="center">
-								{i18n.t("connections.table.default")}
+								Default
 							</TableCell>
 							<Can
 								role={user.profile}
@@ -400,14 +433,104 @@ const Connections = () => {
 											<TableCell align="center">{whatsApp.name}</TableCell>
 											<TableCell align="center">
 											  {whatsApp.number ? (
-												<>
-												  {console.log("Número do WhatsApp:", whatsApp.number)}
-												  {console.log("Número formatado:", formatSerializedId(whatsApp.number))}
-												  {formatSerializedId(whatsApp.number)}
-												</>
+												<span style={{
+													fontFamily: 'monospace',
+													fontSize: '13px',
+													fontWeight: 'bold',
+													color: '#1976d2',
+													backgroundColor: '#e3f2fd',
+													padding: '4px 8px',
+													borderRadius: '4px',
+													border: '1px solid #1976d2'
+												}}>
+													{whatsApp.number}
+												</span>
 											  ) : (
 												"-"
 											  )}
+											</TableCell>
+											<TableCell align="center" className={classes.avatarCell}>
+												{whatsApp.avatar ? (
+													<img 
+														src={whatsApp.avatar} 
+														alt="Avatar" 
+														style={{ 
+															width: 45, 
+															height: 45, 
+															borderRadius: '50%',
+															border: '3px solid #ddd',
+															boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+														}}
+														onError={(e) => {
+															if (e.target) {
+																e.target.style.display = 'none';
+																if (e.target.nextSibling) {
+																	e.target.nextSibling.style.display = 'block';
+																}
+															}
+														}}
+													/>
+												) : (
+													<div style={{
+														width: 45,
+														height: 45,
+														borderRadius: '50%',
+														backgroundColor: '#1976d2',
+														color: 'white',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														fontWeight: 'bold',
+														fontSize: '18px',
+														boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+													}}>
+														{whatsApp.name ? whatsApp.name.charAt(0).toUpperCase() : '?'}
+													</div>
+												)}
+											</TableCell>
+											<TableCell align="center" className={classes.instanceCell}>
+												{whatsApp.instance ? (
+													<span style={{ 
+														fontFamily: 'monospace',
+														fontSize: '13px',
+														backgroundColor: '#f5f5f5',
+														padding: '6px 10px',
+														borderRadius: '6px',
+														border: '1px solid #757575',
+														fontWeight: 'bold',
+														color: '#424242'
+													}}>
+														{whatsApp.instance.replace('whatsapp_', '').replace('_', '')}
+													</span>
+												) : (
+													"-"
+												)}
+											</TableCell>
+											<TableCell align="center" className={classes.tokenCell}>
+												{whatsApp.token ? (
+													<Tooltip title={whatsApp.token} placement="top">
+														<span style={{ 
+															fontFamily: 'monospace',
+															fontSize: '11px',
+															backgroundColor: '#e3f2fd',
+															padding: '6px 10px',
+															borderRadius: '6px',
+															cursor: 'pointer',
+															border: '1px solid #2196f3',
+															fontWeight: 'bold',
+															color: '#1565c0',
+															maxWidth: '200px',
+															overflow: 'hidden',
+															textOverflow: 'ellipsis',
+															whiteSpace: 'nowrap',
+															display: 'inline-block'
+														}}>
+															{whatsApp.token}
+														</span>
+													</Tooltip>
+												) : (
+													"-"
+												)}
 											</TableCell>
 											<TableCell align="center">
 												{renderStatusToolTips(whatsApp)}
@@ -436,21 +559,33 @@ const Connections = () => {
 												perform="connections-page:editOrDeleteConnection"
 												yes={() => (
 													<TableCell align="center">
-														<IconButton
-															size="small"
-															onClick={() => handleEditWhatsApp(whatsApp)}
-														>
-															<Edit />
-														</IconButton>
+														<div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+															<IconButton
+																size="small"
+																onClick={() => handleEditWhatsApp(whatsApp)}
+																style={{ 
+																	backgroundColor: '#e3f2fd',
+																	border: '1px solid #2196f3',
+																	margin: '0 2px'
+																}}
+															>
+																<Edit style={{ fontSize: '18px', color: '#1976d2' }} />
+															</IconButton>
 
-														<IconButton
-															size="small"
-															onClick={e => {
-																handleOpenConfirmationModal("delete", whatsApp.id);
-															}}
-														>
-															<DeleteOutline />
-														</IconButton>
+															<IconButton
+																size="small"
+																onClick={e => {
+																	handleOpenConfirmationModal("delete", whatsApp.id);
+																}}
+																style={{ 
+																	backgroundColor: '#ffebee',
+																	border: '1px solid #f44336',
+																	margin: '0 2px'
+																}}
+															>
+																<DeleteOutline style={{ fontSize: '18px', color: '#d32f2f' }} />
+															</IconButton>
+														</div>
 													</TableCell>
 												)}
 											/>

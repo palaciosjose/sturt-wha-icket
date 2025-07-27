@@ -52,9 +52,17 @@ class QuickMessage extends Model<QuickMessage> {
   @Column
   get mediaPath(): string | null {
     if (this.getDataValue("mediaPath")) {
+      // ✅ CONSTRUIR URL CORRECTAMENTE SIN DUPLICAR PUERTO
+      let baseUrl = process.env.BACKEND_URL || 'http://localhost:8080';
       
-      return `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/quickMessage/${this.getDataValue("mediaPath")}`;
-
+      // ✅ SI BACKEND_URL YA INCLUYE PUERTO, NO AGREGAR PROXY_PORT
+      if (baseUrl.includes(':8080') || baseUrl.includes(':3000') || baseUrl.includes(':80') || baseUrl.includes(':443')) {
+        return `${baseUrl}/public/quickMessage/${this.getDataValue("mediaPath")}`;
+      }
+      
+      // ✅ SI NO INCLUYE PUERTO, AGREGAR PROXY_PORT SI EXISTE
+      const proxyPort = process.env.PROXY_PORT ? `:${process.env.PROXY_PORT}` : "";
+      return `${baseUrl}${proxyPort}/public/quickMessage/${this.getDataValue("mediaPath")}`;
     }
     return null;
   }

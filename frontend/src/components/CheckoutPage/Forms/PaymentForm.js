@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useEffect } from 'react';
 import Button from '@material-ui/core/Button';
 import Card from '@material-ui/core/Card';
 import CardActions from '@material-ui/core/CardActions';
@@ -8,10 +8,6 @@ import Grid from '@material-ui/core/Grid';
 import StarIcon from '@material-ui/icons/StarBorder';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
-
-import IconButton from '@material-ui/core/IconButton';
-import MinimizeIcon from '@material-ui/icons/Minimize';
-import AddIcon from '@material-ui/icons/Add';
 
 import usePlans from "../../../hooks/usePlans";
 import useCompanies from "../../../hooks/useCompanies";
@@ -71,101 +67,56 @@ export default function Pricing(props) {
     activeStep,
   } = props;
 
-  const handleChangeAdd = (event, newValue) => {
-    if (newValue < 3) return
-
-    const newPrice = 11.00;
-
-    setUsersPlans(newValue);
-    setCustomValuePlans(customValuePlans + newPrice);
-  }
-
-  const handleChangeMin = (event, newValue) => {
-    if (newValue < 3) return
-
-    const newPrice = 11;
-
-    setUsersPlans(newValue);
-    setCustomValuePlans(customValuePlans - newPrice);
-  }
-
-  const handleChangeConnectionsAdd = (event, newValue) => {
-    if (newValue < 3) return
-    const newPrice = 20.00;
-    setConnectionsPlans(newValue);
-    setCustomValuePlans(customValuePlans + newPrice);
-  }
-
-  const handleChangeConnectionsMin = (event, newValue) => {
-    if (newValue < 3) return
-    const newPrice = 20;
-    setConnectionsPlans(newValue);
-    setCustomValuePlans(customValuePlans - newPrice);
-  }
-
-  const { list, finder } = usePlans();
+  const { finder } = usePlans();
   const { find } = useCompanies();
 
   const classes = useStyles();
-  const [usersPlans, setUsersPlans] = React.useState(3);
-  const [companiesPlans, setCompaniesPlans] = useState(0);
-  const [connectionsPlans, setConnectionsPlans] = React.useState(3);
+  const usersPlans = 3;
+  const connectionsPlans = 3;
   const [storagePlans, setStoragePlans] = React.useState([]);
-  const [customValuePlans, setCustomValuePlans] = React.useState(49.00);
-  const [loading, setLoading] = React.useState(false);
+  const customValuePlans = 49.00;
   const companyId = localStorage.getItem("companyId");
 
   useEffect(() => {
-    async function fetchData() {
-      await loadCompanies();
-    }
-    fetchData();
-  }, [])
+    const loadPlans = async (companiesPlans) => {
+      try {
+        const plansCompanies = await finder(companiesPlans);
+        const plans = []
 
-  const loadCompanies = async () => {
-    setLoading(true);
-    try {
-      const companiesList = await find(companyId);
-      setCompaniesPlans(companiesList.planId);
-      await loadPlans(companiesList.planId);
-    } catch (e) {
-      console.log(e);
-      // toast.error("Não foi possível carregar a lista de registros");
-    }
-    setLoading(false);
-  };
-  const loadPlans = async (companiesPlans) => {
-    setLoading(true);
-    try {
-      const plansCompanies = await finder(companiesPlans);
-      const plans = []
+        plans.push({
+          title: plansCompanies.name,
+          planId: plansCompanies.id,
+          price: plansCompanies.value,
+          description: [
+            `${plansCompanies.users} Usuários`,
+            `${plansCompanies.connections} Conexão`,
+            `${plansCompanies.queues} Filas`
+          ],
+          users: plansCompanies.users,
+          connections: plansCompanies.connections,
+          queues: plansCompanies.queues,
+          buttonText: 'SELECIONAR',
+          buttonVariant: 'outlined',
+        })
 
-      //plansCompanies.forEach((plan) => {
-      plans.push({
-        title: plansCompanies.name,
-        planId: plansCompanies.id,
-        price: plansCompanies.value,
-        description: [
-          `${plansCompanies.users} Usuários`,
-          `${plansCompanies.connections} Conexão`,
-          `${plansCompanies.queues} Filas`
-        ],
-        users: plansCompanies.users,
-        connections: plansCompanies.connections,
-        queues: plansCompanies.queues,
-        buttonText: 'SELECIONAR',
-        buttonVariant: 'outlined',
-      })
+        setStoragePlans(plans);
+      } catch (e) {
+        console.log(e);
+        // toast.error("Não foi possível carregar a lista de registros");
+      }
+    };
 
-      // setStoragePlans(data);
-      //});
-      setStoragePlans(plans);
-    } catch (e) {
-      console.log(e);
-      // toast.error("Não foi possível carregar a lista de registros");
-    }
-    setLoading(false);
-  };
+    const loadCompanies = async () => {
+      try {
+        const companiesList = await find(companyId);
+        await loadPlans(companiesList.planId);
+      } catch (e) {
+        console.log(e);
+        // toast.error("Não foi possível carregar a lista de registros");
+      }
+    };
+    loadCompanies();
+  }, [companyId, find, finder])
 
 
   const tiers = storagePlans
@@ -190,7 +141,7 @@ export default function Pricing(props) {
                     {
 
                       <React.Fragment>
-                        R${tier.price.toLocaleString('pt-br', { minimumFractionDigits: 2 })}
+                        ${tier.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </React.Fragment>
                     }
                   </Typography>

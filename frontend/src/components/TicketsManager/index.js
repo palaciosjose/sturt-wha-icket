@@ -3,12 +3,10 @@ import React, { useContext, useEffect, useState } from "react";
 import { 
   Badge,
   Button,
-  FormControlLabel,
   makeStyles,
   Paper,
   Tab,
-  Tabs,
-  Switch
+  Tabs
 } from "@material-ui/core";
 
 import {
@@ -22,7 +20,6 @@ import NewTicketModal from "../NewTicketModal";
 import TicketsList from "../TicketsList";
 import TabPanel from "../TabPanel";
 import { TagsFilter } from "../TagsFilter";
-import { Can } from "../Can";
 import TicketsQueueSelect from "../TicketsQueueSelect";
 
 import { i18n } from "../../translate/i18n";
@@ -110,7 +107,6 @@ const TicketsManager = () => {
   const [tab, setTab] = useState("open");
   const [tabOpen] = useState("open");
   const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
-  const [showAllTickets, setShowAllTickets] = useState(false);
   const { user } = useContext(AuthContext);
 
   const [openCount, setOpenCount] = useState(0);
@@ -120,12 +116,7 @@ const TicketsManager = () => {
   const userQueueIds = user.queues.map((q) => q.id);
   const [selectedQueueIds, setSelectedQueueIds] = useState(userQueueIds || []);
 
-  useEffect(() => {
-    if (user.profile.toUpperCase() === "ADMIN") {
-      setShowAllTickets(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
 
   const handleSearch = (e) => {
     const searchedTerm = e.target.value.toLowerCase();
@@ -226,27 +217,7 @@ const TicketsManager = () => {
         >
           {i18n.t("ticketsManager.buttons.newTicket")}
         </Button>
-        <Can
-          role={user.profile}
-          perform="tickets-manager:showall"
-          yes={() => (
-            <FormControlLabel
-              label={i18n.t("tickets.buttons.showAll")}
-              labelPlacement="start"
-              control={
-                <Switch
-                  size="small"
-                  checked={showAllTickets}
-                  onChange={() =>
-                    setShowAllTickets((prevState) => !prevState)
-                  }
-                  name="showAllTickets"
-                  color="primary"
-                />
-              }
-            />
-          )}
-        />
+
         <TicketsQueueSelect
           style={{ marginLeft: 6 }}
           selectedQueueIds={selectedQueueIds}
@@ -259,7 +230,7 @@ const TicketsManager = () => {
         <Paper className={classes.ticketsWrapper}>
           <TicketsList
             status="open"
-            showAll={showAllTickets}
+            showAll={true}
             selectedQueueIds={selectedQueueIds}
             updateCount={(val) => setOpenCount(val)}
             style={applyPanelStyle("open")}

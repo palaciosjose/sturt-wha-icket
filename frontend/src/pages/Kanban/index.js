@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useReducer, useContext, useCallback } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import Board from 'react-trello';
 import { toast } from "react-toastify";
-import { i18n } from "../../translate/i18n";
 import { useHistory } from 'react-router-dom';
+import KanbanBoard from "../../components/KanbanBoard";
+import logger from "../../utils/logger";
 
 const useStyles = makeStyles(theme => ({
   root: {
     display: "flex",
     alignItems: "center",
     padding: theme.spacing(1),
+    height: "100%",
   },
   button: {
     background: "#10a110",
@@ -21,7 +22,6 @@ const useStyles = makeStyles(theme => ({
     fontWeight: "bold",
     borderRadius: "5px",
   },
-  
 }));
 
 const Kanban = () => {
@@ -29,41 +29,64 @@ const Kanban = () => {
   const history = useHistory();
 
   const [tags, setTags] = useState([]);
-  const [reloadData, setReloadData] = useState(false);
-  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useContext(AuthContext);
+  const jsonString = user.queues.map(queue => queue.UserQueue.queueId);
 
-
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async (retryCount = 0) => {
+    if (isLoading) return; // Evitar requests múltiples
+    
     try {
+      setIsLoading(true);
+      logger.dashboard.debug("🔄 Cargando tags de Kanban...");
       const response = await api.get("/tags/kanban");
       const fetchedTags = response.data.lista || []; 
-
       setTags(fetchedTags);
-
+      logger.dashboard.debug("✅ Tags cargados:", fetchedTags.length);
       // Fetch tickets after fetching tags
       await fetchTickets(jsonString);
     } catch (error) {
-      console.log(error);
+      // ✅ MANEJO SILENCIOSO DE ERRORES DE AUTENTICACIÓN
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        logger.dashboard.debug("🔄 Error de autenticación silenciado:", error.response.status);
+        // No mostrar error en consola para evitar spam
+        return;
+      }
+      
+      // Solo mostrar errores que no sean de autenticación
+      logger.dashboard.error("❌ Error cargando tags:", error);
+      
+      // Retry con backoff exponencial para errores de red
+      if (retryCount < 3 && (error.code === 'ERR_INSUFFICIENT_RESOURCES' || error.message?.includes('ERR_INSUFFICIENT_RESOURCES'))) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        logger.dashboard.warn(`🔄 Reintentando en ${delay}ms (intento ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchTags(retryCount + 1);
+        }, delay);
+        return;
+      }
+      
+      // Continuar sin tags si hay error después de retries
+      logger.dashboard.warn("⚠️ Continuando sin tags después de errores");
+      await fetchTickets(jsonString);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [jsonString, isLoading]);
 
   useEffect(() => {
-    fetchTags();
-  }, []);
-
-  const [file, setFile] = useState({
-    lanes: []
-  });
-
-
-  const [tickets, setTickets] = useState([]);
-  const { user } = useContext(AuthContext);
-  const { profile, queues } = user;
-  const jsonString = user.queues.map(queue => queue.UserQueue.queueId);
+    // Agregar delay para evitar requests simultáneos
+    const timer = setTimeout(() => {
+      fetchTags();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [fetchTags]);
 
   const fetchTickets = async (jsonString) => {
     try {
-      
+      logger.dashboard.debug("🔄 Cargando tickets de Kanban...");
       const { data } = await api.get("/ticket/kanban", {
         params: {
           queueIds: JSON.stringify(jsonString),
@@ -71,119 +94,119 @@ const Kanban = () => {
         }
       });
       setTickets(data.tickets);
+      logger.dashboard.debug("✅ Tickets cargados:", data.tickets?.length || 0);
     } catch (err) {
-      console.log(err);
+      logger.dashboard.error("❌ Error cargando tickets:", err);
+      // Si es error de autenticación, no hacer nada (ya manejado por interceptor)
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        logger.dashboard.warn("🔄 Error de autenticación, manejado por interceptor");
+        return;
+      }
       setTickets([]);
     }
   };
 
-
-  const popularCards = (jsonString) => {
-    const filteredTickets = tickets.filter(ticket => ticket.tags.length === 0);
-
-    const lanes = [
-      {
-        id: "lane0",
-        title: i18n.t("Em aberto"),
-        label: "0",
-        cards: filteredTickets.map(ticket => ({
-          id: ticket.id.toString(),
-          label: "Ticket nº " + ticket.id.toString(),
-          description: (
-              <div>
-                <p>
-                  {ticket.contact.number}
-                  <br />
-                  {ticket.lastMessage}
-                </p>
-                <button 
-                  className={classes.button} 
-                  onClick={() => {
-                    handleCardClick(ticket.uuid)
-                  }}>
-                    Ver Ticket
-                </button>
-              </div>
-            ),
-          title: ticket.contact.name,
-          draggable: true,
-          href: "/tickets/" + ticket.uuid,
-        })),
-      },
-      ...tags.map(tag => {
-        const filteredTickets = tickets.filter(ticket => {
-          const tagIds = ticket.tags.map(tag => tag.id);
-          return tagIds.includes(tag.id);
-        });
-
-        return {
-          id: tag.id.toString(),
-          title: tag.name,
-          label: tag.id.toString(),
-          cards: filteredTickets.map(ticket => ({
-            id: ticket.id.toString(),
-            label: "Ticket nº " + ticket.id.toString(),
-            description: (
-              <div>
-                <p>
-                  {ticket.contact.number}
-                  <br />
-                  {ticket.lastMessage}
-                </p>
-                <button 
-                  className={classes.button} 
-                  onClick={() => {
-                    
-                    handleCardClick(ticket.uuid)
-                  }}>
-                    Ver Ticket
-                </button>
-              </div>
-            ),
-            title: ticket.contact.name,
-            draggable: true,
-            href: "/tickets/" + ticket.uuid,          
-          })),
-          style: { backgroundColor: tag.color, color: "white" }
-        };
-      }),
-    ];
-
-    setFile({ lanes });
-  };
-
-  const handleCardClick = (uuid) => {  
-    //console.log("Clicked on card with UUID:", uuid);
-    history.push('/tickets/' + uuid);
-  };
-
-  useEffect(() => {
-    popularCards(jsonString);
-}, [tags, tickets, reloadData]);
-
   const handleCardMove = async (cardId, sourceLaneId, targetLaneId) => {
     try {
+      logger.dashboard.debug("🔄 Moviendo ticket:", { cardId, sourceLaneId, targetLaneId });
+      
+      // ✅ MANEJAR CASO ESPECIAL: ABIERTOS (sin etiquetas)
+      if (targetLaneId === 'abiertos') {
+        // Solo eliminar etiquetas existentes para mover a ABIERTOS
+        if (sourceLaneId && sourceLaneId !== targetLaneId) {
+          try {
+            const sourceTag = tags.find(tag => {
+              if (sourceLaneId === 'atencion') return tag.name === 'Atención';
+              if (sourceLaneId === 'cerrado') return tag.name === 'Cerrado';
+              return false;
+            });
+            
+            if (sourceTag) {
+              await api.delete(`/ticket-tags/${cardId}`);
+              logger.dashboard.debug("✅ Etiqueta eliminada para mover a ABIERTOS");
+            }
+          } catch (deleteErr) {
+            logger.dashboard.debug("ℹ️ Etiqueta no existía en origen:", deleteErr.response?.status);
+          }
+        }
         
-          await api.delete(`/ticket-tags/${targetLaneId}`);
-        toast.success('Ticket Tag Removido!');
-          await api.put(`/ticket-tags/${targetLaneId}/${sourceLaneId}`);
-        toast.success('Ticket Tag Adicionado com Sucesso!');
-
+        toast.success('Ticket movido a ABIERTOS exitosamente!');
+        logger.dashboard.debug("✅ Ticket movido a ABIERTOS");
+        
+        // Recargar datos después del movimiento
+        setTimeout(() => {
+          fetchTags();
+        }, 500);
+        return;
+      }
+      
+      // ✅ MANEJAR ETIQUETAS NORMALES (ATENCIÓN, CERRADO)
+      const targetTag = tags.find(tag => {
+        if (targetLaneId === 'atencion') return tag.name === 'Atención';
+        if (targetLaneId === 'cerrado') return tag.name === 'Cerrado';
+        return false;
+      });
+      
+      if (!targetTag) {
+        logger.dashboard.error("❌ Tag no encontrado para:", targetLaneId);
+        toast.error('Error: Tag no encontrado');
+        return;
+      }
+      
+      // Solo eliminar el tag si existe en el origen
+      if (sourceLaneId && sourceLaneId !== targetLaneId) {
+        try {
+          // Encontrar el tag del origen
+          const sourceTag = tags.find(tag => {
+            if (sourceLaneId === 'atencion') return tag.name === 'Atención';
+            if (sourceLaneId === 'cerrado') return tag.name === 'Cerrado';
+            return false;
+          });
+          
+          if (sourceTag) {
+            await api.delete(`/ticket-tags/${cardId}`);
+            logger.dashboard.debug("✅ Tag eliminado del origen");
+          }
+        } catch (deleteErr) {
+          // Si el tag no existe, no es un error
+          logger.dashboard.debug("ℹ️ Tag no existía en origen:", deleteErr.response?.status);
+        }
+      }
+      
+      // Agregar el tag al destino
+      if (targetTag) {
+        await api.put(`/ticket-tags/${cardId}/${targetTag.id}`);
+        logger.dashboard.debug("✅ Tag agregado al destino");
+        toast.success('Ticket movido exitosamente!');
+      }
+      
+      logger.dashboard.debug("✅ Ticket movido exitosamente");
+      
+      // Recargar datos después del movimiento
+      setTimeout(() => {
+        fetchTags();
+      }, 500);
+      
     } catch (err) {
-      console.log(err);
+      logger.dashboard.error("❌ Error moviendo ticket:", err);
+      toast.error('Error al mover el ticket');
     }
+  };
+
+  const handleCardClick = (ticket) => {
+    history.push('/tickets/' + ticket.uuid);
   };
 
   return (
     <div className={classes.root}>
-      <Board 
-		data={file} 
-		onCardMoveAcrossLanes={handleCardMove}
-		style={{backgroundColor: 'rgba(252, 252, 252, 0.03)'}}
-    />
+      <KanbanBoard 
+        tickets={tickets}
+        tags={tags}
+        onCardMove={handleCardMove}
+        onCardClick={handleCardClick}
+      />
     </div>
   );
 };
-
 
 export default Kanban;

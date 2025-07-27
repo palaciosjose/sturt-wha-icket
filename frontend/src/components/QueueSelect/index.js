@@ -65,39 +65,50 @@ const QueueSelect = ({ selectedQueueIds, onChange, multiple = true, title = i18n
 					}}
 
 					renderValue={selected => {
-						return (
-							<div className={classes.chips}>
-								{selected?.length > 0 && multiple ? (
-									selected.map(id => {
-										const queue = queues.find(q => q.id === id);
-										return queue ? (
-											<Chip
-												key={id}
-												style={{ backgroundColor: queue.color }}
-												variant="outlined"
-												label={queue.name}
-												className={classes.chip}
-											/>
-										) : null;
-									})
-
-								) :
-									(
-										<Chip
-											key={selected}
-											variant="outlined"
-											style={{ backgroundColor: queues.find(q => q.id === selected)?.color }}
-											label={queues.find(q => q.id === selected)?.name}
-											className={classes.chip}
-										/>
-									)
-								}
-
-							</div>
-						)
+						if (!selected || selected === null) {
+							return <span style={{ color: '#999' }}>Seleccionar...</span>;
+						}
+						
+						if (multiple) {
+							return (
+								<div className={classes.chips}>
+									{selected?.length > 0 ? (
+										selected.map(id => {
+											const queue = queues.find(q => q.id === id);
+											return queue ? (
+												<Chip
+													key={id}
+													style={{ backgroundColor: queue.color }}
+													variant="outlined"
+													label={queue.name}
+													className={classes.chip}
+												/>
+											) : null;
+										})
+									) : null}
+								</div>
+							);
+						} else {
+							// ✅ SELECCIÓN ÚNICA
+							const queue = queues.find(q => q.id === selected);
+							
+							if (queue) {
+								return (
+									<Chip
+										key={selected}
+										variant="outlined"
+										style={{ backgroundColor: queue.color }}
+										label={queue.name}
+										className={classes.chip}
+									/>
+								);
+							} else {
+								return <span style={{ color: '#999' }}>Seleccionar...</span>;
+							}
+						}
 					}}
 				>
-					{!multiple && <MenuItem value={null}>Nenhum</MenuItem>}
+					{!multiple && <MenuItem value="">Ninguna</MenuItem>}
 					{queues.map(queue => (
 						<MenuItem key={queue.id} value={queue.id}>
 							{queue.name}

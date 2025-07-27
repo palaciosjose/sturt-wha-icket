@@ -8,6 +8,7 @@ import DeleteWhatsAppService from "../services/WhatsappService/DeleteWhatsAppSer
 import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsService";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
+import GetWhatsAppInfoService from "../services/WhatsappService/GetWhatsAppInfoService";
 import AppError from "../errors/AppError";
 
 interface WhatsappData {
@@ -108,7 +109,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const { companyId } = req.user;
-  const { session } = req.query;
+  const { session } = req.query as QueryParams;
 
   const whatsapp = await ShowWhatsAppService(whatsappId, companyId, session);
 
@@ -123,13 +124,21 @@ export const update = async (
   const whatsappData = req.body;
   const { companyId } = req.user;
 
+  console.log("🔄 ACTUALIZANDO WHATSAPP:", whatsappId);
+  console.log("📋 DATOS RECIBIDOS:", whatsappData);
+
   const { whatsapp, oldDefaultWhatsapp } = await UpdateWhatsAppService({
     whatsappData,
     whatsappId,
     companyId
   });
 
+  console.log("✅ WHATSAPP ACTUALIZADO:", whatsapp.id);
+  console.log("📋 DEPARTAMENTOS ACTUALES:", whatsapp.queues?.map(q => q.name));
+
   const io = getIO();
+  
+  // ✅ EMITIR EVENTO DE ACTUALIZACIÓN CON DATOS COMPLETOS
   io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
     action: "update",
     whatsapp
@@ -141,6 +150,12 @@ export const update = async (
       whatsapp: oldDefaultWhatsapp
     });
   }
+
+  // ✅ EMITIR EVENTO DE REFRESCO GENERAL
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
+    action: "refresh",
+    whatsappId: whatsapp.id
+  });
 
   return res.status(200).json(whatsapp);
 };
@@ -180,4 +195,23 @@ export const restart = async (
   await restartWbot(companyId);
 
   return res.status(200).json({ message: "Whatsapp restart." });
+};
+
+export const getInfo = async (req: Request, res: Response): Promise<Response> => {
+  const { whatsappId } = req.params;
+  const { companyId } = req.user;
+
+  try {
+    const whatsappInfo = await GetWhatsAppInfoService(parseInt(whatsappId));
+    
+    // Verificar que pertenece a la empresa
+    const whatsapp = await ShowWhatsAppService(whatsappId, companyId);
+    if (whatsapp.companyId !== companyId) {
+      throw new AppError("No tienes permisos para acceder a esta conexión", 403);
+    }
+
+    return res.status(200).json(whatsappInfo);
+  } catch (error) {
+    throw new AppError(error.message, 400);
+  }
 };

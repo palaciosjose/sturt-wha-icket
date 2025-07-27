@@ -119,6 +119,7 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
 				onClose={handleCloseScheduleModal}
 				aria-labelledby="form-dialog-title"
 				contactId={contactId}
+				ticketId={ticket.id}
 			/>
 		</>
 	);

@@ -18,6 +18,7 @@ interface PromptData {
     voice?: string;
     voiceKey?: string;
     voiceRegion?: string;
+    provider?: string;
 }
 
 const CreatePromptService = async (promptData: PromptData): Promise<Prompt> => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext, useCallback } from "react";
+import React, { useState, useEffect, useReducer, useContext } from "react";
 import { toast } from "react-toastify";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -295,7 +295,7 @@ const Quickemessages = () => {
               <TableCell align="center">{quickemessage.shortcode}</TableCell>
               
               <TableCell align="center">
-                {quickemessage.mediaName ?? "Sem anexo"}
+                {quickemessage.mediaName ?? "Sin anexo"}
               </TableCell>
               <TableCell align="center">
         {quickemessage.geral === true ? (

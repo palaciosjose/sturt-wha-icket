@@ -1,32 +1,18 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useHistory } from "react-router-dom";
 
 import api from "../../services/api";
-import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import {
   makeStyles,
-  Table,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  IconButton,
 } from "@material-ui/core";
 import { i18n } from "../../translate/i18n";
-import { head } from "lodash";
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import Grid from "@material-ui/core/Grid";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
 import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import TextField from "@material-ui/core/TextField";
-import Title from "../Title";
-import Paper from "@material-ui/core/Paper";
-import Typography from "@material-ui/core/Typography";
-import useSettings from "../../hooks/useSettings";
 import { grey, blue } from "@material-ui/core/colors";
 import { Tabs, Tab } from "@material-ui/core";
 import ButtonWithSpinner from "../ButtonWithSpinner";
@@ -53,11 +39,11 @@ const useStyles = makeStyles((theme) => ({
     height: 240,
   },
   tab: {
-    background: "#f2f5f3",
+    background: "#f3f4f6",
     borderRadius: 4,
     width: "100%",
     "& .MuiTab-wrapper": {
-      color: "#128c7e"
+      color: "#1e3a8a"
     },
     "& .MuiTabs-flexContainer": {
       justifyContent: "center"
@@ -101,15 +87,12 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "right",
     padding: theme.spacing(1),
   },
-  fullWidth: {
-    width: "100%",
-  },
   fileInput: {
   	background: "red",
   },
   fileInputLabel: {
     display: "inline-block",
-    backgroundColor: "#7c7c7c",
+    backgroundColor: "#1e3a8a",
     color: "#fff",
     padding: "8px 16px",
     borderRadius: "4px",
@@ -122,11 +105,9 @@ const useStyles = makeStyles((theme) => ({
 
 const Uploader = () => {
   const [file, setFile] = useState(null);
-  const [uploaded, setUploaded] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
   const classes = useStyles();
   const { user } = useContext(AuthContext);
-  const { profile } = user;
   const history = useHistory();
   const [selectedFileName, setSelectedFileName] = useState('');
 
@@ -136,7 +117,7 @@ const Uploader = () => {
   useEffect(() => {
     async function fetchData() {
       if (!user.super) {
-        toast.error("Sem permissão para acessar!");
+        toast.error(i18n.t("uploader.messages.noPermission"));
         setTimeout(() => {
           history.push(`/`)
         }, 500);
@@ -157,7 +138,7 @@ const handleFileChange = (event) => {
   } else {
     setFile(null);
     setSelectedFileName(null);
-    toast.error("Use somente arquivos em formato PNG, ICO ou SVG!");
+    toast.error(i18n.t("uploader.messages.invalidFormat"));
   }
 };
 
@@ -169,12 +150,12 @@ const handleFileChange = (event) => {
     event.preventDefault();
 
     if (!file) {
-      toast.warn("Escolha um arquivo!");
+      toast.warn(i18n.t("uploader.messages.chooseFile"));
       return;
     }
 
     if (!selectedOption) {
-      toast.warn("Escolha um destino!");
+      toast.warn(i18n.t("uploader.messages.chooseDestination"));
       return;
     }
 
@@ -184,8 +165,7 @@ const handleFileChange = (event) => {
       const response = await api.post(`/settings/media-upload?ref=${selectedOption}`, formData);
 
       if (response.data.mensagem === 'Arquivo Anexado') {
-        setUploaded(true);
-        toast.success("Arquivo enviado com sucesso!");
+        toast.success(i18n.t("uploader.messages.fileSent"));
         window.location.reload();
 
       }
@@ -198,6 +178,7 @@ return (
   <>
     <Grid spacing={3} container>
       <Tabs
+        value={0}
         indicatorColor="primary"
         textColor="primary"
         scrollButtons="on"
@@ -208,26 +189,26 @@ return (
           marginTop: 20
         }}
       >
-        <Tab label="Logotipos / Ícones" />
+        <Tab label={i18n.t("uploader.title")} />
       </Tabs>
 
       <form onSubmit={handleSubmit} className={classes.fullWidth}>
       
       	<Grid item xs={12} sm={12} md={12} style={{ display: 'flex' }}>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="selectOption-label">Escolha uma opção:</InputLabel>
+            <InputLabel id="selectOption-label">{i18n.t("uploader.selectOption")}</InputLabel>
             <Select
               labelId="selectOption-label"
               value={selectedOption}
               onChange={handleOptionChange}
               style={{ marginTop: 15, marginBottom: 15}}
             >
-              <MenuItem value="signup">Tela de Registro</MenuItem>
-              <MenuItem value="login">Tela de Login</MenuItem>
-              <MenuItem value="interno">Logotipo Interno</MenuItem>
-			  <MenuItem value="favicon">Favicon.Ico</MenuItem>
-              <MenuItem value="favicon-256x256">Ícone 256x256</MenuItem>
-			  <MenuItem value="apple-touch-icon">Apple Touch Icon</MenuItem>
+              <MenuItem value="signup">{i18n.t("uploader.options.signup")}</MenuItem>
+              <MenuItem value="login">{i18n.t("uploader.options.login")}</MenuItem>
+              <MenuItem value="interno">{i18n.t("uploader.options.internal")}</MenuItem>
+			  <MenuItem value="favicon">{i18n.t("uploader.options.favicon")}</MenuItem>
+              <MenuItem value="favicon-256x256">{i18n.t("uploader.options.favicon256")}</MenuItem>
+			  <MenuItem value="apple-touch-icon">{i18n.t("uploader.options.appleTouch")}</MenuItem>
             </Select>
           </FormControl>
         </Grid>
@@ -242,7 +223,7 @@ return (
         			className={classes.fileInput}
                     style={{ marginTop: 15, marginBottom: 15 }}
       			/>
-      			{selectedFileName ? selectedFileName : 'Escolher imagem em PNG'}
+      			{selectedFileName ? selectedFileName : i18n.t("uploader.fileInput")}
     			</label>
   			</FormControl>
 		</Grid>
@@ -255,7 +236,7 @@ return (
             variant="contained"
             color="primary"
           >
-            ENVIAR ARQUIVO
+            {i18n.t("uploader.sendFile")}
           </ButtonWithSpinner>
         </Grid>
       </form>

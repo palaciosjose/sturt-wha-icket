@@ -45,6 +45,7 @@ class Message extends Model<Message> {
   @Column(DataType.TEXT)
   body: string;
   
+  @Default([])
   @Column(DataType.JSON)
   reactions: { type: string; userId: number; }[];
   
@@ -60,6 +61,9 @@ class Message extends Model<Message> {
 
   @Column
   mediaType: string;
+
+  @Column
+  mediaSize: number;
 
   @Default(false)
   @Column

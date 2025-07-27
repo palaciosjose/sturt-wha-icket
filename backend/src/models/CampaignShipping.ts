@@ -7,7 +7,8 @@ import {
   PrimaryKey,
   AutoIncrement,
   ForeignKey,
-  BelongsTo
+  BelongsTo,
+  AllowNull
 } from "sequelize-typescript";
 import Campaign from "./Campaign";
 import ContactListItem from "./ContactListItem";
@@ -48,6 +49,7 @@ class CampaignShipping extends Model<CampaignShipping> {
   @Column
   confirmedAt: Date;
 
+  @AllowNull(true)
   @Column
   deliveredAt: Date;
 

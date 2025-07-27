@@ -14,6 +14,7 @@ import Company from "./Company";
 import Contact from "./Contact";
 import Ticket from "./Ticket";
 import User from "./User";
+import Whatsapp from "./Whatsapp";
 
 @Table
 class Schedule extends Model<Schedule> {
@@ -47,8 +48,12 @@ class Schedule extends Model<Schedule> {
   @Column
   companyId: number;
 
+  @ForeignKey(() => Whatsapp)
+  @Column
+  whatsappId: number;
+
   @Column(DataType.STRING)
-  status: string;
+  status: string; // "PENDENTE", "ENVIADO", "CANCELADO", "VENCIDO"
 
   @CreatedAt
   createdAt: Date;
@@ -68,11 +73,27 @@ class Schedule extends Model<Schedule> {
   @BelongsTo(() => Company)
   company: Company;
 
+  @BelongsTo(() => Whatsapp)
+  whatsapp: Whatsapp;
+
   @Column
   mediaPath: string;
 
   @Column
   mediaName: string;
+
+  // Campos para sistema de recordatorios múltiples
+  @Column(DataType.STRING)
+  reminderType: string; // "immediate", "reminder", "start"
+
+  @Column(DataType.STRING)
+  parentScheduleId: string; // ID del agendamiento principal
+
+  @Column(DataType.BOOLEAN)
+  isReminderSystem: boolean; // Indica si es parte del sistema de recordatorios
+
+  @Column(DataType.STRING)
+  reminderStatus: string; // "pending", "sent", "error"
 }
 
 export default Schedule;

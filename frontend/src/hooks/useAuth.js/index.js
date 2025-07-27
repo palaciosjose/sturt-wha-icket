@@ -19,7 +19,7 @@ const useAuth = () => {
     (config) => {
       const token = localStorage.getItem("token");
       if (token) {
-        config.headers["Authorization"] = `Bearer ${JSON.parse(token)}`;
+        config.headers["Authorization"] = `Bearer ${token}`;
         setIsAuth(true);
       }
       return config;
@@ -40,7 +40,7 @@ const useAuth = () => {
 
         const { data } = await api.post("/auth/refresh_token");
         if (data) {
-          localStorage.setItem("token", JSON.stringify(data.token));
+          localStorage.setItem("token", data.token);
           api.defaults.headers.Authorization = `Bearer ${data.token}`;
         }
         return api(originalRequest);
@@ -111,9 +111,8 @@ const useAuth = () => {
         }
       }
 
-      moment.locale('pt-br');
+      moment.locale('es');
       const dueDate = data.user.company.dueDate;
-      const hoje = moment(moment()).format("DD/MM/yyyy");
       const vencimento = moment(dueDate).format("DD/MM/yyyy");
 
       var diff = moment(dueDate).diff(moment(moment()).format());
@@ -122,7 +121,7 @@ const useAuth = () => {
       var dias = moment.duration(diff).asDays();
 
       if (before === true) {
-        localStorage.setItem("token", JSON.stringify(data.token));
+        localStorage.setItem("token", data.token);
         localStorage.setItem("companyId", companyId);
         localStorage.setItem("userId", id);
         localStorage.setItem("companyDueDate", vencimento);

@@ -56,6 +56,11 @@ const CreateWhatsAppService = async ({
   expiresTicket = 0,
   expiresInactiveMessage = ""
 }: Request): Promise<Response> => {
+  console.log("🔄 CREANDO NUEVO WHATSAPP:");
+  console.log("  - Nombre:", name);
+  console.log("  - Empresa ID:", companyId);
+  console.log("  - Departamentos:", queueIds);
+  console.log("  - Prompt ID:", promptId);
   const company = await Company.findOne({
     where: {
       id: companyId
@@ -87,7 +92,10 @@ const CreateWhatsAppService = async ({
         async value => {
           if (!value) return false;
           const nameExists = await Whatsapp.findOne({
-            where: { name: value }
+            where: { 
+              name: value,
+              companyId: companyId // ✅ FILTRAR POR EMPRESA
+            }
           });
           return !nameExists;
         }
@@ -120,23 +128,26 @@ const CreateWhatsAppService = async ({
     throw new AppError("ERR_WAPP_GREETING_REQUIRED");
   }
 
-  if (token !== null && token !== "") {
-    const tokenSchema = Yup.object().shape({
-      token: Yup.string()
-        .required()
-        .min(2)
-        .test(
-          "Check-token",
-          "This whatsapp token is already used.",
-          async value => {
-            if (!value) return false;
-            const tokenExists = await Whatsapp.findOne({
-              where: { token: value }
-            });
-            return !tokenExists;
-          }
-        )
-    });
+      if (token !== null && token !== "") {
+      const tokenSchema = Yup.object().shape({
+        token: Yup.string()
+          .required()
+          .min(2)
+          .test(
+            "Check-token",
+            "This whatsapp token is already used.",
+            async value => {
+              if (!value) return false;
+              const tokenExists = await Whatsapp.findOne({
+                where: { 
+                  token: value,
+                  companyId: companyId // ✅ FILTRAR POR EMPRESA
+                }
+              });
+              return !tokenExists;
+            }
+          )
+      });
 
     try {
       await tokenSchema.validate({ token });

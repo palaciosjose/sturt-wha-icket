@@ -288,7 +288,10 @@ const TicketsListCustom = (props) => {
     });
 
     return () => {
-      socket.disconnect();
+      // Solo desconectar si el socket existe y no es un dummy socket
+      if (socket && typeof socket.disconnect === 'function') {
+        socket.disconnect();
+      }
     };
   }, [status, showAll, user, selectedQueueIds, tags, users, profile, queues, socketManager]);
 

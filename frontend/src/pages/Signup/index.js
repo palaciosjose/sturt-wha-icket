@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import qs from 'query-string'
+
 
 import * as Yup from "yup";
 import { useHistory } from "react-router-dom";
@@ -7,7 +7,6 @@ import { Link as RouterLink } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Formik, Form, Field } from "formik";
 import usePlans from "../../hooks/usePlans";
-import Avatar from "@material-ui/core/Avatar";
 import Button from "@material-ui/core/Button";
 import CssBaseline from "@material-ui/core/CssBaseline";
 import TextField from "@material-ui/core/TextField";
@@ -17,13 +16,11 @@ import Box from "@material-ui/core/Box";
 import InputMask from 'react-input-mask';
 import api from "../../services/api";
 import {
-	FormControl,
 	InputLabel,
 	MenuItem,
 	Select,
 } from "@material-ui/core";
-import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
-import Typography from "@material-ui/core/Typography";
+
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import { i18n } from "../../translate/i18n";
@@ -31,18 +28,6 @@ import { i18n } from "../../translate/i18n";
 import { openApi } from "../../services/api";
 import toastError from "../../errors/toastError";
 import moment from "moment";
-const Copyright = () => {
-	return (
-		<Typography variant="body2" color="textSecondary" align="center">
-			{"Copyright © "}
-			<Link color="inherit" href="#">
-				PLW
-			</Link>{" "}
-		   {new Date().getFullYear()}
-			{"."}
-		</Typography>
-	);
-};
 
 const useStyles = makeStyles(theme => ({
 	paper: {
@@ -78,7 +63,7 @@ const SignUp = () => {
 	const history = useHistory();
 	const [allowregister, setallowregister] = useState('enabled');
     const [trial, settrial] = useState('3');
-	let companyId = null
+
 
 	useEffect(() => {
         fetchallowregister();
@@ -117,10 +102,7 @@ const SignUp = () => {
     	history.push("/login");    
     }
 
-	const params = qs.parse(window.location.search)
-	if (params.companyId !== undefined) {
-		companyId = params.companyId
-	}
+
 
 	const initialState = { name: "", email: "", phone: "", password: "", planId: "disabled", };
 
@@ -145,14 +127,29 @@ const SignUp = () => {
 	const { register: listPlans } = usePlans();
 
 	useEffect(() => {
+		let isMounted = true;
+		
 		async function fetchData() {
-			const list = await listPlans();
-			setPlans(list);
+			try {
+				const list = await listPlans();
+				if (isMounted) {
+					setPlans(list);
+				}
+			} catch (error) {
+				if (isMounted) {
+					console.error('Error fetching plans:', error);
+				}
+			}
 		}
+		
 		fetchData();
-	}, []);
+		
+		return () => {
+			isMounted = false;
+		};
+	}, [listPlans]);
 
-	const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/signup.png`;
+	const logo = `${window.location.origin}/public/logotipos/signup.png`;
     const randomValue = Math.random(); // Generate a random number
   
     const logoWithRandom = `${logo}?r=${randomValue}`;
@@ -163,7 +160,7 @@ const SignUp = () => {
 			<CssBaseline />
 			<div className={classes.paper}>
 				<div>
-				<img style={{ margin: "0 auto", width: "80%" }} src={logoWithRandom} alt={`${process.env.REACT_APP_NAME_SYSTEM}`} />
+				<img style={{ margin: "0 auto", width: "80%" }} src={logoWithRandom} alt="Whaticket" />
 				</div>
 				{/*<Typography component="h1" variant="h5">
 					{i18n.t("signup.title")}
@@ -213,26 +210,31 @@ const SignUp = () => {
 								</Grid>
 								
 							<Grid item xs={12}>
-								<Field
-									as={InputMask}
-									mask="(99) 99999-9999"
-									variant="outlined"
-									fullWidth
-									id="phone"
-									name="phone"
-									error={touched.phone && Boolean(errors.phone)}
-									helperText={touched.phone && errors.phone}
-									autoComplete="phone"
-									required
-								>
-									{({ field }) => (
-										<TextField
+								<Field name="phone">
+									{({ field, form }) => (
+										<InputMask
+											mask="(99) 99999-9999"
 											{...field}
-											variant="outlined"
-											fullWidth
-											label="DDD988888888"
-											inputProps={{ maxLength: 11 }} // Definindo o limite de caracteres
-										/>
+											onChange={(e) => {
+												field.onChange(e);
+												form.setFieldValue('phone', e.target.value);
+											}}
+										>
+											{() => (
+												<TextField
+													{...field}
+													variant="outlined"
+													fullWidth
+													id="phone"
+													label="DDD988888888"
+													error={touched.phone && Boolean(errors.phone)}
+													helperText={touched.phone && errors.phone}
+													autoComplete="phone"
+													required
+													inputProps={{ maxLength: 11 }}
+												/>
+											)}
+										</InputMask>
 									)}
 								</Field>
 							</Grid>
@@ -267,7 +269,7 @@ const SignUp = () => {
 										</MenuItem>
 										{plans.map((plan, key) => (
 											<MenuItem key={key} value={plan.id}>
-										        {plan.name} - {plan.connections} WhatsApps - {plan.users} Usuários - R$ {plan.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+										        {plan.name} - {plan.connections} WhatsApps - {plan.users} Usuarios - $ {plan.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
 											</MenuItem>
 										))}
 									</Field>

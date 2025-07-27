@@ -29,13 +29,28 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.use(
   cors({
     credentials: true,
-    origin: process.env.FRONTEND_URL
+    origin: ["http://localhost:3000", "http://localhost:3001", process.env.FRONTEND_URL].filter(Boolean),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
   })
 );
 app.use(cookieParser());
 app.use(express.json());
 app.use(Sentry.Handlers.requestHandler());
-app.use("/public", express.static(uploadConfig.directory));
+app.use("/public", express.static(uploadConfig.directory, {
+  setHeaders: (res, path) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
+app.use("/files", express.static(process.cwd(), {
+  setHeaders: (res, path) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+})); // Servir archivos desde el directorio raíz
 app.use(routes);
 
 app.use(Sentry.Handlers.errorHandler());

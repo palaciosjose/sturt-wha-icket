@@ -10,7 +10,7 @@ import Box from "@material-ui/core/Box";
 import Typography from "@material-ui/core/Typography";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
-import { versionSystem } from "../../../package.json";
+
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { nomeEmpresa } from "../../../package.json";
@@ -20,23 +20,37 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 
 const Copyright = () => {
 	return (
-		<Typography variant="body2" color="primary" align="center">
+		<Typography variant="body2" style={{ color: "white" }} align="center">
 			{"Copyright "}
- 			<Link color="primary" href="#">
- 				{ nomeEmpresa } - v { versionSystem }
+ 			<Link style={{ color: "white" }} href="#">
+ 				{ nomeEmpresa }
  			</Link>{" "}
  			{new Date().getFullYear()}
  			{"."}
+ 			<br />
+			<span style={{
+				backgroundColor: '#FFD700',
+				color: '#000',
+				padding: '4px 8px',
+				borderRadius: '4px',
+				fontSize: '12px',
+				fontWeight: 'bold',
+				display: 'inline-block',
+				minWidth: '60px',
+				textAlign: 'center',
+				marginTop: '8px'
+			}}>
+				BASIC
+			</span>
  		</Typography>
  	);
- };
+};
 
 const useStyles = makeStyles(theme => ({
 	root: {
 		width: "100vw",
 		height: "100vh",
-		background: "linear-gradient(to right, #2f0549 , #a729f4 , #2f0549)",
-		//backgroundImage: "url(https://i.imgur.com/CGby9tN.png)",
+		background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%)",
 		backgroundRepeat: "no-repeat",
 		backgroundSize: "100% 100%",
 		backgroundPosition: "center",
@@ -87,17 +101,24 @@ const Login = () => {
   	}, []);
 	
 		const fetchviewregister = async () => {
-  
- 
-    try {
-    	const responsev = await api.get("/settings/viewregister");
-      	const viewregisterX = responsev?.data?.value;
-      	// console.log(viewregisterX);
-      	setviewregister(viewregisterX);
-    	} catch (error) {
-    		console.error('Error retrieving viewregister', error);
-    	}
-  	};
+		try {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+			
+			const responsev = await api.get("/settings/viewregister", {
+				signal: controller.signal
+			});
+			clearTimeout(timeoutId);
+			
+			const viewregisterX = responsev?.data?.value;
+			// console.log(viewregisterX);
+			setviewregister(viewregisterX);
+		} catch (error) {
+			console.error('Error retrieving viewregister', error);
+			// Si hay error 401, 404 o timeout, establecer como disabled por defecto
+			setviewregister('disabled');
+		}
+	};
 
 
 	const handlSubmit = e => {
@@ -105,7 +126,7 @@ const Login = () => {
 		handleLogin(user);
 	};
 	
-	const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/login.png`;
+	const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
     const randomValue = Math.random(); // Generate a random number
   
     const logoWithRandom = `${logo}?r=${randomValue}`;
@@ -116,7 +137,7 @@ const Login = () => {
 			<CssBaseline/>
 			<div className={classes.paper}>
 				<div>
-					<img style={{ margin: "0 auto", width: "80%" }} src={logoWithRandom} alt={`${process.env.REACT_APP_NAME_SYSTEM}`} />
+					<img style={{ margin: "0 auto", width: "80%" }} src={logoWithRandom} alt={`${process.env.REACT_APP_NAME_SYSTEM || 'Whaticket'}`} />
 				</div>
 				{/*<Typography component="h1" variant="h5">
 					{i18n.t("login.title")}
@@ -149,10 +170,10 @@ const Login = () => {
 						autoComplete="current-password"
 					/>
 					
-					<Grid container justify="flex-end">
+					<Grid container justifyContent="flex-end">
 					  <Grid item xs={6} style={{ textAlign: "right" }}>
 						<Link component={RouterLink} to="/forgetpsw" variant="body2">
-						  Esqueceu sua senha?
+						  {i18n.t("login.forgotPassword")}
 						</Link>
 					  </Grid>
 					</Grid>

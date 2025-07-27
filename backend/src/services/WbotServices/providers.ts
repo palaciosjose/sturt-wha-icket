@@ -377,7 +377,7 @@ export const provider = async (ticket: Ticket, msg: proto.IWebMessageInfo, compa
                       totalCount_pending = response?.data?.totalCount;
 
                       dueDate_pending_corrigida = dueDate_pending?.split('-')?.reverse()?.join('/');
-                      value_pending_corrigida = value_pending.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' });
+                      value_pending_corrigida = value_pending.toLocaleString('es-ES', { style: 'currency', currency: 'BRL' });
 
                       const bodyBoleto = {
                         text: formatBody(`Segue a segunda-via da sua Fatura!\n\n*Fatura:* ${invoiceNumber_pending}\n*Nome:* ${nome}\n*Valor:* R$ ${value_pending_corrigida}\n*Data Vencimento:* ${dueDate_pending_corrigida}\n*Descrição:*\n${description_pending}\n*Link:* ${invoiceUrl_pending}`, contact),
@@ -511,7 +511,7 @@ export const provider = async (ticket: Ticket, msg: proto.IWebMessageInfo, compa
 
 
                     dueDate_overdue_corrigida = dueDate_overdue?.split('-')?.reverse()?.join('/');
-                    value_overdue_corrigida = value_overdue.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' });
+                                          value_overdue_corrigida = value_overdue.toLocaleString('es-ES', { style: 'currency', currency: 'BRL' });
                     const body = {
                       text: formatBody(`Você tem *${totalCount_overdue}* fatura(s) vencidada(s)! \nVou te enviar. Por favor aguarde!`, contact),
                     };

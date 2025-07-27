@@ -8,8 +8,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TableRow,
-  Typography // Importar Typography do Material-UI
+  TableRow
 } from "@material-ui/core";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -110,14 +109,29 @@ const Prompts = () => {
 
   const socketManager = useContext(SocketContext);
 
+  // ✅ AGREGAR FUNCIÓN PARA REFRESCAR PROMPTS
+  const refreshPrompts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/prompt");
+      dispatch({ type: "LOAD_PROMPTS", payload: data.prompts });
+      setLoading(false);
+    } catch (err) {
+      toastError(err);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     async function fetchData() {
-      const planConfigs = await getPlanCompany(undefined, companyId);
-      if (!planConfigs.plan.useOpenAi) {
-        toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
-        setTimeout(() => {
-          history.push(`/`)
-        }, 1000);
+      if (companyId) {
+        const planConfigs = await getPlanCompany(undefined, companyId);
+        if (!planConfigs.plan.useOpenAi) {
+          toast.error(i18n.t("prompts.errors.noPermission"));
+          setTimeout(() => {
+            history.push(`/`)
+          }, 1000);
+        }
       }
     }
     fetchData();
@@ -181,31 +195,20 @@ const Prompts = () => {
     try {
       const { data } = await api.delete(`/prompt/${promptId}`);
       toast.info(i18n.t(data.message));
+      
+      // ✅ ACTUALIZAR LA LISTA INMEDIATAMENTE DESPUÉS DE ELIMINAR
+      dispatch({ type: "DELETE_PROMPT", payload: promptId });
+      
     } catch (err) {
       toastError(err);
     }
     setSelectedPrompt(null);
+    setConfirmModalOpen(false);
   };
 
   return (
     <MainContainer>
-      {/* Box vermelha com o aviso */}
-      <Paper className={classes.redBox} variant="outlined">
-        <Typography variant="body1">
-          <strong>Aviso Importante:</strong> Para todos os usuários do Whaticket que notaram uma interrupção no funcionamento do OpenAI, gostaríamos de esclarecer que isso não se trata de um erro do sistema. O OpenAI oferece um crédito gratuito de $5 USD para novos cadastros, porém, este benefício também está sujeito a um limite de tempo, geralmente em torno de três meses. Quando o crédito disponibilizado se esgota, é necessário recarregar a conta para continuar utilizando o serviço. É importante estar ciente dessa política para garantir uma experiência contínua e sem interrupções no uso do OpenAI com o Whaticket. Se você notou que o serviço parou de funcionar, verifique se seu crédito gratuito expirou e considere a recarga da conta, se necessário. Estamos à disposição para ajudar e esclarecer quaisquer dúvidas adicionais que possam surgir. Obrigado pela compreensão e continuaremos trabalhando para oferecer o melhor serviço possível aos nossos usuários.
-        </Typography>
-        {/* Links úteis */}
-        <Typography variant="body1">
-          <strong>Links Úteis:</strong>
-          <br />
-          Uso: <a href="https://platform.openai.com/usage">https://platform.openai.com/usage</a>
-          <br />
-          Fatura: <a href="https://platform.openai.com/account/billing/overview">https://platform.openai.com/account/billing/overview</a>
-          <br />
-          API: <a href="https://platform.openai.com/api-keys">https://platform.openai.com/api-keys</a>
-        </Typography>
-      </Paper>
-      {/* Fim da box vermelha */}
+
 
       <ConfirmationModal
         title={
@@ -223,6 +226,10 @@ const Prompts = () => {
         open={promptModalOpen}
         onClose={handleClosePromptModal}
         promptId={selectedPrompt?.id}
+        onSave={() => {
+          refreshPrompts();
+          handleClosePromptModal();
+        }}
       />
       <MainHeader>
         <Title>{i18n.t("prompts.title")}</Title>

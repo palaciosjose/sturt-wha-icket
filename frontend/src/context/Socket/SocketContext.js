@@ -1,6 +1,6 @@
 import { createContext } from "react";
 import openSocket from "socket.io-client";
-import { isExpired, decodeToken } from "react-jwt";
+import { isExpired } from "react-jwt";
 
 class ManagedSocket {
   constructor(socketManager) {
@@ -45,7 +45,11 @@ class ManagedSocket {
   emit(event, ...params) {
     if (event.startsWith("join")) {
       this.joins.push({ event: event.substring(4), params });
-      console.log("Joining", { event: event.substring(4), params});
+      // Log solo en desarrollo y con logger controlado
+      if (process.env.NODE_ENV === 'development') {
+        const logger = require('../../utils/logger').default;
+        logger.socket.debug("Joining", { event: event.substring(4), params });
+      }
     }
     return this.rawSocket.emit(event, ...params);
   }
@@ -99,8 +103,9 @@ const SocketManager = {
 		    this.currentUserId = null;
       }
 
-      let token = JSON.parse(localStorage.getItem("token"));
+      let token = localStorage.getItem("token");
       if (!token) {
+        console.warn("No token found, returning dummy socket");
         return new DummySocket();
       }
       
@@ -124,36 +129,35 @@ const SocketManager = {
 
       this.currentSocket.io.on("reconnect_attempt", () => {
         this.currentSocket.io.opts.query.r = 1;
-        token = JSON.parse(localStorage.getItem("token"));
+        token = localStorage.getItem("token");
         if ( isExpired(token) ) {
-          console.warn("Refreshing");
-          window.location.reload();
+          console.warn("Token expirado - redirigiendo al login");
+          localStorage.removeItem("token");
+          window.location.href = "/login";
         } else {
-          console.warn("Using new token");
-          this.currentSocket.io.opts.query.token = token;
+          console.warn("Reconectando socket...");
         }
       });
       
       this.currentSocket.on("disconnect", (reason) => {
         console.warn(`socket disconnected because: ${reason}`);
         if (reason.startsWith("io server disconnect")) {
-          console.warn("tryng to reconnect", this.currentSocket);
-          token = JSON.parse(localStorage.getItem("token"));
+          console.warn("Socket desconectado por el servidor");
+          token = localStorage.getItem("token");
           
           if ( isExpired(token) ) {
-            console.warn("Expired token - refreshing");
-            window.location.reload();
+            console.warn("Token expirado - redirigiendo al login");
+            localStorage.removeItem("token");
+            window.location.href = "/login";
             return;
           }
-          console.warn("Reconnecting using refreshed token");
-          this.currentSocket.io.opts.query.token = token;
-          this.currentSocket.io.opts.query.r = 1;
-          this.currentSocket.connect();
+          console.warn("Intentando reconectar socket...");
+          return;
         }        
       });
       
       this.currentSocket.on("connect", (...params) => {
-        console.warn("socket connected", params);
+        console.debug("socket connected", params);
       })
       
       this.currentSocket.onAny((event, ...args) => {

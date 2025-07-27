@@ -1,5 +1,5 @@
 import * as React from 'react';
-import LinearProgress, { LinearProgressProps } from '@material-ui/core/LinearProgress';
+import LinearProgress from '@material-ui/core/LinearProgress';
 import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 
@@ -10,7 +10,7 @@ function LinearProgressWithLabel(props) {
         <LinearProgress variant="determinate" {...props} style={{position: 'initial', backgroundColor: 'mediumseagreen' }} />
       </Box>
       <Box sx={{ minWidth: 35 }}>
-        <Typography variant="body2" color="text.secondary" style={{ color: '#fff',position: 'absolute'}}>{`${Math.round(
+        <Typography variant="body2" color="textSecondary" style={{ color: '#fff',position: 'absolute'}}>{`${Math.round(
           props.value,
         )}%`}</Typography>
       </Box>

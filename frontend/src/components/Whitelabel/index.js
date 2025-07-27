@@ -41,7 +41,7 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 4,
     width: "100%",
     "& .MuiTab-wrapper": {
-      color: "#128c7e"
+      color: "#1e3a8a"
     },
     "& .MuiTabs-flexContainer": {
       justifyContent: "center"
@@ -240,18 +240,15 @@ export default function Whitelabel(props) {
         let progress = Math.round(
           (event.loaded * 100) / event.total
         );
-        console.log(
-          `A imagem  está ${progress}% carregada... `
-        );
+        // Log de progreso silenciado para evitar spam
       },
     }).then((response) => {
       updateSettingsLoaded(`appLogo${mode}`, response.data);
       colorMode[`setAppLogo${mode}`](process.env.REACT_APP_BACKEND_URL + "/public/" + response.data);
     }).catch((err) => {
       console.error(
-        `Houve um problema ao realizar o upload da imagem.`
+        `Error al subir imagen: ${err.message}`
       );
-      console.log(err);
     });
   };
 

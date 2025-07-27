@@ -254,6 +254,9 @@ const Users = () => {
                 {i18n.t("users.table.profile")}
               </TableCell>
               <TableCell align="center">
+                {i18n.t("users.table.department")}
+              </TableCell>
+              <TableCell align="center">
                 {i18n.t("users.table.actions")}
               </TableCell>
             </TableRow>
@@ -267,6 +270,29 @@ const Users = () => {
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">{user.profile}</TableCell>
+                  <TableCell align="center">
+                    {user.queues && user.queues.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
+                        {user.queues.map((queue, index) => (
+                          <span
+                            key={queue.id}
+                            style={{
+                              backgroundColor: queue.color || '#1976d2',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {queue.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: '12px' }}>Sin departamento</span>
+                    )}
+                  </TableCell>
                   <TableCell align="center">
                     <IconButton
                       size="small"

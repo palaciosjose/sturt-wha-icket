@@ -32,7 +32,8 @@ export default {
     filename(req, file, cb) {
       const { typeArch } = req.body;
 
-      const fileName = typeArch && typeArch !== "announcements" ? file.originalname.replace('/','-').replace(/ /g, "_") : new Date().getTime() + '_' + file.originalname.replace('/','-').replace(/ /g, "_");
+      // Mantener el nombre original del archivo sin timestamp
+      const fileName = file.originalname.replace('/','-').replace(/ /g, "_");
       return cb(null, fileName);
     }
   })

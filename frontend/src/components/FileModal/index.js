@@ -10,14 +10,12 @@ import {
 import { toast } from "react-toastify";
 
 import {
-    Box,
     Button,
     CircularProgress,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
-    Divider,
     Grid,
     makeStyles,
     TextField
@@ -91,7 +89,6 @@ const FileListSchema = Yup.object().shape({
 const FilesModal = ({ open, onClose, fileListId, reload }) => {
     const classes = useStyles();
     const { user } = useContext(AuthContext);
-    const [ files, setFiles ] = useState([]);
     const [selectedFileNames, setSelectedFileNames] = useState([]);
 
 
@@ -118,7 +115,6 @@ const FilesModal = ({ open, onClose, fileListId, reload }) => {
 
     const handleClose = () => {
         setFileList(initialState);
-        setFiles([]);
         onClose();
     };
 
@@ -139,7 +135,6 @@ const FilesModal = ({ open, onClose, fileListId, reload }) => {
       
               try {
                 const { data } = await api.post(`/files/uploadList/${id}`, formData);
-                setFiles([]);
                 return data;
               } catch (err) {
                 toastError(err);
@@ -192,7 +187,7 @@ const FilesModal = ({ open, onClose, fileListId, reload }) => {
                         }, 400);
                     }}
                 >
-                    {({ touched, errors, isSubmitting, values }) => (
+                    {({ touched, errors, isSubmitting, values, setFieldValue }) => (
                         <Form>
                             <DialogContent dividers>
                                 <div className={classes.multFieldLine}>
@@ -266,7 +261,7 @@ const FilesModal = ({ open, onClose, fileListId, reload }) => {
                                                                         const updatedOptions = [...values.options];                                                                
                                                                         updatedOptions[index].file = selectedFile;
                                                                        
-                                                                        setFiles('options', updatedOptions);
+                                                                        setFieldValue('options', updatedOptions);
 
                                                                         // Atualize a lista selectedFileNames para o campo específico
                                                                         const updatedFileNames = [...selectedFileNames];

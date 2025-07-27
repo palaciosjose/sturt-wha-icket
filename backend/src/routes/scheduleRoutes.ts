@@ -23,4 +23,7 @@ scheduleRoutes.post("/schedules/:id/media-upload", isAuth, upload.array("file"),
 
 scheduleRoutes.delete("/schedules/:id/media-upload", isAuth, ScheduleController.deleteMedia);
 
+scheduleRoutes.post("/schedules/:scheduleId/cancel-reminder", isAuth, ScheduleController.cancelReminderSystem);
+scheduleRoutes.post("/schedules/:scheduleId/cancel", isAuth, ScheduleController.cancelSchedule);
+
 export default scheduleRoutes;

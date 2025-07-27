@@ -2,7 +2,7 @@ import React, { useEffect, useReducer, useState, useContext } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import toastError from "../../errors/toastError";
 import Popover from "@material-ui/core/Popover";
-import AnnouncementIcon from "@material-ui/icons/Announcement";
+
 import Notifications from "@material-ui/icons/Notifications"
 
 import {
@@ -26,6 +26,7 @@ import api from "../../services/api";
 import { isArray } from "lodash";
 import moment from "moment";
 import { SocketContext } from "../../context/Socket/SocketContext";
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles((theme) => ({
   mainPaper: {
@@ -72,7 +73,7 @@ function AnnouncementDialog({ announcement, open, handleClose }) {
       </DialogContent>
       <DialogActions>
         <Button onClick={() => handleClose()} color="primary" autoFocus>
-          Fechar
+          {i18n.t("common.close")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -319,7 +320,7 @@ export default function AnnouncementsPopover() {
                 </ListItem>
               ))}
             {isArray(announcements) && announcements.length === 0 && (
-              <ListItemText primary="Nenhum registro" />
+              <ListItemText primary={i18n.t("notifications.noRecords")} />
             )}
           </List>
         </Paper>

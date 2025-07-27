@@ -51,6 +51,9 @@ const QueueSelectSingle = () => {
                         id="queue-selection"
                         fullWidth
                     >
+                        <MenuItem value="">
+                            <em>Seleccione una cola</em>
+                        </MenuItem>
                         {queues.map(queue => (
                             <MenuItem key={queue.id} value={queue.id}>
                                 {queue.name}

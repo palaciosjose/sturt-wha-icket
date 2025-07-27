@@ -1,6 +1,8 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
+import path from "path";
+import fs from "fs";
 
 import Contact from "../models/Contact";
 import ListContactsService from "../services/ContactServices/ListContactsService";
@@ -238,16 +240,25 @@ export const getContactVcard = async (
   const numberUser = vNumber.toString().substr(-8, 8);
 
   if (numberDDD <= '30' && numberDDI === '55') {
-    console.log("menor 30")
+    // ✅ LOG SILENCIOSO - Solo en modo debug
+    if (process.env.NODE_ENV === 'development') {
+      console.debug("menor 30");
+    }
     vNumber = `${numberDDI + numberDDD + 9 + numberUser}@s.whatsapp.net`;
   } else if (numberDDD > '30' && numberDDI === '55') {
-    console.log("maior 30")
+    // ✅ LOG SILENCIOSO - Solo en modo debug
+    if (process.env.NODE_ENV === 'development') {
+      console.debug("maior 30");
+    }
     vNumber = `${numberDDI + numberDDD + numberUser}@s.whatsapp.net`;
   } else {
     vNumber = `${number}@s.whatsapp.net`;
   }
 
-  console.log(vNumber);
+  // ✅ LOG SILENCIOSO - Solo en modo debug
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('vNumber:', vNumber);
+  }
 
   const contact = await GetContactService({
     name,
@@ -256,4 +267,77 @@ export const getContactVcard = async (
   });
 
   return res.status(200).json(contact);
+};
+
+export const removeMultiple = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { contactIds } = req.body;
+  const { companyId } = req.user;
+
+  if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+    return res.status(400).json({ error: "contactIds array is required" });
+  }
+
+  try {
+    // Verificar que todos los contactos pertenecen a la empresa
+    const contacts = await Contact.findAll({
+      where: {
+        id: contactIds,
+        companyId
+      }
+    });
+
+    if (contacts.length !== contactIds.length) {
+      return res.status(400).json({ error: "Some contacts not found or don't belong to this company" });
+    }
+
+    // Eliminar todos los contactos
+    await Contact.destroy({
+      where: {
+        id: contactIds,
+        companyId
+      }
+    });
+
+    const io = getIO();
+    // Emitir evento para cada contacto eliminado
+    contactIds.forEach(contactId => {
+      io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-contact`, {
+        action: "delete",
+        contactId
+      });
+    });
+
+    return res.status(200).json({ 
+      message: `${contacts.length} contact${contacts.length > 1 ? 's' : ''} deleted successfully` 
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Error deleting contacts" });
+  }
+};
+
+export const downloadTemplate = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const templatePath = path.join(__dirname, "..", "..", "..", "plantilla-watoolx-contact.xlsx");
+    
+    // Verificar si el archivo existe
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({ error: "Template file not found" });
+    }
+    
+    // Configurar headers para descarga
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-watoolx-contact.xlsx"');
+    
+    // Enviar el archivo
+    res.sendFile(templatePath);
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    return res.status(500).json({ error: "Error downloading template" });
+  }
 };

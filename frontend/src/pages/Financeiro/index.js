@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useReducer } from "react";
-import { toast } from "react-toastify";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
@@ -9,24 +8,14 @@ import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
-import IconButton from "@material-ui/core/IconButton";
-import SearchIcon from "@material-ui/icons/Search";
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
-
-import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
-import UserModal from "../../components/UserModal";
-import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 
 import moment from "moment";
@@ -90,7 +79,9 @@ const Invoices = () => {
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [searchParam, setSearchParam] = useState("");
+  // searchParam se mantiene para compatibilidad con la API aunque no hay campo de búsqueda visible
+  const [searchParam] = useState("");
+
   const [invoices, dispatch] = useReducer(reducer, []);
   const [storagePlans, setStoragePlans] = React.useState([]);
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -162,12 +153,12 @@ const Invoices = () => {
     var dias = moment.duration(diff).asDays();    
     const status = record.status;
     if (status === "paid") {
-      return "Pago";
+      return i18n.t("financial.status.paid");
     }
     if (dias < 0) {
-      return "Vencido";
+      return i18n.t("financial.status.overdue");
     } else {
-      return "Em Aberto"
+      return i18n.t("financial.status.open");
     }
 
   }
@@ -183,7 +174,7 @@ const Invoices = () => {
 
       ></SubscriptionModal>
       <MainHeader>
-        <Title>Faturas</Title>
+        <Title>{i18n.t("financial.title")}</Title>
       </MainHeader>
       <Paper
         className={classes.mainPaper}
@@ -193,12 +184,12 @@ const Invoices = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell align="center">Id</TableCell>
-              <TableCell align="center">Detalhes</TableCell>
-              <TableCell align="center">Valor</TableCell>
-              <TableCell align="center">Data Venc.</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Ação</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.id")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.details")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.value")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.dueDate")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.status")}</TableCell>
+              <TableCell align="center">{i18n.t("financial.table.action")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -207,18 +198,18 @@ const Invoices = () => {
                 <TableRow style={rowStyle(invoices)} key={invoices.id}>
                   <TableCell align="center">{invoices.id}</TableCell>
                   <TableCell align="center">{invoices.detail}</TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }} align="center">{invoices.value.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}</TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }} align="center">{invoices.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</TableCell>
                   <TableCell align="center">{moment(invoices.dueDate).format("DD/MM/YYYY")}</TableCell>
                   <TableCell style={{ fontWeight: 'bold' }} align="center">{rowStatus(invoices)}</TableCell>
                   <TableCell align="center">
-                    {rowStatus(invoices) !== "Pago" ?
+                    {rowStatus(invoices) !== i18n.t("financial.status.paid") ?
                       <Button
                         size="small"
                         variant="outlined"
                         color="secondary"
                         onClick={() => handleOpenContactModal(invoices)}
                       >
-                        PAGAR
+                        {i18n.t("financial.buttons.pay")}
                       </Button> :
                       <Button
                         size="small"
@@ -226,7 +217,7 @@ const Invoices = () => {
                         /* color="secondary"
                         disabled */
                       >
-                        PAGO 
+                        {i18n.t("financial.buttons.paid")}
                       </Button>}
 
                   </TableCell>

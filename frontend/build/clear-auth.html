@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpieza de Autenticación - Whaticket</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .danger {
+            background: #f44336;
+        }
+        .danger:hover {
+            background: #da190b;
+        }
+        .info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Herramienta de Limpieza de Autenticación</h1>
+        
+        <div class="info">
+            <h3>¿Cuándo usar esta herramienta?</h3>
+            <ul>
+                <li>Error "Invalid token" o "ERR_SESSION_EXPIRED"</li>
+                <li>La aplicación se cierra inmediatamente después del login</li>
+                <li>Problemas de autenticación persistentes</li>
+                <li>Bucle infinito de reconexión</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Estado actual:</h3>
+            <div id="status">Verificando...</div>
+        </div>
+
+        <button onclick="checkAuthStatus()">🔍 Verificar Estado</button>
+        <button onclick="clearAuthData()" class="danger">🧹 Limpiar Datos de Auth</button>
+        <button onclick="goToLogin()">🚀 Ir al Login</button>
+        <button onclick="goToMain()">🏠 Ir a la Aplicación</button>
+
+        <div class="info">
+            <h3>Logs de limpieza:</h3>
+            <div id="logs" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${timestamp}] ${message}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function checkAuthStatus() {
+            const token = localStorage.getItem('token');
+            const userId = localStorage.getItem('userId');
+            const companyId = localStorage.getItem('companyId');
+            
+            const status = document.getElementById('status');
+            status.innerHTML = `
+                <strong>Token:</strong> ${token ? '✅ Presente' : '❌ Ausente'}<br>
+                <strong>User ID:</strong> ${userId ? '✅ Presente' : '❌ Ausente'}<br>
+                <strong>Company ID:</strong> ${companyId ? '✅ Presente' : '❌ Ausente'}<br>
+                <strong>Total items:</strong> ${localStorage.length} items
+            `;
+            
+            log('✅ Estado verificado');
+        }
+
+        function clearAuthData() {
+            try {
+                // Limpiar localStorage
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('companyId');
+                localStorage.removeItem('user');
+                localStorage.removeItem('cshow');
+                
+                // Limpiar cookies
+                document.cookie.split(";").forEach((c) => {
+                    document.cookie = c
+                        .replace(/^ +/, "")
+                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                
+                log('🧹 Datos de autenticación limpiados exitosamente');
+                checkAuthStatus();
+                
+            } catch (error) {
+                log('❌ Error limpiando datos: ' + error.message);
+            }
+        }
+
+        function goToLogin() {
+            window.location.href = '/login';
+        }
+
+        function goToMain() {
+            window.location.href = '/';
+        }
+
+        // Verificar estado al cargar
+        window.onload = function() {
+            log('🚀 Herramienta de limpieza cargada');
+            checkAuthStatus();
+        };
+    </script>
+</body>
+</html> 

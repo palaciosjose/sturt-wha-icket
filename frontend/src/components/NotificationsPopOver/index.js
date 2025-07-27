@@ -79,7 +79,7 @@ const NotificationsPopOver = (volume) => {
 		}
 	  
 		fetchSettings();
-	}, []);
+	}, [user.allTicket]);
 
 	useEffect(() => {
 		soundAlertRef.current = play;
@@ -103,7 +103,7 @@ const NotificationsPopOver = (volume) => {
 		}
 
 		processNotifications();
-	}, [tickets]);
+	}, [showPendingTickets, tickets]);
 
 	useEffect(() => {
 		ticketIdRef.current = ticketIdUrl;

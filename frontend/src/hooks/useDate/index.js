@@ -1,4 +1,4 @@
-import moment from "moment";
+import moment from "moment-timezone";
 
 export function useDate() {
   function dateToClient(strDate) {
@@ -10,7 +10,9 @@ export function useDate() {
 
   function datetimeToClient(strDate) {
     if (moment(strDate).isValid()) {
-      return moment(strDate).format("DD/MM/YYYY HH:mm");
+      // Usar zona horaria configurada o por defecto America/Lima
+      const timezone = localStorage.getItem("timezone") || "America/Lima";
+      return moment(strDate).tz(timezone).format("DD/MM/YYYY HH:mm");
     }
     return strDate;
   }

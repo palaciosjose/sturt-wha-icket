@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { Field, Form, Formik } from "formik";
 import { head } from "lodash";
 import { toast } from "react-toastify";
-import * as Yup from "yup";
+
 
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -35,6 +35,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
+import MessageVariablesPicker from "../MessageVariablesPicker";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -72,12 +73,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const CampaignSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
-    .required("Required"),
-});
+
 
 const CampaignModal = ({
   open,
@@ -110,7 +106,7 @@ const CampaignModal = ({
     scheduledAt: "",
     whatsappId: "",
     contactListId: "",
-    tagListId: "Nenhuma",
+    tagListId: "",
     companyId,
   };
 
@@ -123,6 +119,81 @@ const CampaignModal = ({
   const [campaignEditable, setCampaignEditable] = useState(true);
   const attachmentFile = useRef(null);
   const [tagLists, setTagLists] = useState([]);
+  const [isFileListSelected, setIsFileListSelected] = useState(false);
+  const [isAttachmentSelected, setIsAttachmentSelected] = useState(false);
+
+
+  // Función para manejar cambios en lista de contactos
+  const handleContactListChange = (value, setFieldValue) => {
+    setFieldValue("contactListId", value);
+    if (value && value !== "") {
+      setFieldValue("tagListId", "");
+    }
+  };
+
+  // Función para manejar cambios en lista de etiquetas
+  const handleTagListChange = (value, setFieldValue) => {
+    setFieldValue("tagListId", value);
+    if (value && value !== "") {
+      setFieldValue("contactListId", "");
+    }
+  };
+
+  // Función para manejar cambios en lista de archivos
+  const handleFileListChange = (value, setFieldValue) => {
+    setFieldValue("fileListId", value);
+    setIsFileListSelected(value && value !== "");
+    if (value && value !== "") {
+      setIsAttachmentSelected(false);
+    }
+  };
+
+  // Función para manejar adjuntar archivo
+  const handleAttachFile = () => {
+    setIsAttachmentSelected(true);
+    setIsFileListSelected(false);
+  };
+
+  // Función para validación manual
+  const validateForm = (values) => {
+    const errors = {};
+    
+    // Validar nombre
+    if (!values.name || values.name.trim() === "") {
+      errors.name = "El nombre de la campaña es obligatorio";
+    }
+    
+    // Validar conexión
+    if (!values.whatsappId || values.whatsappId === "") {
+      errors.whatsappId = "La conexión es obligatoria";
+    }
+    
+    // Validar fecha programada
+    if (!values.scheduledAt || values.scheduledAt === "") {
+      errors.scheduledAt = "La fecha programada es obligatoria";
+    }
+    
+    // Validar lista de contactos o etiquetas
+    const hasContactOrTag = (values.contactListId && values.contactListId !== "") || 
+                           (values.tagListId && values.tagListId !== "");
+    if (!hasContactOrTag) {
+      errors.contactListId = "Debe seleccionar una lista de contactos o una lista de etiquetas";
+    }
+    
+    // Validar al menos un mensaje
+    const hasMessage = (values.message1 && values.message1.trim() !== "") || 
+                      (values.message2 && values.message2.trim() !== "") || 
+                      (values.message3 && values.message3.trim() !== "") || 
+                      (values.message4 && values.message4.trim() !== "") || 
+                      (values.message5 && values.message5.trim() !== "");
+    if (!hasMessage) {
+      // Mostrar error en el primer campo de mensaje
+      errors.message1 = "Debe ingresar al menos un mensaje";
+    }
+    
+    console.log('Validación manual:', { values, errors });
+    return errors;
+  };
 
   useEffect(() => {
     return () => {
@@ -142,7 +213,7 @@ const CampaignModal = ({
         toastError(err);
       }
     })();
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     if (isMounted.current) {
@@ -209,12 +280,15 @@ const CampaignModal = ({
   const handleClose = () => {
     onClose();
     setCampaign(initialState);
+    setIsFileListSelected(false);
+    setIsAttachmentSelected(false);
   };
 
   const handleAttachmentFile = (e) => {
     const file = head(e.target.files);
     if (file) {
       setAttachment(file);
+      setIsAttachmentSelected(true);
     }
   };
 
@@ -262,6 +336,7 @@ const CampaignModal = ({
     if (attachment) {
       setAttachment(null);
       attachmentFile.current.value = null;
+      setIsAttachmentSelected(false);
     }
 
     if (campaign.mediaPath) {
@@ -271,21 +346,44 @@ const CampaignModal = ({
     }
   };
 
-  const renderMessageField = (identifier) => {
+  const handleClickMsgVar = (msgVar, setFieldValue) => {
+    const el = document.getElementById(`message${messageTab + 1}`);
+    if (el) {
+      const firstHalfText = el.value.substring(0, el.selectionStart);
+      const secondHalfText = el.value.substring(el.selectionEnd);
+      const newCursorPos = el.selectionStart + msgVar.length;
+
+      setFieldValue(`message${messageTab + 1}`, `${firstHalfText}${msgVar}${secondHalfText}`);
+
+      setTimeout(() => {
+        el.setSelectionRange(newCursorPos, newCursorPos);
+        el.focus();
+      }, 100);
+    }
+  };
+
+  const renderMessageField = (identifier, setFieldValue, touched, errors) => {
     return (
-      <Field
-        as={TextField}
-        id={identifier}
-        name={identifier}
-        fullWidth
-        rows={5}
-        label={i18n.t(`campaigns.dialog.form.${identifier}`)}
-        placeholder={i18n.t("campaigns.dialog.form.messagePlaceholder")}
-        multiline={true}
-        variant="outlined"
-        helperText="Utilize variáveis como {nome}, {numero}, {email} ou defina variáveis personalziadas."
-        disabled={!campaignEditable && campaign.status !== "CANCELADA"}
-      />
+      <>
+        <Field
+          as={TextField}
+          id={identifier}
+          name={identifier}
+          fullWidth
+          rows={5}
+          label={i18n.t(`campaigns.dialog.form.${identifier}`)}
+          placeholder={i18n.t("campaigns.dialog.form.messagePlaceholder")}
+          multiline={true}
+          variant="outlined"
+          disabled={!campaignEditable && campaign.status !== "CANCELADA"}
+          error={touched[identifier] && Boolean(errors[identifier])}
+          helperText={touched[identifier] && errors[identifier]}
+        />
+        <MessageVariablesPicker
+          disabled={!campaignEditable && campaign.status !== "CANCELADA"}
+          onClick={value => handleClickMsgVar(value, setFieldValue)}
+        />
+      </>
     );
   };
 
@@ -366,7 +464,7 @@ const CampaignModal = ({
         <Formik
           initialValues={campaign}
           enableReinitialize={true}
-          validationSchema={CampaignSchema}
+          validate={validateForm}
           onSubmit={(values, actions) => {
             setTimeout(() => {
               handleSaveCampaign(values);
@@ -374,7 +472,7 @@ const CampaignModal = ({
             }, 400);
           }}
         >
-          {({ values, errors, touched, isSubmitting }) => (
+          {({ values, errors, touched, isSubmitting, setFieldValue }) => (
             <Form>
               <DialogContent dividers>
                 <Grid spacing={2} container>
@@ -443,9 +541,10 @@ const CampaignModal = ({
                         error={
                           touched.contactListId && Boolean(errors.contactListId)
                         }
-                        disabled={!campaignEditable}
+                        disabled={Boolean(!campaignEditable || (values.tagListId && values.tagListId !== ""))}
+                        onChange={(e) => handleContactListChange(e.target.value, setFieldValue)}
                       >
-                        <MenuItem value="">Nenhuma</MenuItem>
+                        <MenuItem value="">{i18n.t("campaigns.placeholders.notDefined")}</MenuItem>
                         {contactLists &&
                           contactLists.map((contactList) => (
                             <MenuItem
@@ -476,9 +575,10 @@ const CampaignModal = ({
                         id="tagListId"
                         name="tagListId"
                         error={touched.tagListId && Boolean(errors.tagListId)}
-                        disabled={!campaignEditable}
+                        disabled={Boolean(!campaignEditable || (values.contactListId && values.contactListId !== ""))}
+                        onChange={(e) => handleTagListChange(e.target.value, setFieldValue)}
                       >
-                        <MenuItem value="">Nenhuma</MenuItem>
+                        <MenuItem value="">{i18n.t("campaigns.placeholders.notDefined")}</MenuItem>
                         {Array.isArray(tagLists) &&
                           tagLists.map((tagList) => (
                             <MenuItem key={tagList.id} value={tagList.id}>
@@ -508,7 +608,7 @@ const CampaignModal = ({
                         error={touched.whatsappId && Boolean(errors.whatsappId)}
                         disabled={!campaignEditable}
                       >
-                        <MenuItem value="">Nenhuma</MenuItem>
+                        <MenuItem value="">{i18n.t("campaigns.placeholders.notDefinedMale")}</MenuItem>
                         {whatsapps &&
                           whatsapps.map((whatsapp) => (
                             <MenuItem key={whatsapp.id} value={whatsapp.id}>
@@ -552,8 +652,10 @@ const CampaignModal = ({
                         placeholder={i18n.t("campaigns.dialog.form.fileList")}
                         labelId="fileListId-selection-label"
                         value={values.fileListId || ""}
+                        disabled={Boolean(isAttachmentSelected)}
+                        onChange={(e) => handleFileListChange(e.target.value, setFieldValue)}
                       >
-                        <MenuItem value={""} >{"Nenhum"}</MenuItem>
+                        <MenuItem value={""} >{i18n.t("campaigns.placeholders.notDefinedMale")}</MenuItem>
                         {file.map(f => (
                           <MenuItem key={f.id} value={f.id}>
                             {f.name}
@@ -587,7 +689,7 @@ const CampaignModal = ({
                           {values.confirmation ? (
                             <Grid spacing={2} container>
                               <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message1")}</>
+                                <>{renderMessageField("message1", setFieldValue, touched, errors)}</>
                               </Grid>
                               <Grid xs={12} md={4} item>
                                 <>
@@ -598,7 +700,7 @@ const CampaignModal = ({
                               </Grid>
                             </Grid>
                           ) : (
-                            <>{renderMessageField("message1")}</>
+                            <>{renderMessageField("message1", setFieldValue, touched, errors)}</>
                           )}
                         </>
                       )}
@@ -607,7 +709,7 @@ const CampaignModal = ({
                           {values.confirmation ? (
                             <Grid spacing={2} container>
                               <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message2")}</>
+                                <>{renderMessageField("message2", setFieldValue, touched, errors)}</>
                               </Grid>
                               <Grid xs={12} md={4} item>
                                 <>
@@ -618,7 +720,7 @@ const CampaignModal = ({
                               </Grid>
                             </Grid>
                           ) : (
-                            <>{renderMessageField("message2")}</>
+                            <>{renderMessageField("message2", setFieldValue, touched, errors)}</>
                           )}
                         </>
                       )}
@@ -627,7 +729,7 @@ const CampaignModal = ({
                           {values.confirmation ? (
                             <Grid spacing={2} container>
                               <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message3")}</>
+                                <>{renderMessageField("message3", setFieldValue, touched, errors)}</>
                               </Grid>
                               <Grid xs={12} md={4} item>
                                 <>
@@ -638,7 +740,7 @@ const CampaignModal = ({
                               </Grid>
                             </Grid>
                           ) : (
-                            <>{renderMessageField("message3")}</>
+                            <>{renderMessageField("message3", setFieldValue, touched, errors)}</>
                           )}
                         </>
                       )}
@@ -647,7 +749,7 @@ const CampaignModal = ({
                           {values.confirmation ? (
                             <Grid spacing={2} container>
                               <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message4")}</>
+                                <>{renderMessageField("message4", setFieldValue, touched, errors)}</>
                               </Grid>
                               <Grid xs={12} md={4} item>
                                 <>
@@ -658,7 +760,7 @@ const CampaignModal = ({
                               </Grid>
                             </Grid>
                           ) : (
-                            <>{renderMessageField("message4")}</>
+                            <>{renderMessageField("message4", setFieldValue, touched, errors)}</>
                           )}
                         </>
                       )}
@@ -667,7 +769,7 @@ const CampaignModal = ({
                           {values.confirmation ? (
                             <Grid spacing={2} container>
                               <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message5")}</>
+                                <>{renderMessageField("message5", setFieldValue, touched, errors)}</>
                               </Grid>
                               <Grid xs={12} md={4} item>
                                 <>
@@ -678,7 +780,7 @@ const CampaignModal = ({
                               </Grid>
                             </Grid>
                           ) : (
-                            <>{renderMessageField("message5")}</>
+                            <>{renderMessageField("message5", setFieldValue, touched, errors)}</>
                           )}
                         </>
                       )}
@@ -725,8 +827,11 @@ const CampaignModal = ({
                 {!attachment && !campaign.mediaPath && campaignEditable && (
                   <Button
                     color="primary"
-                    onClick={() => attachmentFile.current.click()}
-                    disabled={isSubmitting}
+                    onClick={() => {
+                      attachmentFile.current.click();
+                      handleAttachFile();
+                    }}
+                    disabled={isSubmitting || isFileListSelected}
                     variant="outlined"
                   >
                     {i18n.t("campaigns.dialog.buttons.attach")}

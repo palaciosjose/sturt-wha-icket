@@ -22,14 +22,12 @@ const VCardPreview = ({ contact, numbers }) => {
         profilePicUrl: ""
     });
 
-	const [selectedQueue, setSelectedQueue] = useState("");
 	const [isModalOpen, setModalOpen] = useState(false);
     const [isContactValid, setContactValid] = useState(true);
     const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
-    const [contactTicket, setContactTicket] = useState({});
+
 
 	const handleQueueSelection = async (queueId) => {
-        setSelectedQueue(queueId);
         setModalOpen(false);
         if (queueId !== "") {
             await createTicket(queueId);
@@ -90,13 +88,7 @@ const VCardPreview = ({ contact, numbers }) => {
         return () => clearTimeout(delayDebounceFn);
     }, [contact, numbers]);
 
-	const handleNewChat = () => {
-    	if (selectedQueue === "") {
-        	setModalOpen(true);
-    	} else {
-        	createTicket();
-    	}
-	};
+
 
     const createTicket = async (queueId) => {
         try {
@@ -171,7 +163,6 @@ const VCardPreview = ({ contact, numbers }) => {
                             fullWidth
                             color="theme.palette.text.vcard"
                             onClick={() => {
-                                setContactTicket(selectedContact);
                                 setNewTicketModalOpen(true);
                             }}
                             disabled={!selectedContact.number || !isContactValid}

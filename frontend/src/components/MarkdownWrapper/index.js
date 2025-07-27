@@ -95,7 +95,6 @@ const elements = [
 	"select",
 	"small",
 	"source",
-	"span",
 	"strong",
 	"style",
 	"sub",
@@ -152,7 +151,10 @@ const CustomLink = ({ children, ...props }) => (
 
 const MarkdownWrapper = ({ children, message }) => {
 	let type = message?.mediaType;
-	console.log('type', type)
+	// ✅ LOG SILENCIOSO - Solo en modo debug
+	if (process.env.NODE_ENV === 'development') {
+		console.debug('type', type);
+	}
 	const boldRegex = /\*(.*?)\*/g;
 	const tildaRegex = /~(.*?)~/g;
 

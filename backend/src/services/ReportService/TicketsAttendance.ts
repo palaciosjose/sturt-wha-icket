@@ -23,7 +23,8 @@ interface dataUser {
 
 export const TicketsAttendance = async ({ initialDate, finalDate, companyId }: Request): Promise<Return> => {
 
-  const sqlUsers = `select u.name from "Users" u where u."companyId" = ${companyId}`
+  // ✅ CORREGIR SINTAXIS PARA MYSQL - Remover comillas dobles
+  const sqlUsers = `select u.name from Users u where u.companyId = ${companyId}`
 
   const users: dataUser[] = await sequelize.query(sqlUsers, { type: QueryTypes.SELECT });
 
@@ -32,14 +33,14 @@ export const TicketsAttendance = async ({ initialDate, finalDate, companyId }: R
     COUNT(*) AS quantidade,
     u.name AS nome
   from
-    "TicketTraking" tt
-    left join "Users" u on u.id = tt."userId"
+    tickettraking tt
+    left join Users u on u.id = tt.userId
   where
-    tt."companyId" = ${companyId}
-    and "ticketId" is not null
-    and tt."userId" is not null
-    and tt."finishedAt" >= '${initialDate} 00:00:00'
-    and tt."finishedAt" <= '${finalDate} 23:59:59'
+    tt.companyId = ${companyId}
+    and ticketId is not null
+    and tt.userId is not null
+    and tt.finishedAt >= '${initialDate} 00:00:00'
+    and tt.finishedAt <= '${finalDate} 23:59:59'
   group by
     nome
   ORDER BY

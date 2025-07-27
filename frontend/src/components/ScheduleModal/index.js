@@ -28,7 +28,8 @@ import DeleteOutline from "@material-ui/icons/DeleteOutline";
 import AttachFile from "@material-ui/icons/AttachFile";
 import { head } from "lodash";
 import ConfirmationModal from "../ConfirmationModal";
-import MessageVariablesPicker from "../MessageVariablesPicker";
+import logger from "../../utils/logger";
+
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -62,13 +63,14 @@ const useStyles = makeStyles(theme => ({
 
 const ScheduleSchema = Yup.object().shape({
 	body: Yup.string()
-		.min(5, "Mensagem muito curta")
-		.required("Obrigatório"),
-	contactId: Yup.number().required("Obrigatório"),
-	sendAt: Yup.string().required("Obrigatório")
+		.min(5, "Mensaje muy corto")
+		.required("Obligatorio"),
+	contactId: Yup.number().required("Obligatorio"),
+	whatsappId: Yup.number().required("Obligatorio"),
+	sendAt: Yup.string().required("Obligatorio")
 });
 
-const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload }) => {
+const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload, ticketId }) => {
 	const classes = useStyles();
 	const history = useHistory();
 	const { user } = useContext(AuthContext);
@@ -76,6 +78,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const initialState = {
 		body: "",
 		contactId: "",
+		whatsappId: "",
 		sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
 		sentAt: ""
 	};
@@ -88,9 +91,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const [schedule, setSchedule] = useState(initialState);
 	const [currentContact, setCurrentContact] = useState(initialContact);
 	const [contacts, setContacts] = useState([initialContact]);
+	const [whatsapps, setWhatsapps] = useState([]);
+	const [currentWhatsapp, setCurrentWhatsapp] = useState(null);
 	const [attachment, setAttachment] = useState(null);
 	const attachmentFile = useRef(null);
 	const [confirmationOpen, setConfirmationOpen] = useState(false);
+	const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
 	const messageInputRef = useRef();
 
 	useEffect(() => {
@@ -107,15 +113,39 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		if (open) {
 			try {
 				(async () => {
+					// Cargar contactos
 					const { data: contactList } = await api.get('/contacts/list', { params: { companyId: companyId } });
 					let customList = contactList.map((c) => ({ id: c.id, name: c.name }));
 					if (isArray(customList)) {
 						setContacts([{ id: "", name: "" }, ...customList]);
 					}
+					
+					// Cargar conexiones WhatsApp
+					const { data: whatsappList } = await api.get('/whatsapp', { params: { companyId: companyId } });
+					if (isArray(whatsappList)) {
+						setWhatsapps(whatsappList);
+					}
+					
 					if (contactId) {
 						setSchedule(prevState => {
 							return { ...prevState, contactId }
 						});
+					}
+					
+					// Si hay ticketId, obtener el whatsappId del ticket
+					if (ticketId) {
+						try {
+							const { data: ticket } = await api.get(`/tickets/${ticketId}`);
+							if (ticket && ticket.whatsappId) {
+								setSchedule(prevState => {
+									return { ...prevState, whatsappId: ticket.whatsappId }
+								});
+								setCurrentWhatsapp(whatsapps.find(w => w.id === ticket.whatsappId));
+								logger.dashboard.debug(`[ScheduleModal] Usando WhatsApp del ticket: ${ticket.whatsappId}`);
+							}
+						} catch (err) {
+							logger.dashboard.error(`[ScheduleModal] Error obteniendo ticket: ${err.message}`);
+						}
 					}
 
 					if (!scheduleId) return;
@@ -130,7 +160,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				toastError(err);
 			}
 		}
-	}, [scheduleId, contactId, open, user]);
+	}, [scheduleId, contactId, open, user, ticketId, whatsapps]);
 
 	const handleClose = () => {
 		onClose();
@@ -149,7 +179,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		const scheduleData = { ...values, userId: user.id };
 		try {
 			if (scheduleId) {
-				await api.put(`/schedules/${scheduleId}`, scheduleData);
+				const response = await api.put(`/schedules/${scheduleId}`, scheduleData);
 				if (attachment != null) {
 					const formData = new FormData();
 					formData.append("file", attachment);
@@ -157,6 +187,13 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 						`/schedules/${scheduleId}/media-upload`,
 						formData
 					);
+				}
+				
+				// Si es una reprogramación del sistema de recordatorios, actualizar página
+				if (response.data && response.data.isReminderSystem) {
+					toast.success("Reunión reprogramada exitosamente");
+					window.location.reload();
+					return;
 				}
 			} else {
 				const { data } = await api.post("/schedules", scheduleData);
@@ -183,17 +220,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		setSchedule(initialState);
 		handleClose();
 	};
-	const handleClickMsgVar = async (msgVar, setValueFunc) => {
-		const el = messageInputRef.current;
-		const firstHalfText = el.value.substring(0, el.selectionStart);
-		const secondHalfText = el.value.substring(el.selectionEnd);
-		const newCursorPos = el.selectionStart + msgVar.length;
 
-		setValueFunc("body", `${firstHalfText}${msgVar}${secondHalfText}`);
-
-		await new Promise(r => setTimeout(r, 100));
-		messageInputRef.current.setSelectionRange(newCursorPos, newCursorPos);
-	};
 
 	const deleteMedia = async () => {
 		if (attachment) {
@@ -209,11 +236,26 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 			}));
 			toast.success(i18n.t("scheduleModal.toasts.deleted"));
 			if (typeof reload == "function") {
-				console.log(reload);
-				console.log("1");
+				logger.dashboard.debug("Reload function:", reload);
+				logger.dashboard.debug("Executing reload");
 				reload();
 			}
 		}
+	};
+
+	const handleCancelReminder = async () => {
+		try {
+			await api.post(`/schedules/${scheduleId}/cancel-reminder`);
+			toast.success("Reunión cancelada exitosamente");
+			if (typeof reload == 'function') {
+				reload();
+			}
+			// Forzar actualización de página para eliminar residuos
+			window.location.reload();
+		} catch (err) {
+			toastError(err);
+		}
+		setCancelConfirmationOpen(false);
 	};
 
 	return (
@@ -226,6 +268,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 			>
 				{i18n.t("scheduleModal.confirmationModal.deleteMessage")}
 			</ConfirmationModal>
+			<ConfirmationModal
+				title="Cancelar Reunión"
+				open={cancelConfirmationOpen}
+				onClose={() => setCancelConfirmationOpen(false)}
+				onConfirm={handleCancelReminder}
+			>
+				¿Está seguro que desea cancelar esta reunión? Se enviará un mensaje de cancelación al contacto.
+			</ConfirmationModal>
 			<Dialog
 				open={open}
 				onClose={handleClose}
@@ -234,7 +284,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				scroll="paper"
 			>
 				<DialogTitle id="form-dialog-title">
-					{schedule.status === 'ERRO' ? 'Erro de Envio' : `Mensagem ${capitalize(schedule.status)}`}
+					{schedule.status === 'ERRO' ? 'Error de Envío' : `Mensaje ${capitalize(schedule.status)}`}
 				</DialogTitle>
 				<div style={{ display: "none" }}>
 					<input
@@ -276,7 +326,30 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											getOptionSelected={(option, value) => {
 												return value.id === option.id
 											}}
-											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Contato" />}
+											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Contacto" />}
+										/>
+									</FormControl>
+								</div>
+								<br />
+								<div className={classes.multFieldLine}>
+									<FormControl
+										variant="outlined"
+										fullWidth
+									>
+										<Autocomplete
+											fullWidth
+											value={currentWhatsapp}
+											options={whatsapps}
+											onChange={(e, whatsapp) => {
+												const whatsappId = whatsapp ? whatsapp.id : '';
+												setSchedule({ ...schedule, whatsappId });
+												setCurrentWhatsapp(whatsapp ? whatsapp : null);
+											}}
+											getOptionLabel={(option) => option.name}
+											getOptionSelected={(option, value) => {
+												return value && value.id === option.id
+											}}
+											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Conexión WhatsApp" />}
 										/>
 									</FormControl>
 								</div>
@@ -296,12 +369,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										fullWidth
 									/>
 								</div>
-								<Grid item>
-									<MessageVariablesPicker
-										disabled={isSubmitting}
-										onClick={value => handleClickMsgVar(value, setFieldValue)}
-									/>
-								</Grid>
+
 								<br />
 								<div className={classes.multFieldLine}>
 									<Field
@@ -340,7 +408,17 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										disabled={isSubmitting}
 										variant="outlined"
 									>
-										{i18n.t("quickMessages.buttons.attach")}
+										ADJUNTAR
+									</Button>
+								)}
+								{scheduleId && schedule.isReminderSystem && (
+									<Button
+										onClick={() => setCancelConfirmationOpen(true)}
+										color="secondary"
+										disabled={isSubmitting}
+										variant="outlined"
+									>
+										CANCELAR
 									</Button>
 								)}
 								<Button
@@ -349,9 +427,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 									disabled={isSubmitting}
 									variant="outlined"
 								>
-									{i18n.t("scheduleModal.buttons.cancel")}
+									SALIR
 								</Button>
-								{(schedule.sentAt === null || schedule.sentAt === "") && (
+								{((schedule.sentAt === null || schedule.sentAt === "") && 
+								 !scheduleId) || (scheduleId && moment(schedule.sendAt).isAfter(moment())) ? (
 									<Button
 										type="submit"
 										color="primary"
@@ -369,7 +448,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											/>
 										)}
 									</Button>
-								)}
+								) : null}
 							</DialogActions>
 						</Form>
 					)}

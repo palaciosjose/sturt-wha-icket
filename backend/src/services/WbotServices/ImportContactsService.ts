@@ -19,29 +19,41 @@ const ImportContactsService = async (companyId: number): Promise<void> => {
     const contactsString = await ShowBaileysService(wbot.id);
     phoneContacts = JSON.parse(JSON.stringify(contactsString.contacts));
 
-    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
-    const beforeFilePath = path.join(publicFolder, 'contatos_antes.txt');
-    fs.writeFile(beforeFilePath, JSON.stringify(phoneContacts, null, 2), (err) => {
-      if (err) {
-        logger.error(`Failed to write contacts to file: ${err}`);
-        throw err;
-      }
-      console.log('O arquivo contatos_antes.txt foi criado!');
-    });
+    // Solo escribir archivos si phoneContacts no es undefined
+    if (phoneContacts) {
+      const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+      const beforeFilePath = path.join(publicFolder, 'contatos_antes.txt');
+      fs.writeFile(beforeFilePath, JSON.stringify(phoneContacts, null, 2), (err) => {
+        if (err) {
+          logger.error(`Failed to write contacts to file: ${err}`);
+        } else {
+          console.log('O arquivo contatos_antes.txt foi criado!');
+        }
+      });
+    }
 
   } catch (err) {
     Sentry.captureException(err);
     logger.error(`Could not get whatsapp contacts from phone. Err: ${err}`);
+    phoneContacts = null; // Asegurar que sea null en caso de error
   }
 
-  const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
-  const afterFilePath = path.join(publicFolder, 'contatos_depois.txt');
-  fs.writeFile(afterFilePath, JSON.stringify(phoneContacts, null, 2), (err) => {
-    if (err) {
-      logger.error(`Failed to write contacts to file: ${err}`);
-      throw err;
-    }
-  });
+  // Solo escribir el segundo archivo si phoneContacts existe
+  if (phoneContacts) {
+    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+    const afterFilePath = path.join(publicFolder, 'contatos_depois.txt');
+    fs.writeFile(afterFilePath, JSON.stringify(phoneContacts, null, 2), (err) => {
+      if (err) {
+        logger.error(`Failed to write contacts to file: ${err}`);
+      }
+    });
+  }
+
+  // Verificar si phoneContacts existe antes de procesar
+  if (!phoneContacts) {
+    logger.warn(`No contacts data available for import`);
+    return;
+  }
 
   const phoneContactsList = isString(phoneContacts)
     ? JSON.parse(phoneContacts)

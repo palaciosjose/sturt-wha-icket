@@ -7,6 +7,15 @@ export function register() {
       navigator.serviceWorker.register(swUrl)
         .then((registration) => {
           console.log('Service worker registrado com sucesso!', registration);
+          
+          // Agregar manejo de errores más robusto
+          registration.addEventListener('error', (event) => {
+            console.warn('Service Worker error:', event);
+          });
+          
+          registration.addEventListener('message', (event) => {
+            console.log('Service Worker message:', event.data);
+          });
         })
         .catch((error) => {
           console.error('Erro durante o registro do service worker:', error);

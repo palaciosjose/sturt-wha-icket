@@ -30,7 +30,7 @@ const useMessages = ({ fromMe, dateStart, dateEnd }) => {
             fetchMessages();
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-    }, [dateStart, dateEnd]);
+    }, [dateStart, dateEnd, fromMe]);
 
     return { count };
 };

@@ -1,12 +1,12 @@
-import React, { useContext, useEffect, useReducer, useState } from "react";
-import { Link as RouterLink, useHistory } from "react-router-dom";
+import React, { useContext, useEffect, useReducer, useState, useRef } from "react";
+import { Link as RouterLink } from "react-router-dom";
 
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
 import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
-import { Badge, Collapse, List } from "@material-ui/core";
+import { Badge } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
@@ -17,11 +17,7 @@ import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import FlashOnIcon from "@material-ui/icons/FlashOn";
 import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import CodeRoundedIcon from "@material-ui/icons/CodeRounded";
-import EventIcon from "@material-ui/icons/Event";
 import LocalOfferIcon from "@material-ui/icons/LocalOffer";
-import EventAvailableIcon from "@material-ui/icons/EventAvailable";
-import ExpandLessIcon from "@material-ui/icons/ExpandLess";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import PeopleIcon from "@material-ui/icons/People";
 import ListIcon from "@material-ui/icons/ListAlt";
 import AnnouncementIcon from "@material-ui/icons/Announcement";
@@ -35,16 +31,14 @@ import LoyaltyRoundedIcon from '@material-ui/icons/LoyaltyRounded';
 import { Can } from "../components/Can";
 import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
-import TableChartIcon from '@material-ui/icons/TableChart';
 import api from "../services/api";
 import BorderColorIcon from '@material-ui/icons/BorderColor';
-import ToDoList from "../pages/ToDoList/";
 import toastError from "../errors/toastError";
 import { makeStyles } from "@material-ui/core/styles";
-import { AllInclusive, AttachFile, BlurCircular, Description, DeviceHubOutlined, Schedule } from '@material-ui/icons';
+import { AllInclusive, AttachFile, DeviceHubOutlined, Schedule } from '@material-ui/icons';
 import usePlans from "../hooks/usePlans";
 import Typography from "@material-ui/core/Typography";
-import useVersion from "../hooks/useVersion";
+import { FaBell } from 'react-icons/fa';
 
 const useStyles = makeStyles((theme) => ({
   ListSubheader: {
@@ -56,7 +50,11 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 10,
     marginTop: 10,
     backgroundColor: theme.palette.sair.main,
-    color: theme.palette.text.sair,
+    color: "white",
+    "&:hover": {
+      backgroundColor: "#f44336", // Rojo para el hover
+      color: "white",
+    },
 	},
 }));
 
@@ -144,14 +142,14 @@ const MainListItems = (props) => {
   const { whatsApps } = useContext(WhatsAppsContext);
   const { user, handleLogout } = useContext(AuthContext);
   const [connectionWarning, setConnectionWarning] = useState(false);
-  const [openCampaignSubmenu, setOpenCampaignSubmenu] = useState(false);
   const [showCampaigns, setShowCampaigns] = useState(false);
   const [showKanban, setShowKanban] = useState(false);
   const [showOpenAi, setShowOpenAi] = useState(false);
-  const [showIntegrations, setShowIntegrations] = useState(false); const history = useHistory();
+  const [showIntegrations, setShowIntegrations] = useState(false);
   const [showSchedules, setShowSchedules] = useState(false);
   const [showInternalChat, setShowInternalChat] = useState(false);
   const [showExternalApi, setShowExternalApi] = useState(false);
+  const isMounted = useRef(true);
 
 
   const [invisible, setInvisible] = useState(true);
@@ -160,21 +158,7 @@ const MainListItems = (props) => {
   const [chats, dispatch] = useReducer(reducer, []);
   const { getPlanCompany } = usePlans();
   
-  const [version, setVersion] = useState(false);
-  
-  
-  const { getVersion } = useVersion();
-
   const socketManager = useContext(SocketContext);
-
-  useEffect(() => {
-    async function fetchVersion() {
-      const _version = await getVersion();
-      setVersion(_version.version);
-    }
-    fetchVersion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
  
 
   useEffect(() => {
@@ -183,93 +167,122 @@ const MainListItems = (props) => {
   }, [searchParam]);
 
   useEffect(() => {
-    async function fetchData() {
-      const companyId = user.companyId;
-      const planConfigs = await getPlanCompany(undefined, companyId);
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-      setShowCampaigns(planConfigs.plan.useCampaigns);
-      setShowKanban(planConfigs.plan.useKanban);
-      setShowOpenAi(planConfigs.plan.useOpenAi);
-      setShowIntegrations(planConfigs.plan.useIntegrations);
-      setShowSchedules(planConfigs.plan.useSchedules);
-      setShowInternalChat(planConfigs.plan.useInternalChat);
-      setShowExternalApi(planConfigs.plan.useExternalApi);
+  useEffect(() => {
+    async function fetchData() {
+      if (isMounted.current) {
+        const companyId = user.companyId;
+        if (companyId) {
+          const planConfigs = await getPlanCompany(undefined, companyId);
+
+          if (isMounted.current) {
+            setShowCampaigns(planConfigs.plan.useCampaigns);
+            setShowKanban(planConfigs.plan.useKanban);
+            setShowOpenAi(planConfigs.plan.useOpenAi);
+            setShowIntegrations(planConfigs.plan.useIntegrations);
+            setShowSchedules(planConfigs.plan.useSchedules);
+            setShowInternalChat(planConfigs.plan.useInternalChat);
+            setShowExternalApi(planConfigs.plan.useExternalApi);
+          }
+        }
+      }
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchChats();
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    if (isMounted.current) {
+      const delayDebounceFn = setTimeout(() => {
+        if (isMounted.current) {
+          fetchChats();
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParam, pageNumber]);
 
   useEffect(() => {
-    const companyId = localStorage.getItem("companyId");
-    const socket = socketManager.getSocket(companyId);
+    if (isMounted.current) {
+      const companyId = localStorage.getItem("companyId");
+      const socket = socketManager.getSocket(companyId);
 
-    socket.on(`company-${companyId}-chat`, (data) => {
-      if (data.action === "new-message") {
-        dispatch({ type: "CHANGE_CHAT", payload: data });
-      }
-      if (data.action === "update") {
-        dispatch({ type: "CHANGE_CHAT", payload: data });
-      }
-    });
-    return () => {
-      socket.disconnect();
-    };
+      const handleChatEvent = (data) => {
+        if (isMounted.current) {
+          if (data.action === "new-message") {
+            dispatch({ type: "CHANGE_CHAT", payload: data });
+          }
+          if (data.action === "update") {
+            dispatch({ type: "CHANGE_CHAT", payload: data });
+          }
+        }
+      };
+
+      socket.on(`company-${companyId}-chat`, handleChatEvent);
+      
+      return () => {
+        if (socket && isMounted.current) {
+          socket.off(`company-${companyId}-chat`, handleChatEvent);
+        }
+      };
+    }
   }, [socketManager]);
 
   useEffect(() => {
-    let unreadsCount = 0;
-    if (chats.length > 0) {
-      for (let chat of chats) {
-        for (let chatUser of chat.users) {
-          if (chatUser.userId === user.id) {
-            unreadsCount += chatUser.unreads;
+    if (isMounted.current) {
+      let unreadsCount = 0;
+      if (chats.length > 0) {
+        for (let chat of chats) {
+          for (let chatUser of chat.users) {
+            if (chatUser.userId === user.id) {
+              unreadsCount += chatUser.unreads;
+            }
           }
         }
       }
-    }
-    if (unreadsCount > 0) {
-      setInvisible(false);
-    } else {
-      setInvisible(true);
+      if (unreadsCount > 0) {
+        setInvisible(false);
+      } else {
+        setInvisible(true);
+      }
     }
   }, [chats, user.id]);
 
   useEffect(() => {
-    if (localStorage.getItem("cshow")) {
-      setShowCampaigns(true);
+    if (isMounted.current) {
+      if (localStorage.getItem("cshow")) {
+        setShowCampaigns(true);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (whatsApps.length > 0) {
-        const offlineWhats = whatsApps.filter((whats) => {
-          return (
-            whats.status === "qrcode" ||
-            whats.status === "PAIRING" ||
-            whats.status === "DISCONNECTED" ||
-            whats.status === "TIMEOUT" ||
-            whats.status === "OPENING"
-          );
-        });
-        if (offlineWhats.length > 0) {
-          setConnectionWarning(true);
-        } else {
-          setConnectionWarning(false);
+    if (isMounted.current) {
+      const delayDebounceFn = setTimeout(() => {
+        if (isMounted.current && whatsApps.length > 0) {
+          const offlineWhats = whatsApps.filter((whats) => {
+            return (
+              whats.status === "qrcode" ||
+              whats.status === "PAIRING" ||
+              whats.status === "DISCONNECTED" ||
+              whats.status === "TIMEOUT" ||
+              whats.status === "OPENING"
+            );
+          });
+          if (offlineWhats.length > 0) {
+            setConnectionWarning(true);
+          } else {
+            setConnectionWarning(false);
+          }
         }
-      }
-    }, 2000);
-    return () => clearTimeout(delayDebounceFn);
+      }, 2000);
+      return () => clearTimeout(delayDebounceFn);
+    }
   }, [whatsApps]);
 
   const fetchChats = async () => {
@@ -277,9 +290,13 @@ const MainListItems = (props) => {
       const { data } = await api.get("/chats/", {
         params: { searchParam, pageNumber },
       });
-      dispatch({ type: "LOAD_CHATS", payload: data.records });
+      if (isMounted.current) {
+        dispatch({ type: "LOAD_CHATS", payload: data.records });
+      }
     } catch (err) {
-      toastError(err);
+      if (isMounted.current) {
+        toastError(err);
+      }
     }
   };
 
@@ -308,7 +325,7 @@ const MainListItems = (props) => {
               }}
               inset
               color="inherit">
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("Atendimento")} </Typography>
+              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.atendimento")} </Typography>
             </ListSubheader>
             <>
 
@@ -331,7 +348,7 @@ const MainListItems = (props) => {
               )}
               <ListItemLink
                 to="/todolist"
-                primary={i18n.t("Tarefas")}
+                primary={i18n.t("hardcodedElements.tarefas")}
                 icon={<BorderColorIcon />}
               />
               <ListItemLink
@@ -392,7 +409,7 @@ const MainListItems = (props) => {
               inset
               color="inherit">
 
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("Gerência")} </Typography>
+              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.gerencia")} </Typography>
             </ListSubheader>
 
             <ListItemLink
@@ -422,13 +439,13 @@ const MainListItems = (props) => {
                   }}
                   inset
                   color="inherit">
-                  <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("Campanhas")} </Typography>
+                  <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.campanhas")} </Typography>
                 </ListSubheader>
 
                 <ListItemLink
                   small
                   to="/campaigns"
-                  primary={i18n.t("Listagem")}
+                  primary={i18n.t("hardcodedElements.listagem")}
                   icon={<ListIcon />}
                 />
 
@@ -443,7 +460,7 @@ const MainListItems = (props) => {
                 <ListItemLink
                   small
                   to="/campaigns-config"
-                  primary={i18n.t("Configurações")}
+                  primary={i18n.t("hardcodedElements.configuracoes")}
                   icon={<ListIcon />}
                 />
 
@@ -516,7 +533,7 @@ const MainListItems = (props) => {
               }}
               inset
               color="inherit">
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("Administração")} </Typography>
+              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.administracao")} </Typography>
             </ListSubheader>
 
             {user.super && (
@@ -526,6 +543,11 @@ const MainListItems = (props) => {
                 icon={<AnnouncementIcon />}
               />
             )}
+            <ListItemLink
+              to="/hub-notificame"
+              primary="Meta"
+              icon={<FaBell color="#607d8b" size={24} />}
+            />
             {showOpenAi && (
               <ListItemLink
                 to="/prompts"
@@ -597,9 +619,22 @@ const MainListItems = (props) => {
               </Hidden> 
               */}
               <Typography style={{ fontSize: "12px", padding: "10px", textAlign: "right", fontWeight: "bold" }}>
-                Versão: {`${version}`}
-
-                </Typography>
+                Watoolx{" "}
+                <span style={{
+                  backgroundColor: '#FFD700',
+                  color: '#000',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  display: 'inline-block',
+                  minWidth: '50px',
+                  textAlign: 'center',
+                  marginLeft: '4px'
+                }}>
+                  BASIC
+                </span>
+              </Typography>
               </React.Fragment>
             )}
           </>
@@ -616,7 +651,7 @@ const MainListItems = (props) => {
           <ListItemIcon>
             <RotateRight />
           </ListItemIcon>
-          <ListItemText primary={i18n.t("Sair")} />
+          <ListItemText primary={i18n.t("hardcodedElements.sair")} />
         </ListItem>
       </li>
     </div>

@@ -62,7 +62,7 @@ const SessionSchema = Yup.object().shape({
     .required("Required"),
 });
 
-const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
+const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const classes = useStyles();
   const initialState = {
     name: "",
@@ -82,24 +82,42 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
   };
   const [whatsApp, setWhatsApp] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
-  const [queues, setQueues] = useState([]);
+
   const [selectedQueueId, setSelectedQueueId] = useState(null)
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [prompts, setPrompts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   
-    useEffect(() => {
+  // ✅ MEJORAR CARGA DE DATOS
+  useEffect(() => {
     const fetchSession = async () => {
       if (!whatsAppId) return;
 
       try {
-        const { data } = await api.get(`whatsapp/${whatsAppId}?session=0`);
+        setIsLoading(true);
+        		const { data } = await api.get(`whatsapp/${whatsAppId}?session=0`);
+        
         setWhatsApp(data);
 
-        const whatsQueueIds = data.queues?.map((queue) => queue.id);
-        setSelectedQueueIds(whatsQueueIds);
+        // ✅ CARGAR DEPARTAMENTOS CORRECTAMENTE PARA SELECCIÓN ÚNICA
+        const whatsQueueIds = data.queues?.map((queue) => queue.id) || [];
+        
+        // ✅ PARA SELECCIÓN ÚNICA, TOMAR SOLO EL PRIMER DEPARTAMENTO
+        const singleQueueId = whatsQueueIds.length > 0 ? whatsQueueIds[0] : null;
+        setSelectedQueueIds(singleQueueId);
 		setSelectedQueueId(data.transferQueueId);
+        
+        // ✅ CARGAR CORRECTAMENTE EL PROMPT ID
+        if (data.promptId) {
+          setSelectedPrompt(data.promptId);
+        } else {
+          setSelectedPrompt(null);
+        }
       } catch (err) {
+        console.error("❌ ERROR AL CARGAR DATOS:", err);
         toastError(err);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchSession();
@@ -116,46 +134,79 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
     })();
   }, [whatsAppId]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get("/queue");
-        setQueues(data);
-      } catch (err) {
-        toastError(err);
-      }
-    })();
-  }, []);
+
 
   const handleSaveWhatsApp = async (values) => {
-const whatsappData = {
-      ...values, queueIds: selectedQueueIds, transferQueueId: selectedQueueId,
-      promptId: selectedPrompt ? selectedPrompt : null
-    };
-    delete whatsappData["queues"];
-    delete whatsappData["session"];
-
     try {
+      setIsLoading(true);
+      
+      // ✅ VALIDACIÓN: Verificar que solo uno esté seleccionado
+      const hasDepartment = selectedQueueIds && selectedQueueIds !== null && selectedQueueIds !== "";
+      const hasPrompt = selectedPrompt && selectedPrompt !== null;
+      
+      if (hasDepartment && hasPrompt) {
+        toast.error("❌ Error: No puedes seleccionar departamento y prompt simultáneamente. Selecciona solo uno.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!hasDepartment && !hasPrompt) {
+        toast.error("❌ Error: Debes seleccionar un departamento o un prompt.");
+        setIsLoading(false);
+        return;
+      }
+      
+
+      
+      // ✅ PREPARAR DATOS CORRECTAMENTE
+      const whatsappData = {
+        ...values, 
+        queueIds: selectedQueueIds ? [selectedQueueIds] : [], // ✅ CONVERTIR A ARRAY
+        transferQueueId: selectedQueueId,
+        promptId: selectedPrompt ? selectedPrompt : null
+      };
+      delete whatsappData["queues"];
+      delete whatsappData["session"];
+
       if (whatsAppId) {
         await api.put(`/whatsapp/${whatsAppId}`, whatsappData);
       } else {
         await api.post("/whatsapp", whatsappData);
       }
+      
       toast.success(i18n.t("whatsappModal.success"));
+      
+      // ✅ AGREGAR CALLBACK PARA REFRESCAR CONEXIONES
+      if (onSave) {
+              onSave();
+      }
+      
       handleClose();
     } catch (err) {
+      console.error("❌ ERROR AL GUARDAR:", err);
       toastError(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleChangeQueue = (e) => {
+    // ✅ VALIDACIÓN: Si se selecciona un departamento, limpiar prompt
+    if (e && e !== null) {
+      setSelectedPrompt(null);
+    }
+    
+    // ✅ PARA SELECCIÓN ÚNICA, GUARDAR EL VALOR DIRECTO
     setSelectedQueueIds(e);
-    setSelectedPrompt(null);
   };
 
   const handleChangePrompt = (e) => {
+    // ✅ VALIDACIÓN: Si se selecciona un prompt, limpiar departamento
+    if (e.target.value && e.target.value !== null) {
+      setSelectedQueueIds(null);
+    }
+    
     setSelectedPrompt(e.target.value);
-    setSelectedQueueIds([]);
   };
 
   const handleClose = () => {
@@ -163,7 +214,11 @@ const whatsappData = {
     setWhatsApp(initialState);
 	  setSelectedQueueId(null);
     setSelectedQueueIds([]);
+    setSelectedPrompt(null);
+    setIsLoading(false);
   };
+
+
 
   return (
     <div className={classes.root}>
@@ -313,6 +368,8 @@ const whatsappData = {
                 <QueueSelect
                   selectedQueueIds={selectedQueueIds}
                   onChange={(selectedIds) => handleChangeQueue(selectedIds)}
+                  multiple={false}
+                  title="Departamentos"
                 />
                 <FormControl
                   margin="dense"
@@ -342,6 +399,9 @@ const whatsappData = {
                       getContentAnchorEl: null,
                     }}
                   >
+                    <MenuItem value="">
+                      Ninguna
+                    </MenuItem>
                     {prompts.map((prompt) => (
                       <MenuItem
                         key={prompt.id}
@@ -353,38 +413,81 @@ const whatsappData = {
                   </Select>
                 </FormControl>
                 <div>
-                  <h3>{i18n.t("whatsappModal.form.queueRedirection")}</h3>
-                  <p>{i18n.t("whatsappModal.form.queueRedirectionDesc")}</p>
-				<Grid container spacing={2}>
-                  <Grid item sm={6} >
-                    <Field
-                      fullWidth
-                      type="number"
-                      as={TextField}
-                      label='Transferir após x (minutos)'
-                      name="timeToTransfer"
-                      error={touched.timeToTransfer && Boolean(errors.timeToTransfer)}
-                      helperText={touched.timeToTransfer && errors.timeToTransfer}
-                      variant="outlined"
-                      margin="dense"
-                      className={classes.textField}
-                      InputLabelProps={{ shrink: values.timeToTransfer ? true : false }}
-                    />
+                  <h3 style={{ color: '#2196f3', marginBottom: '8px' }}>
+                    🔄 {i18n.t("whatsappModal.form.queueRedirection")} - TRANSFERENCIAS AUTOMÁTICAS
+                  </h3>
+                  <p style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>
+                    {i18n.t("whatsappModal.form.queueRedirectionDesc")}
+                  </p>
+                  
+                  {/* ✅ SECCIÓN: TRANSFERENCIAS POR TIEMPO */}
+                  <div style={{ 
+                    background: '#f5f5f5', 
+                    padding: '16px', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <h4 style={{ color: '#333', marginBottom: '8px' }}>
+                      ⏰ Transferencia por Tiempo
+                    </h4>
+                    <p style={{ color: '#666', fontSize: '12px', marginBottom: '12px' }}>
+                      Transferir tickets automáticamente después de X minutos sin respuesta
+                    </p>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item sm={6}>
+                        <Field
+                          fullWidth
+                          type="number"
+                          as={TextField}
+                          label="⏱️ Minutos para transferir"
+                          name="timeToTransfer"
+                          error={touched.timeToTransfer && Boolean(errors.timeToTransfer)}
+                          helperText={touched.timeToTransfer && errors.timeToTransfer || "Ej: 30 = transferir después de 30 minutos"}
+                          variant="outlined"
+                          margin="dense"
+                          className={classes.textField}
+                          InputLabelProps={{ shrink: values.timeToTransfer ? true : false }}
+                        />
+                      </Grid>
 
-                  </Grid>
+                      <Grid item sm={6}>
+                        <QueueSelect
+                          selectedQueueIds={selectedQueueId}
+                          onChange={(selectedId) => {
+                            setSelectedQueueId(selectedId)
+                          }}
+                          multiple={false}
+                          title="🎯 Departamento destino"
+                        />
+                      </Grid>
+                    </Grid>
+                  </div>
 
-                  <Grid item sm={6}>
-                    <QueueSelect
-                      selectedQueueIds={selectedQueueId}
-                      onChange={(selectedId) => {
-                        setSelectedQueueId(selectedId)
-                      }}
-                      multiple={false}
-                      title={'Fila de Transferência'}
-                    />
-                  </Grid>
-
-                  </Grid>
+                  {/* ✅ SECCIÓN: TRANSFERENCIAS INTELIGENTES */}
+                  <div style={{ 
+                    background: '#e8f5e8', 
+                    padding: '16px', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    border: '1px solid #c8e6c9'
+                  }}>
+                    <h4 style={{ color: '#2e7d32', marginBottom: '8px' }}>
+                      🤖 Transferencias Inteligentes
+                    </h4>
+                    <p style={{ color: '#666', fontSize: '12px', marginBottom: '8px' }}>
+                      <strong>Automático:</strong> Los tickets se transfieren entre departamentos según el contenido del mensaje:
+                    </p>
+                    <ul style={{ color: '#666', fontSize: '12px', marginLeft: '20px', marginBottom: '8px' }}>
+                      <li>📈 <strong>VENTAS:</strong> Palabras como "precio", "comprar", "oferta", "producto"</li>
+                      <li>🔧 <strong>SOPORTE:</strong> Palabras como "error", "problema", "ayuda", "técnico"</li>
+                      <li>⏰ <strong>Tiempo:</strong> Sin respuesta por más de 30 minutos</li>
+                    </ul>
+                    <p style={{ color: '#2e7d32', fontSize: '11px', fontStyle: 'italic' }}>
+                      ✅ Sistema activo automáticamente cuando hay múltiples departamentos configurados
+                    </p>
+                  </div>
                   <Grid spacing={2} container>
                     {/* ENCERRAR CHATS ABERTOS APÓS X HORAS */}
                     <Grid xs={12} md={12} item>
@@ -421,7 +524,7 @@ const whatsappData = {
                 <Button
                   onClick={handleClose}
                   color="secondary"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoading}
                   variant="outlined"
                 >
                   {i18n.t("whatsappModal.buttons.cancel")}
@@ -429,14 +532,14 @@ const whatsappData = {
                 <Button
                   type="submit"
                   color="primary"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoading}
                   variant="contained"
                   className={classes.btnWrapper}
                 >
                   {whatsAppId
                     ? i18n.t("whatsappModal.buttons.okEdit")
                     : i18n.t("whatsappModal.buttons.okAdd")}
-                  {isSubmitting && (
+                  {(isSubmitting || isLoading) && (
                     <CircularProgress
                       size={24}
                       className={classes.buttonProgress}

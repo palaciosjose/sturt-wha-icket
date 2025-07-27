@@ -10,6 +10,7 @@ whatsappRoutes.get("/whatsapp/", isAuth, WhatsAppController.index);
 whatsappRoutes.post("/whatsapp/", isAuth, WhatsAppController.store);
 
 whatsappRoutes.get("/whatsapp/:whatsappId", isAuth, WhatsAppController.show);
+whatsappRoutes.get("/whatsapp/:whatsappId/info", isAuth, WhatsAppController.getInfo);
 
 whatsappRoutes.put("/whatsapp/:whatsappId", isAuth, WhatsAppController.update);
 

@@ -22,7 +22,7 @@ import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import MessageVariablesPicker from "../MessageVariablesPicker";
-import ButtonWithSpinner from "../ButtonWithSpinner";
+
 
 import {
     FormControl,
@@ -70,8 +70,8 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const QuickeMessageSchema = Yup.object().shape({
-    shortcode: Yup.string().required("Obrigatório"),
-    //   message: Yup.string().required("Obrigatório"),
+    shortcode: Yup.string().required("Obligatorio"),
+    //   message: Yup.string().required("Obligatorio"),
 });
 
 const QuickMessageDialog = ({ open, onClose, quickemessageId, reload }) => {
@@ -262,8 +262,8 @@ const QuickMessageDialog = ({ open, onClose, quickemessageId, reload }) => {
 											name="geral"
 											error={touched.geral && Boolean(errors.geral)}
 										  >
-											<MenuItem value={true}>Ativo</MenuItem>
-											<MenuItem value={false}>Inativo</MenuItem>
+											<MenuItem value={true}>Activo</MenuItem>
+											<MenuItem value={false}>Inactivo</MenuItem>
 										  </Field>
 										</FormControl>
 									  </Grid>

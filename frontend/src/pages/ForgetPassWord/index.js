@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import qs from "query-string";
 import IconButton from "@material-ui/core/IconButton";
 import VisibilityIcon from "@material-ui/icons/Visibility";
 import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
@@ -19,14 +18,14 @@ import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
-import moment from "moment";
+
 import { toast } from 'react-toastify'; 
 import toastError from '../../errors/toastError';
 import 'react-toastify/dist/ReactToastify.css';
-import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 
 
-const logo = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/login.png`;
+
+const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
 const useStyles = makeStyles((theme) => ({
   root: {
     width: "100vw",
@@ -70,7 +69,6 @@ const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
 const ForgetPassword = () => {
   const classes = useStyles();
   const history = useHistory();
-  let companyId = null;
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
   const [showResetPasswordButton, setShowResetPasswordButton] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -94,15 +92,7 @@ const ForgetPassword = () => {
     }
   };
 
-  const params = qs.parse(window.location.search);
-  if (params.companyId !== undefined) {
-    companyId = params.companyId;
-  }
 
-  const initialState = { email: "" };
-
-  const [user] = useState(initialState);
-  const dueDate = moment().add(3, "day").format();
 
 const handleSendEmail = async (values) => {
   const email = values.email;

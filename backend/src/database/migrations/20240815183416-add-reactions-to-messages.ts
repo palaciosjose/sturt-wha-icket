@@ -7,6 +7,13 @@ module.exports = {
       allowNull: true,
       defaultValue: []
     });
+    
+    // ✅ Actualizar registros existentes que tengan reactions como null
+    await queryInterface.sequelize.query(`
+      UPDATE Messages 
+      SET reactions = '[]' 
+      WHERE reactions IS NULL
+    `);
   },
 
   down: async (queryInterface, Sequelize) => {

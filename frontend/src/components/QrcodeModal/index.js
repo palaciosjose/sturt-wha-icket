@@ -2,14 +2,13 @@ import React, { useEffect, useState, useContext } from "react";
 import QRCode from "qrcode.react";
 import toastError from "../../errors/toastError";
 
-import { Dialog, DialogContent, Paper, Typography, useTheme } from "@material-ui/core";
-import { i18n } from "../../translate/i18n";
+import { Dialog, DialogContent, Paper, Typography } from "@material-ui/core";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   const [qrCode, setQrCode] = useState("");
-  const theme = useTheme();
+
 
   const socketManager = useContext(SocketContext);
 

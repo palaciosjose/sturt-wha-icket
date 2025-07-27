@@ -4,6 +4,7 @@ import { Formik, Form, FastField, FieldArray } from "formik";
 import { isArray } from "lodash";
 import NumberFormat from "react-number-format";
 import ButtonWithSpinner from "../ButtonWithSpinner";
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -34,11 +35,11 @@ function SchedulesForm(props) {
   const classes = useStyles();
 
   const [schedules, setSchedules] = useState([
-    { weekday: "Segunda-feira", weekdayEn: "monday", startTime: "", endTime: "", },
-    { weekday: "Terça-feira", weekdayEn: "tuesday", startTime: "", endTime: "", },
-    { weekday: "Quarta-feira", weekdayEn: "wednesday", startTime: "", endTime: "", },
-    { weekday: "Quinta-feira", weekdayEn: "thursday", startTime: "", endTime: "", },
-    { weekday: "Sexta-feira", weekdayEn: "friday", startTime: "", endTime: "" },
+    { weekday: "Lunes", weekdayEn: "monday", startTime: "", endTime: "", },
+    { weekday: "Martes", weekdayEn: "tuesday", startTime: "", endTime: "", },
+    { weekday: "Miércoles", weekdayEn: "wednesday", startTime: "", endTime: "", },
+    { weekday: "Jueves", weekdayEn: "thursday", startTime: "", endTime: "", },
+    { weekday: "Viernes", weekdayEn: "friday", startTime: "", endTime: "" },
     { weekday: "Sábado", weekdayEn: "saturday", startTime: "", endTime: "" },
     { weekday: "Domingo", weekdayEn: "sunday", startTime: "", endTime: "" },
   ]);
@@ -76,7 +77,7 @@ function SchedulesForm(props) {
                       <Container>
                           <FastField
                             as={TextField}
-                            label="Dia da Semana"
+                            label={i18n.t("schedules.form.weekday")}
                             name={`schedules[${index}].weekday`}
                             disabled
                             variant="outlined"
@@ -88,7 +89,7 @@ function SchedulesForm(props) {
                             >
                             {({ field }) => (
                               <NumberFormat
-                                label="Hora de Inicial"
+                                label={i18n.t("schedules.form.startTime")}
                                 {...field}
                                 variant="outlined"
                                 margin="dense"
@@ -103,7 +104,7 @@ function SchedulesForm(props) {
                             >
                             {({ field }) => (
                               <NumberFormat
-                                label="Hora de Final"
+                                label={i18n.t("schedules.form.endTime")}
                                 {...field}
                                 variant="outlined"
                                 margin="dense"
@@ -128,7 +129,7 @@ function SchedulesForm(props) {
               color="primary"
               variant="contained"
             >
-              {labelSaveButton ?? "Salvar"}
+              {labelSaveButton ?? i18n.t("schedules.form.save")}
             </ButtonWithSpinner>
           </div>
         </Form>

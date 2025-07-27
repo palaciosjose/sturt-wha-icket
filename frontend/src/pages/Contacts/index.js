@@ -2,7 +2,7 @@ import React, { useState, useEffect, useReducer, useContext, useRef } from "reac
 
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
-import { Tooltip } from "@material-ui/core";
+
 import { makeStyles } from "@material-ui/core/styles";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
@@ -20,6 +20,8 @@ import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
+import Checkbox from "@material-ui/core/Checkbox";
+import GetAppIcon from "@material-ui/icons/GetApp";
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
@@ -37,7 +39,7 @@ import NewTicketModal from "../../components/NewTicketModal";
 import { SocketContext } from "../../context/Socket/SocketContext";
 import { generateColor } from "../../helpers/colorGenerator";
 import { getInitials } from "../../helpers/getInitials";
-import {CSVLink} from "react-csv";
+
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
@@ -110,6 +112,12 @@ const Contacts = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const fileUploadRef = useRef(null);
+
+  // Estados para selección múltiple
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [actionType, setActionType] = useState(""); // "delete", "export" o "import"
+  const [contactCount, setContactCount] = useState(0);
 
   const socketManager = useContext(SocketContext);
 
@@ -200,17 +208,132 @@ const Contacts = () => {
   };
 
   const handleDeleteContact = async (contactId) => {
+    setLoading(true);
     try {
       await api.delete(`/contacts/${contactId}`);
       toast.success(i18n.t("contacts.toasts.deleted"));
     } catch (err) {
       toastError(err);
     }
+    setLoading(false);
+    setConfirmOpen(false);
     setDeletingContact(null);
-    setSearchParam("");
-    setPageNumber(1);
+  };
+
+  // Funciones para selección múltiple
+  const handleSelectContact = (contactId) => {
+    setSelectedContacts(prev => {
+      if (prev.includes(contactId)) {
+        return prev.filter(id => id !== contactId);
+      } else {
+        return [...prev, contactId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedContacts([]);
+      setSelectAll(false);
+    } else {
+      setSelectedContacts(contacts.map(contact => contact.id));
+      setSelectAll(true);
+    }
+  };
+
+  const handleDeleteSelectedContacts = async () => {
+    if (selectedContacts.length === 0) return;
+    
+    setLoading(true);
+    try {
+      await api.delete("/contacts/", {
+        data: { contactIds: selectedContacts }
+      });
+      toast.success(i18n.t("contacts.toasts.deletedAll"));
+      setSelectedContacts([]);
+      setSelectAll(false);
+    } catch (err) {
+      toastError(err);
+    }
+    setLoading(false);
+    setConfirmOpen(false);
+  };
+
+  const handleExportSelectedContacts = () => {
+    if (selectedContacts.length === 0) return;
+    
+    // Filtrar solo los contactos seleccionados
+    const contactsToExport = contacts.filter(contact => 
+      selectedContacts.includes(contact.id)
+    );
+    
+    // Mostrar mensaje de procesamiento para grandes cantidades
+    if (selectedContacts.length > 50) {
+      toast.info(i18n.t("contacts.messages.processingExport").replace('{count}', selectedContacts.length));
+    }
+    
+    // Usar setTimeout para no bloquear la UI
+    setTimeout(() => {
+      try {
+        // Crear el CSV con los datos filtrados
+        const csvData = contactsToExport.map((contact) => ({ 
+          name: contact.name || '', 
+          number: contact.number || '', 
+          email: contact.email || '' 
+        }));
+        
+        // Crear el contenido CSV con encoding UTF-8 BOM para Excel
+        const csvHeader = 'name;number;email\n';
+        const csvContent = csvData.map(row => 
+          `"${row.name.replace(/"/g, '""')}";"${row.number}";"${row.email}"`
+        ).join('\n');
+        
+        const csvString = '\ufeff' + csvHeader + csvContent; // BOM para UTF-8
+        
+        // Crear y descargar el archivo
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `whaticket_${selectedContacts.length}_contacts_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Limpiar la URL del blob
+        URL.revokeObjectURL(url);
+        
+        toast.success(i18n.t("contacts.messages.exportSuccess"));
+      } catch (error) {
+        console.error('Error al exportar:', error);
+        toast.error(i18n.t("contacts.messages.exportError"));
+      }
+      
+      setConfirmOpen(false);
+    }, 100);
   };
   
+  const handleCheckAgenda = async () => {
+    try {
+      toast.info(i18n.t("contacts.messages.checkingAgenda"));
+      
+      const { data: countData } = await api.get("/contacts/count");
+      const count = countData.count;
+      
+      if (count === 0) {
+        toast.warning(i18n.t("contacts.messages.agendaEmpty"));
+        return;
+      }
+      
+      setContactCount(count);
+      setActionType("import");
+      setConfirmOpen(true);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleimportContact = async () => {
     try {
       if (!!fileUploadRef.current.files[0]) {
@@ -222,11 +345,36 @@ const Contacts = () => {
           data: formData,
         });
       } else {
+        // Mostrar mensaje de progreso para grandes cantidades
+        if (contactCount > 50) {
+          toast.info(i18n.t("contacts.messages.importingContacts").replace('{count}', contactCount));
+        }
+        
+        // Importar los contactos
         await api.post("/contacts/import");
+        
+        toast.success(i18n.t("contacts.messages.importSuccess"));
       }
       history.go(0);
     } catch (err) {
       toastError(err);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    try {
+      // Crear un enlace temporal para descargar el archivo
+      const link = document.createElement('a');
+      link.href = '/files/plantilla-watoolx-contact.xlsx';
+      link.download = 'plantilla-watoolx-contact.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Plantilla descargada correctamente");
+    } catch (error) {
+      console.error('Error al descargar plantilla:', error);
+      toast.error("Error al descargar la plantilla");
     }
   };
   
@@ -283,18 +431,50 @@ function getDateLastMessage(contact) {
             ? `${i18n.t("contacts.confirmationModal.deleteTitle")} ${
                 deletingContact.name
               }?`
-            : `${i18n.t("contacts.confirmationModal.importTitlte")}`
+            : actionType === "export" && selectedContacts.length > 0
+            ? selectedContacts.length === contacts.length
+              ? "Exportar todos los contactos"
+              : `Exportar ${selectedContacts.length} contacto${selectedContacts.length > 1 ? 's' : ''}`
+            : actionType === "import" && contactCount > 0
+            ? `${i18n.t("contacts.confirmationModal.importTitle")}`
+            : selectedContacts.length > 0
+            ? selectedContacts.length === contacts.length
+              ? `${i18n.t("contacts.confirmationModal.deleteAllTitle")}`
+              : `Eliminar ${selectedContacts.length} contacto${selectedContacts.length > 1 ? 's' : ''}`
+            : `${i18n.t("contacts.confirmationModal.importTitle")}`
         }
         open={confirmOpen}
-        onClose={setConfirmOpen}
-        onConfirm={(e) =>
-          deletingContact
-            ? handleDeleteContact(deletingContact.id)
-            : handleimportContact()
-        }
+        onClose={() => {
+          setConfirmOpen(false);
+          setActionType("");
+          setContactCount(0);
+        }}
+        onConfirm={(e) => {
+          if (deletingContact) {
+            handleDeleteContact(deletingContact.id);
+          } else if (actionType === "export" && selectedContacts.length > 0) {
+            handleExportSelectedContacts();
+          } else if (actionType === "import" && contactCount > 0) {
+            handleimportContact();
+          } else if (selectedContacts.length > 0) {
+            handleDeleteSelectedContacts();
+          } else {
+            handleimportContact();
+          }
+        }}
       >
         {deletingContact
           ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
+          : actionType === "export" && selectedContacts.length > 0
+          ? selectedContacts.length === contacts.length
+            ? "¿Está seguro que desea exportar todos los contactos?"
+            : `¿Está seguro que desea exportar ${selectedContacts.length} contacto${selectedContacts.length > 1 ? 's' : ''}?`
+          : actionType === "import" && contactCount > 0
+          ? i18n.t("contacts.confirmationModal.importAgendaMessage").replace('{count}', contactCount)
+          : selectedContacts.length > 0
+          ? selectedContacts.length === contacts.length
+            ? `${i18n.t("contacts.confirmationModal.deleteAllMessage")}`
+            : `¿Seguro que desea eliminar ${selectedContacts.length} contacto${selectedContacts.length > 1 ? 's' : ''}? Se perderán todos los tickets relacionados.`
           : `${i18n.t("contacts.confirmationModal.importMessage")}`}
       </ConfirmationModal>
       <MainHeader>
@@ -316,17 +496,19 @@ function getDateLastMessage(contact) {
           <Button
             variant="contained"
             color="primary"
-            onClick={(e) => setConfirmOpen(true)}
+            disabled={true}
+            onClick={handleCheckAgenda}
+            title="Función temporalmente deshabilitada - En desarrollo"
           >
             {i18n.t("contacts.buttons.import")}
           </Button>
-          <Button
-          variant="contained"
-          color="primary"
-          onClick={() => {
-            fileUploadRef.current.value = null;
-            fileUploadRef.current.click();
-          }}
+                    <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              fileUploadRef.current.value = null;
+              fileUploadRef.current.click();
+            }}
       >
         {i18n.t("contacts.buttons.importSheet")}
       </Button>
@@ -338,11 +520,40 @@ function getDateLastMessage(contact) {
             {i18n.t("contacts.buttons.add")}
           </Button>
 
-         <CSVLink style={{ textDecoration:'none'}} separator=";" filename={'whaticket.csv'} data={contacts.map((contact) => ({ name: contact.name, number: contact.number, email: contact.email }))}>
-          <Button	variant="contained" color="primary"> 
-          EXPORTAR CONTATOS 
+          <Button
+            variant="contained"
+            color="secondary"
+            disabled={selectedContacts.length === 0}
+            onClick={() => {
+              setActionType("delete");
+              setConfirmOpen(true);
+            }}
+          >
+            {i18n.t("contacts.buttons.delete")}
           </Button>
-          </CSVLink>		  
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              if (selectedContacts.length === 0) {
+                toast.error(i18n.t("contacts.messages.selectToExport"));
+                return;
+              }
+              setActionType("export");
+              setConfirmOpen(true);
+            }}
+          >
+            {i18n.t("contacts.buttons.export")}
+          </Button>
+          <IconButton
+            color="primary"
+            onClick={handleDownloadTemplate}
+            title={i18n.t("contacts.buttons.downloadTemplate")}
+            style={{ marginLeft: '8px' }}
+          >
+            <GetAppIcon />
+          </IconButton>
 
         </MainHeaderButtonsWrapper>
       </MainHeader>
@@ -367,7 +578,14 @@ function getDateLastMessage(contact) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" />
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={selectAll}
+                  onChange={handleSelectAll}
+                  indeterminate={selectedContacts.length > 0 && selectedContacts.length < contacts.length}
+                />
+              </TableCell>
+              <TableCell>PERFIL</TableCell>
               <TableCell>{i18n.t("contacts.table.name")}</TableCell>
               <TableCell align="center">
                 {i18n.t("contacts.table.whatsapp")}
@@ -376,9 +594,9 @@ function getDateLastMessage(contact) {
                 {i18n.t("contacts.table.email")}
               </TableCell>
               <TableCell align="center">
-              {"Última Interação"}
+              {i18n.t("contacts.table.lastInteraction")}
               </TableCell>
-			  <TableCell align="center">{"Status"}</TableCell>
+			  <TableCell align="center">{i18n.t("contacts.table.status")}</TableCell>
               <TableCell align="center">
                 {i18n.t("contacts.table.actions")}
               </TableCell>
@@ -388,6 +606,12 @@ function getDateLastMessage(contact) {
             <>
               {contacts.map((contact) => (
                 <TableRow key={contact.id}>
+                  <TableCell style={{ paddingRight: 0 }}>
+                    <Checkbox
+                      checked={selectedContacts.includes(contact.id)}
+                      onChange={() => handleSelectContact(contact.id)}
+                    />
+                  </TableCell>
                   <TableCell style={{ paddingRight: 0 }}>
                     { <Avatar
                       style={{ backgroundColor: generateColor(contact?.number), fontWeight: "bold", color: "white" }}

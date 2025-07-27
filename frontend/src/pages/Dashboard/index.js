@@ -10,23 +10,12 @@ import Select from "@material-ui/core/Select";
 import TextField from "@material-ui/core/TextField";
 import FormHelperText from "@material-ui/core/FormHelperText";
 import Typography from "@material-ui/core/Typography";
-import { Button } from "@material-ui/core";
 import MobileFriendlyIcon from '@material-ui/icons/MobileFriendly';
 import StoreIcon from '@material-ui/icons/Store';
-import SpeedIcon from "@material-ui/icons/Speed";
-import GroupIcon from "@material-ui/icons/Group";
-import AssignmentIcon from "@material-ui/icons/Assignment";
-import PersonIcon from "@material-ui/icons/Person";
 import CallIcon from "@material-ui/icons/Call";
-import RecordVoiceOverIcon from "@material-ui/icons/RecordVoiceOver";
 import GroupAddIcon from "@material-ui/icons/GroupAdd";
 import HourglassEmptyIcon from "@material-ui/icons/HourglassEmpty";
 import CheckCircleIcon from "@material-ui/icons/CheckCircle";
-import ForumIcon from "@material-ui/icons/Forum";
-import FilterListIcon from "@material-ui/icons/FilterList";
-import ClearIcon from "@material-ui/icons/Clear";
-import SendIcon from '@material-ui/icons/Send';
-import MessageIcon from '@material-ui/icons/Message';
 import AccessAlarmIcon from '@material-ui/icons/AccessAlarm';
 import TimerIcon from '@material-ui/icons/Timer';
 
@@ -34,31 +23,26 @@ import { makeStyles } from "@material-ui/core/styles";
 import { grey, blue } from "@material-ui/core/colors";
 import { toast } from "react-toastify";
 
-import Chart from "./Chart";
 import ButtonWithSpinner from "../../components/ButtonWithSpinner";
 
-import CardCounter from "../../components/Dashboard/CardCounter";
 import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsStatus";
 import { isArray } from "lodash";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 import useDashboard from "../../hooks/useDashboard";
-import useTickets from "../../hooks/useTickets";
-import useUsers from "../../hooks/useUsers";
 import useContacts from "../../hooks/useContacts";
-import useMessages from "../../hooks/useMessages";
 import { ChatsUser } from "./ChartsUser"
 
-import Filters from "./Filters";
 import { isEmpty } from "lodash";
 import moment from "moment";
 import { ChartsDate } from "./ChartsDate";
+import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    paddingTop: theme.spacing(1),
-    paddingBottom: theme.padding,
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
     paddingLeft: theme.spacing(1),
     paddingRight: theme.spacing(2),
   },
@@ -100,17 +84,6 @@ const useStyles = makeStyles((theme) => ({
     height: "calc(100vh - 64px)",
     border: "none",
   },
-  container: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4),
-  },
-  fixedHeightPaper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    overflow: "auto",
-    flexDirection: "column",
-    height: 240,
-  },
   customFixedHeightPaper: {
     padding: theme.spacing(2),
     display: "flex",
@@ -131,8 +104,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
       card00: {
     padding: theme.spacing(2),
@@ -140,8 +113,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card1: {
     padding: theme.spacing(2),
@@ -149,8 +122,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card2: {
     padding: theme.spacing(2),
@@ -158,8 +131,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card3: {
     padding: theme.spacing(2),
@@ -167,8 +140,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card4: {
     padding: theme.spacing(2),
@@ -176,8 +149,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card5: {
     padding: theme.spacing(2),
@@ -185,8 +158,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card6: {
     padding: theme.spacing(2),
@@ -194,8 +167,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card7: {
     padding: theme.spacing(2),
@@ -203,8 +176,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card8: {
     padding: theme.spacing(2),
@@ -212,8 +185,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   card9: {
     padding: theme.spacing(2),
@@ -221,8 +194,8 @@ const useStyles = makeStyles((theme) => ({
     overflow: "auto",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#2f0549",
-    color: "#eee",
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
   },
   fixedHeightPaper2: {
     padding: theme.spacing(2),
@@ -243,26 +216,27 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const { find } = useDashboard();
 
-  let newDate = new Date();
-  let date = newDate.getDate();
-  let month = newDate.getMonth() + 1;
-  let year = newDate.getFullYear();
-  let now = `${year}-${month < 10 ? `0${month}` : `${month}`}-${date < 10 ? `0${date}` : `${date}`}`;
-
-  const [showFilter, setShowFilter] = useState(false);
-  const [queueTicket, setQueueTicket] = useState(false);
-
   const { user } = useContext(AuthContext);
-  var userQueueIds = [];
-
-  if (user.queues && user.queues.length > 0) {
-    userQueueIds = user.queues.map((q) => q.id);
-  }
 
   useEffect(() => {
+    // ✅ CARGAR DATOS AUTOMÁTICAMENTE AL ABRIR EL DASHBOARD
     async function firstLoad() {
+      // Establecer valores por defecto para mostrar datos útiles
+      if (filterType === 1) {
+        // Si es filtro por fecha, usar últimos 7 días por defecto
+        const defaultDateFrom = moment().subtract(7, 'days').format("YYYY-MM-DD");
+        const defaultDateTo = moment().format("YYYY-MM-DD");
+        setDateFrom(defaultDateFrom);
+        setDateTo(defaultDateTo);
+      } else {
+        // Si es filtro por período, usar últimos 7 días por defecto
+        setPeriod(7);
+      }
+      
+      // Cargar datos automáticamente
       await fetchData();
     }
+    
     setTimeout(() => {
       firstLoad();
     }, 1000);
@@ -308,44 +282,76 @@ const Dashboard = () => {
       };
     }
 
+    // ✅ MEJORAR MANEJO DE PARÁMETROS - Si no hay parámetros, usar últimos 7 días por defecto
     if (Object.keys(params).length === 0) {
-      toast.error("Parametrize o filtro");
-      setLoading(false);
-      return;
+      params = {
+        days: 7, // Usar últimos 7 días por defecto
+      };
     }
 
-    const data = await find(params);
+    try {
+      const data = await find(params);
 
-    setCounters(data.counters);
-    if (isArray(data.attendants)) {
-      setAttendants(data.attendants);
-    } else {
+      // ✅ MEJORAR MANEJO DE DATOS - Asegurar que counters tenga valores por defecto
+      if (data && data.counters) {
+        setCounters({
+          avgSupportTime: data.counters.avgSupportTime || 0,
+          avgWaitTime: data.counters.avgWaitTime || 0,
+          supportHappening: data.counters.supportHappening || 0,
+          supportPending: data.counters.supportPending || 0,
+          supportFinished: data.counters.supportFinished || 0,
+          leads: data.counters.leads || 0,
+          totalCompanies: data.counters.totalCompanies || 0,
+          totalWhatsappSessions: data.counters.totalWhatsappSessions || 0,
+        });
+      } else {
+        // ✅ VALORES POR DEFECTO SI NO HAY DATOS
+        setCounters({
+          avgSupportTime: 0,
+          avgWaitTime: 0,
+          supportHappening: 0,
+          supportPending: 0,
+          supportFinished: 0,
+          leads: 0,
+          totalCompanies: 0,
+          totalWhatsappSessions: 0,
+        });
+      }
+
+      if (isArray(data?.attendants)) {
+        setAttendants(data.attendants);
+      } else {
+        setAttendants([]);
+      }
+    } catch (error) {
+      console.error("Error al cargar datos del dashboard:", error);
+      toast.error(i18n.t("dashboard.errors.loadData"));
+      
+      // ✅ VALORES POR DEFECTO EN CASO DE ERROR
+      setCounters({
+        avgSupportTime: 0,
+        avgWaitTime: 0,
+        supportHappening: 0,
+        supportPending: 0,
+        supportFinished: 0,
+        leads: 0,
+        totalCompanies: 0,
+        totalWhatsappSessions: 0,
+      });
       setAttendants([]);
     }
 
     setLoading(false);
   }
 
-  function formatTime(minutes) {
+    function formatTime(minutes) {
     return moment()
       .startOf("day")
       .add(minutes, "minutes")
       .format("HH[h] mm[m]");
   }
 
-  const GetUsers = () => {
-    let count;
-    let userOnline = 0;
-    attendants.forEach(user => {
-      if (user.online === true) {
-        userOnline = userOnline + 1
-      }
-    })
-    count = userOnline === 0 ? 0 : userOnline;
-    return count;
-  };
-  
-    const GetContacts = (all) => {
+  const GetContacts = (all) => {
     let props = {};
     if (all) {
       props = {};
@@ -360,7 +366,7 @@ const Dashboard = () => {
         <>
           <Grid item xs={12} sm={6} md={4}>
             <TextField
-              label="Data Inicial"
+              label={i18n.t("dashboard.filters.initialDate")}
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
@@ -372,7 +378,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <TextField
-              label="Data Final"
+              label={i18n.t("dashboard.filters.finalDate")}
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
@@ -388,22 +394,22 @@ const Dashboard = () => {
       return (
         <Grid item xs={12} sm={6} md={4}>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="period-selector-label">Período</InputLabel>
+            <InputLabel id="period-selector-label">{i18n.t("dashboard.filters.period")}</InputLabel>
             <Select
               labelId="period-selector-label"
               id="period-selector"
               value={period}
               onChange={(e) => handleChangePeriod(e.target.value)}
             >
-              <MenuItem value={0}>Nenhum selecionado</MenuItem>
-              <MenuItem value={3}>Últimos 3 dias</MenuItem>
-              <MenuItem value={7}>Últimos 7 dias</MenuItem>
-              <MenuItem value={15}>Últimos 15 dias</MenuItem>
-              <MenuItem value={30}>Últimos 30 dias</MenuItem>
-              <MenuItem value={60}>Últimos 60 dias</MenuItem>
-              <MenuItem value={90}>Últimos 90 dias</MenuItem>
+              <MenuItem value={0}>{i18n.t("dashboard.filters.noSelection")}</MenuItem>
+              <MenuItem value={3}>{i18n.t("dashboard.filters.last3Days")}</MenuItem>
+              <MenuItem value={7}>{i18n.t("dashboard.filters.last7Days")}</MenuItem>
+              <MenuItem value={15}>{i18n.t("dashboard.filters.last15Days")}</MenuItem>
+              <MenuItem value={30}>{i18n.t("dashboard.filters.last30Days")}</MenuItem>
+              <MenuItem value={60}>{i18n.t("dashboard.filters.last60Days")}</MenuItem>
+              <MenuItem value={90}>{i18n.t("dashboard.filters.last90Days")}</MenuItem>
             </Select>
-            <FormHelperText>Selecione o período desejado</FormHelperText>
+            <FormHelperText>{i18n.t("dashboard.filters.selectPeriod")}</FormHelperText>
           </FormControl>
         </Grid>
       );
@@ -418,16 +424,16 @@ const Dashboard = () => {
 				  {/* FILTROS */}
           <Grid item xs={12} sm={6} md={4}>
             <FormControl className={classes.selectContainer}>
-              <InputLabel id="period-selector-label">Tipo de Filtro</InputLabel>
+              <InputLabel id="period-selector-label">{i18n.t("dashboard.filters.filterType")}</InputLabel>
               <Select
                 labelId="period-selector-label"
                 value={filterType}
                 onChange={(e) => handleChangeFilterType(e.target.value)}
               >
-                <MenuItem value={1}>Filtro por Data</MenuItem>
-                <MenuItem value={2}>Filtro por Período</MenuItem>
+                <MenuItem value={1}>{i18n.t("dashboard.filters.dateFilter")}</MenuItem>
+                <MenuItem value={2}>{i18n.t("dashboard.filters.periodFilter")}</MenuItem>
               </Select>
-              <FormHelperText>Selecione o período desejado</FormHelperText>
+              <FormHelperText>{i18n.t("dashboard.filters.selectPeriod")}</FormHelperText>
             </FormControl>
           </Grid>
 
@@ -441,13 +447,13 @@ const Dashboard = () => {
               variant="contained"
               color="primary"
             >
-              Filtrar
+              {i18n.t("dashboard.filters.filter")}
             </ButtonWithSpinner>
           </Grid>
 		
 		{/* CONEXÕES */}
 		 {user.super && (	  
-		  <Grid item xs={12} sm={6} md={4}>
+		  <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card0}
               style={{ overflow: "hidden" }}
@@ -460,7 +466,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Conexões Ativas
+                    {i18n.t("dashboard.cards.activeConnections")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -487,7 +493,7 @@ const Dashboard = () => {
 		  
 		 {/* EMPRESAS */}
 		 {user.super && (
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card00}
               style={{ overflow: "hidden" }}
@@ -500,7 +506,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Empresas
+                    {i18n.t("dashboard.cards.companies")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -525,7 +531,7 @@ const Dashboard = () => {
 		  )}
 
           {/* EM ATENDIMENTO */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card1}
               style={{ overflow: "hidden" }}
@@ -538,7 +544,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Em Conversa
+                    {i18n.t("dashboard.cards.inConversation")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -562,7 +568,7 @@ const Dashboard = () => {
           </Grid>
 
           {/* AGUARDANDO */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card2}
               style={{ overflow: "hidden" }}
@@ -575,7 +581,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Aguardando
+                    {i18n.t("dashboard.cards.waiting")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -641,7 +647,7 @@ const Dashboard = () => {
 </Grid>*/}
 
           {/* FINALIZADOS */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card3}
               style={{ overflow: "hidden" }}
@@ -654,7 +660,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Finalizados
+                    {i18n.t("dashboard.cards.finished")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -678,7 +684,7 @@ const Dashboard = () => {
           </Grid>
 
           {/* NOVOS CONTATOS */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card4}
               style={{ overflow: "hidden" }}
@@ -691,7 +697,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    Novos Contatos
+                    {i18n.t("dashboard.cards.newContacts")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -716,7 +722,7 @@ const Dashboard = () => {
 
           
           {/* T.M. DE ATENDIMENTO */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card8}
               style={{ overflow: "hidden" }}
@@ -729,7 +735,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    T.M. de Conversa
+                    {i18n.t("dashboard.cards.avgConversationTime")}
                   </Typography>
                   <Grid item>
                     <Typography
@@ -753,7 +759,7 @@ const Dashboard = () => {
           </Grid>
 
           {/* T.M. DE ESPERA */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Paper
               className={classes.card9}
               style={{ overflow: "hidden" }}
@@ -766,7 +772,7 @@ const Dashboard = () => {
                     variant="h6"
                     paragraph
                   >
-                    T.M. de Espera
+                    {i18n.t("dashboard.cards.avgWaitTime")}
                   </Typography>
                   <Grid item>
                     <Typography

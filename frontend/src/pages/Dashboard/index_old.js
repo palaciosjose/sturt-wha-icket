@@ -163,7 +163,7 @@ const Dashboard = () => {
       await loadCompanies();
     }
     fetchData();
-  }, [])
+  }, [loadCompanies])
   //let companyDueDate = localStorage.getItem("companyDueDate");
   //const companyDueDate = localStorage.getItem("companyDueDate").toString();
   const companyId = localStorage.getItem("companyId");

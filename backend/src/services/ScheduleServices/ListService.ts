@@ -2,6 +2,7 @@ import { Op, Sequelize } from "sequelize";
 import Contact from "../../models/Contact";
 import Schedule from "../../models/Schedule";
 import User from "../../models/User";
+import Whatsapp from "../../models/Whatsapp";
 
 interface Request {
   searchParam?: string;
@@ -67,7 +68,13 @@ const ListService = async ({
     ...whereCondition,
     companyId: {
       [Op.eq]: companyId
-    }
+    },
+    // Ocultar recordatorios del sistema de recordatorios del calendario
+    [Op.or]: [
+      { isReminderSystem: { [Op.ne]: true } },
+      { reminderType: { [Op.ne]: 'reminder' } },
+      { isReminderSystem: null }
+    ]
   }
 
   const { count, rows: schedules } = await Schedule.findAndCountAll({
@@ -78,6 +85,7 @@ const ListService = async ({
     include: [
       { model: Contact, as: "contact", attributes: ["id", "name"] },
       { model: User, as: "user", attributes: ["id", "name"] },
+      { model: Whatsapp, as: "whatsapp", attributes: ["id", "name"] },
     ]
   });
 

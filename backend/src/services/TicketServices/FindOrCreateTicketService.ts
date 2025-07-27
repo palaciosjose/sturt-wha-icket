@@ -2,6 +2,8 @@ import { subHours } from "date-fns";
 import { Op } from "sequelize";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import Queue from "../../models/Queue";
+import Prompt from "../../models/Prompt";
 import ShowTicketService from "./ShowTicketService";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Setting from "../../models/Setting";
@@ -29,6 +31,9 @@ const FindOrCreateTicketService = async (
       companyId,
       whatsappId
     },
+    include: [
+      { model: Queue, as: 'queue', include: [{ model: Prompt, as: 'prompt' }] }
+    ],
     order: [["id", "DESC"]]
   });
 
@@ -45,6 +50,9 @@ const FindOrCreateTicketService = async (
       where: {
         contactId: groupContact.id
       },
+      include: [
+        { model: Queue, as: 'queue', include: [{ model: Prompt, as: 'prompt' }] }
+      ],
       order: [["updatedAt", "DESC"]]
     });
 
@@ -78,6 +86,9 @@ const FindOrCreateTicketService = async (
         },
         contactId: contact.id
       },
+      include: [
+        { model: Queue, as: 'queue', include: [{ model: Prompt, as: 'prompt' }] }
+      ],
       order: [["updatedAt", "DESC"]]
     });
 

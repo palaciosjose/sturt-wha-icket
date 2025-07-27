@@ -51,7 +51,9 @@ class Queue extends Model<Queue> {
   outOfHoursMessage: string;
 
   @Column({
-    type: DataType.JSONB
+    type: DataType.JSON,
+    allowNull: true,
+    defaultValue: null
   })
   schedules: [];
 

@@ -13,7 +13,6 @@ import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import whatsBackground from "../../assets/wa-background.png";
 import { makeStyles } from "@material-ui/core";
 import MarkdownWrapper from "../MarkdownWrapper";
-import MoodIcon from "@material-ui/icons/Mood";
 import api from "../../services/api";
 import whatsBackgroundDark from "../../assets/wa-background-dark.png"
 
@@ -21,7 +20,6 @@ const useStyles = makeStyles((theme) => ({
   messagesList: {
     backgroundSize: "370px",
     backgroundImage: theme.mode === 'light' ? `url(${whatsBackground})` : `url(${whatsBackgroundDark})`, //DARK MODE PLW DESIGN//
-    display: "flex",
     display: "flex",
     justifyContent: "center",
     flexGrow: 1,
@@ -71,7 +69,7 @@ const useStyles = makeStyles((theme) => ({
   },
   titleBackground: {
     color:'#ffff',
-    backgroundColor: "#00796b"  , // Cor de fundo desejada
+    backgroundColor: "#1e3a8a"  , // Cor de fundo desejada
     marginLeft:'3px'
   },
   emojiBox: {
@@ -113,8 +111,6 @@ const useStyles = makeStyles((theme) => ({
 const EditMessageModal = ({ open, onClose, onSave, message }) => {
   const classes = useStyles();
   const [editedMessage, setEditedMessage] = useState(null);
-  const [showEmoji, setShowEmoji] = useState(false);
-  const [inputMessage, setInputMessage] = useState("");
   const emojiOptionsRef = useRef(null);
   const modalRef = useRef(null);
   
@@ -143,10 +139,7 @@ const EditMessageModal = ({ open, onClose, onSave, message }) => {
   };
 
 
-  const setInputValue = (value) => {
-    let emoji = value.native;
-    setEditedMessage(editedMessage ? editedMessage + value.native : emoji);
-  };
+
 
   useEffect(() => {
     if (open) {
