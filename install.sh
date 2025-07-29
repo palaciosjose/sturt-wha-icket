@@ -112,6 +112,38 @@ print_banner() {
     echo -e "${NC}"
 }
 
+# Función para verificar conectividad a internet
+check_internet_connectivity() {
+    log_message "INFO" "Verificando conectividad a internet..."
+    
+    # Probar con IPv4 primero
+    if ping -4 -c 1 8.8.8.8 >/dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Conectividad IPv4 verificada"
+        return 0
+    fi
+    
+    # Probar con IPv4 y google.com
+    if ping -4 -c 1 google.com >/dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Conectividad a internet verificada"
+        return 0
+    fi
+    
+    # Probar con curl como fallback
+    if curl -s --connect-timeout 5 https://httpbin.org/ip >/dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Conectividad a internet verificada (curl)"
+        return 0
+    fi
+    
+    # Si todo falla, verificar si al menos podemos resolver DNS
+    if nslookup google.com >/dev/null 2>&1; then
+        log_message "WARNING" "⚠️ DNS funciona pero conectividad limitada, continuando..."
+        return 0
+    fi
+    
+    log_message "ERROR" "❌ No hay conectividad a internet"
+    return 1
+}
+
 # Función para actualizar el sistema
 system_update() {
     log_message "STEP" "=== ACTUALIZANDO SISTEMA ==="
@@ -200,8 +232,7 @@ check_system_requirements() {
     fi
 
     # Verificar conectividad a internet
-    if ! ping -c 1 google.com &> /dev/null; then
-        register_error "No hay conectividad a internet"
+    if ! check_internet_connectivity; then
         return 1
     fi
 
