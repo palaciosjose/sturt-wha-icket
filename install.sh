@@ -985,6 +985,113 @@ configure_ssl() {
     fi
 }
 
+# Función para instalar y configurar el frontend
+install_frontend() {
+    log_message "STEP" "=== INSTALANDO Y CONFIGURANDO FRONTEND ==="
+    
+    print_banner
+    printf "${WHITE} 💻 Instalando y configurando frontend...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Navegar al directorio del frontend
+    cd "$FRONTEND_DIR" || {
+        register_error "No se pudo acceder al directorio del frontend"
+        return 1
+    }
+
+    # Configurar variables de entorno del frontend
+    log_message "INFO" "Configurando variables de entorno del frontend..."
+    cat > .env << EOF
+REACT_APP_BACKEND_URL=https://${backend_url}
+REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24
+REACT_APP_REACT_APP_SHOW_LOGO_TOP=true
+REACT_APP_REACT_APP_SHOW_LOGO_LOGIN=true
+REACT_APP_REACT_APP_SHOW_LOGO_FAVICON=true
+REACT_APP_REACT_APP_SHOW_LOGO_MAIN_SCREEN=true
+REACT_APP_REACT_APP_SHOW_LOGO_MENU=true
+REACT_APP_REACT_APP_SHOW_LOGO_TICKET=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_DARK=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_LIGHT=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_DARK=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_LIGHT=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_WHITE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_BLACK=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_RED=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GREEN=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_BLUE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_YELLOW=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_ORANGE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_PURPLE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_PINK=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_BROWN=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_CYAN=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_MAGENTA=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_LIME=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_INDIGO=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_TEAL=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_AMBER=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_EMERALD=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_ROSE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_SKY=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_SLATE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_STONE=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_NEUTRAL=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_ZINC=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_50=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_100=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_200=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_300=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_400=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_500=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_600=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_700=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_800=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_900=true
+REACT_APP_REACT_APP_SHOW_LOGO_EMPTY_TICKET_WHATSAPP_GRAY_950=true
+EOF
+
+    log_message "SUCCESS" "✅ Variables de entorno del frontend configuradas"
+
+    # Instalar dependencias del frontend
+    log_message "INFO" "Instalando dependencias del frontend..."
+    if npm install; then
+        log_message "SUCCESS" "✅ Dependencias del frontend instaladas correctamente"
+    else
+        log_message "ERROR" "❌ Error al instalar dependencias del frontend"
+        register_error "Error al instalar dependencias del frontend"
+        return 1
+    fi
+
+    # Compilar frontend para producción
+    log_message "INFO" "Compilando frontend para producción..."
+    if npm run build; then
+        log_message "SUCCESS" "✅ Frontend compilado correctamente"
+    else
+        log_message "ERROR" "❌ Error al compilar frontend"
+        register_error "Error al compilar frontend"
+        return 1
+    fi
+
+    # Instalar serve para servir el frontend
+    log_message "INFO" "Instalando serve para servir el frontend..."
+    npm install -g serve
+
+    # Configurar PM2 para el frontend
+    log_message "INFO" "Configurando PM2 para el frontend..."
+    pm2 start serve --name "beta-front" -- -s build -l 3435
+
+    # Guardar configuración de PM2
+    pm2 save
+
+    log_message "SUCCESS" "✅ Frontend instalado y configurado correctamente"
+    sleep 2
+    return 0
+}
+
 # Función para diagnóstico completo del sistema
 diagnose_system() {
     log_message "STEP" "=== DIAGNÓSTICO COMPLETO DEL SISTEMA ==="
@@ -1276,7 +1383,17 @@ main_installation() {
         return 1
     fi
     
+    # Instalar y configurar frontend
+    if ! install_frontend; then
+        return 1
+    fi
+    
     log_message "SUCCESS" "🎉 Instalación completada exitosamente"
+    print_banner
+    printf "${WHITE} 🎉 ¡Instalación completada exitosamente!${GRAY_LIGHT}\n\n"
+    printf "${WHITE} Accede a tu aplicación en: ${GREEN}${frontend_url}${NC}\n"
+    printf "${WHITE} API disponible en: ${GREEN}${backend_url}${NC}\n\n"
+    
     return 0
 }
 
