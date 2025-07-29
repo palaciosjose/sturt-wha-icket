@@ -897,6 +897,30 @@ install_system_dependencies() {
     sleep 2
 }
 
+# Función para instalar Node.js (ya está instalado en install_system_dependencies)
+install_nodejs() {
+    log_message "INFO" "Node.js ya instalado en dependencias del sistema"
+    return 0
+}
+
+# Función para instalar PM2 (ya está instalado en install_system_dependencies)
+install_pm2() {
+    log_message "INFO" "PM2 ya instalado en dependencias del sistema"
+    return 0
+}
+
+# Función para instalar Nginx (ya está instalado en install_system_dependencies)
+install_nginx() {
+    log_message "INFO" "Nginx ya instalado en dependencias del sistema"
+    return 0
+}
+
+# Función para instalar Certbot (ya está instalado en install_system_dependencies)
+install_certbot() {
+    log_message "INFO" "Certbot ya instalado en dependencias del sistema"
+    return 0
+}
+
 # Función para configurar MySQL
 configure_mysql() {
     log_message "STEP" "=== CONFIGURANDO MYSQL ==="
@@ -1921,20 +1945,18 @@ run_complete_installation() {
         register_error "Error en instalación de dependencias del sistema"
     fi
     
-    if ! install_nodejs; then
-        register_error "Error en instalación de Node.js"
+    # Configurar MySQL y Redis
+    if ! configure_mysql; then
+        register_error "Error en configuración de MySQL"
     fi
     
-    if ! install_pm2; then
-        register_error "Error en instalación de PM2"
+    if ! configure_redis; then
+        register_error "Error en configuración de Redis"
     fi
     
-    if ! install_nginx; then
-        register_error "Error en instalación de Nginx"
-    fi
-    
-    if ! install_certbot; then
-        register_error "Error en instalación de Certbot"
+    # Configurar variables de entorno del backend
+    if ! backend_environment; then
+        register_error "Error en configuración de variables de entorno del backend"
     fi
     
     # Backend
