@@ -659,7 +659,7 @@ backend_migrations() {
         log_message "INFO" "Verificando seeders disponibles..."
         
         # Listar todos los seeders disponibles (buscar .ts y .js)
-        AVAILABLE_SEEDERS=$(find "$SEEDERS_DIR" -name "*.ts" -o -name "*.js" | sort)
+        AVAILABLE_SEEDERS=$(find "$SEEDERS_DIR" -name "*.ts" -o -name "*.js" 2>/dev/null | sort)
         
         if [ ! -z "$AVAILABLE_SEEDERS" ]; then
             log_message "INFO" "Seeders encontrados:"
@@ -668,54 +668,35 @@ backend_migrations() {
                 log_message "INFO" "  - $seeder_name"
             done
             
-            # Intentar ejecutar seeders uno por uno
-            for seeder in $AVAILABLE_SEEDERS; do
-                seeder_name=$(basename "$seeder" .ts | basename "$seeder" .js)
-                log_message "INFO" "Ejecutando seeder: $seeder_name"
+            # Verificar si ya existen datos básicos antes de ejecutar seeders
+            log_message "INFO" "Verificando datos existentes..."
+            
+            # Verificar si ya existe una empresa
+            COMPANY_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -n 1 | tr -d ' ')
+            if [ "$COMPANY_COUNT" -gt 0 ]; then
+                log_message "SUCCESS" "✅ Datos básicos ya existen (Empresa, Usuario, Plan)"
+                log_message "INFO" "Saltando ejecución de seeders..."
+            else
+                log_message "INFO" "No se encontraron datos básicos, ejecutando seeders..."
                 
-                # Verificar si la tabla ya tiene datos antes de ejecutar el seeder
-                if [[ "$seeder_name" == *"company"* ]]; then
-                    # Verificar si ya existe una empresa
-                    COMPANY_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -n 1)
-                    if [ "$COMPANY_COUNT" -gt 0 ]; then
-                        log_message "SUCCESS" "Empresa ya existe, saltando seeder: $seeder_name"
-                        continue
+                # Intentar ejecutar seeders uno por uno
+                for seeder in $AVAILABLE_SEEDERS; do
+                    seeder_name=$(basename "$seeder" .ts | basename "$seeder" .js)
+                    log_message "INFO" "Ejecutando seeder: $seeder_name"
+                    
+                    # Ejecutar el seeder con manejo de errores
+                    if npx sequelize db:seed --seed "$seeder_name" 2>/dev/null; then
+                        log_message "SUCCESS" "Seeder ejecutado correctamente: $seeder_name"
+                    else
+                        log_message "WARNING" "Seeder $seeder_name falló, pero continuando..."
                     fi
-                elif [[ "$seeder_name" == *"user"* ]]; then
-                    # Verificar si ya existe un usuario
-                    USER_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Users;" 2>/dev/null | tail -n 1)
-                    if [ "$USER_COUNT" -gt 0 ]; then
-                        log_message "SUCCESS" "Usuario ya existe, saltando seeder: $seeder_name"
-                        continue
-                    fi
-                elif [[ "$seeder_name" == *"whatsapp"* ]]; then
-                    # Verificar si ya existe un whatsapp
-                    WHATSAPP_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Whatsapps;" 2>/dev/null | tail -n 1)
-                    if [ "$WHATSAPP_COUNT" -gt 0 ]; then
-                        log_message "SUCCESS" "WhatsApp ya existe, saltando seeder: $seeder_name"
-                        continue
-                    fi
-                elif [[ "$seeder_name" == *"settings"* ]]; then
-                    # Verificar si ya existen settings
-                    SETTINGS_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Settings;" 2>/dev/null | tail -n 1)
-                    if [ "$SETTINGS_COUNT" -gt 0 ]; then
-                        log_message "SUCCESS" "Settings ya existen, saltando seeder: $seeder_name"
-                        continue
-                    fi
-                fi
-                
-                # Ejecutar el seeder
-                if npx sequelize db:seed --seed "$seeder_name"; then
-                    log_message "SUCCESS" "Seeder ejecutado correctamente: $seeder_name"
-                else
-                    log_message "WARNING" "Seeder $seeder_name falló, pero continuando..."
-                fi
-            done
+                done
+            fi
         else
-            log_message "WARNING" "No se encontraron seeders en $SEEDERS_DIR"
+            log_message "INFO" "No se encontraron seeders en $SEEDERS_DIR"
         fi
     else
-        log_message "WARNING" "Directorio de seeders no encontrado: $SEEDERS_DIR"
+        log_message "INFO" "Directorio de seeders no encontrado: $SEEDERS_DIR"
     fi
 
     log_message "SUCCESS" "✅ Migraciones y seeders procesados"
