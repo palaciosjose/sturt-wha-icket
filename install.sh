@@ -261,7 +261,7 @@ install_system_dependencies() {
 
     # Instalar Node.js y npm
     log_message "INFO" "Instalando Node.js..."
-    if ! curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -; then
+    if ! curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -; then
         register_error "No se pudo agregar el repositorio de Node.js"
         return 1
     fi
@@ -642,15 +642,16 @@ configure_nginx() {
     log_message "STEP" "=== CONFIGURANDO NGINX ==="
     
     print_banner
-    printf "${WHITE} 💻 Configurando Nginx...${GRAY_LIGHT}\n\n"
+    printf "${WHITE} 💻 Configurando Nginx con optimizaciones WebSocket...${GRAY_LIGHT}\n\n"
 
     sleep 2
 
-    # Crear configuración de Nginx para el backend
+    # Crear configuración de Nginx para el backend con WebSocket optimizado
     sudo tee /etc/nginx/sites-available/watoolx-backend << EOF
 server {
     server_name ${backend_url};
     
+    # Configuración para API REST
     location / {
         proxy_pass http://127.0.0.1:${backend_port};
         proxy_http_version 1.1;
@@ -661,10 +662,19 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_cache_bypass \$http_upgrade;
-        proxy_read_timeout 86400;
+        
+        # Timeouts para API
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_connect_timeout 60s;
+        
+        # Buffer sizes para API
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
     }
     
-    # Configuración para WebSocket
+    # Configuración optimizada para WebSocket (CRÍTICA)
     location /socket.io/ {
         proxy_pass http://127.0.0.1:${backend_port};
         proxy_http_version 1.1;
@@ -674,6 +684,30 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # Configuraciones críticas para WebSocket
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 60s;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_request_buffering off;
+        
+        # Headers adicionales para WebSocket
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Server \$host;
+        
+        # Configuración de buffer para WebSocket
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+    }
+    
+    # Configuración para archivos estáticos
+    location /public/ {
+        alias /var/www/watoolx/backend/public/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 }
 EOF
@@ -693,6 +727,16 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_cache_bypass \$http_upgrade;
+        
+        # Timeouts para frontend
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_connect_timeout 60s;
+        
+        # Buffer sizes para frontend
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
     }
     
     # Configuración para archivos estáticos
@@ -720,9 +764,148 @@ EOF
         return 1
     fi
 
-    log_message "SUCCESS" "✅ Nginx configurado correctamente"
+    log_message "SUCCESS" "✅ Nginx configurado correctamente con optimizaciones WebSocket"
     sleep 2
     return 0
+}
+
+# Función para diagnosticar WebSocket
+diagnose_websocket() {
+    log_message "STEP" "=== DIAGNÓSTICO DE WEBSOCKET ==="
+    
+    print_banner
+    printf "${WHITE} 🔍 Diagnosticando WebSocket...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    echo -e "${CYAN}🔧 DIAGNÓSTICO DE WEBSOCKET:${NC}"
+    echo -e "${GRAY_LIGHT}"
+    
+    # Verificar servicios
+    echo "1. Verificando servicios..."
+    if pm2 list | grep -q "waticket-backend"; then
+        echo -e "   ${GREEN}✅ PM2 backend ejecutándose${NC}"
+    else
+        echo -e "   ${RED}❌ PM2 backend no está ejecutándose${NC}"
+    fi
+    
+    if systemctl is-active --quiet nginx; then
+        echo -e "   ${GREEN}✅ Nginx ejecutándose${NC}"
+    else
+        echo -e "   ${RED}❌ Nginx no está ejecutándose${NC}"
+    fi
+    
+    # Verificar puertos
+    echo "2. Verificando puertos..."
+    if netstat -tlnp | grep -q ":${backend_port}"; then
+        echo -e "   ${GREEN}✅ Puerto ${backend_port} (backend) abierto${NC}"
+    else
+        echo -e "   ${RED}❌ Puerto ${backend_port} (backend) no está abierto${NC}"
+    fi
+    
+    # Verificar configuración de Nginx
+    echo "3. Verificando configuración de Nginx..."
+    if nginx -t; then
+        echo -e "   ${GREEN}✅ Sintaxis de Nginx correcta${NC}"
+    else
+        echo -e "   ${RED}❌ Error en la sintaxis de Nginx${NC}"
+    fi
+    
+    if grep -q "socket.io" /etc/nginx/sites-enabled/*; then
+        echo -e "   ${GREEN}✅ Configuración de WebSocket encontrada${NC}"
+    else
+        echo -e "   ${YELLOW}⚠️ Configuración de WebSocket no encontrada${NC}"
+    fi
+    
+    # Verificar headers de WebSocket
+    if grep -q "Upgrade" /etc/nginx/sites-enabled/* && grep -q "Connection.*upgrade" /etc/nginx/sites-enabled/*; then
+        echo -e "   ${GREEN}✅ Headers de WebSocket configurados${NC}"
+    else
+        echo -e "   ${RED}❌ Headers de WebSocket no configurados${NC}"
+    fi
+    
+    # Probar conectividad
+    echo "4. Probando conectividad..."
+    if command -v curl &> /dev/null; then
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:${backend_port} | grep -q "200\|404"; then
+            echo -e "   ${GREEN}✅ Backend responde en HTTP${NC}"
+        else
+            echo -e "   ${RED}❌ Backend no responde en HTTP${NC}"
+        fi
+        
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:${backend_port}/socket.io/ | grep -q "200\|400"; then
+            echo -e "   ${GREEN}✅ Endpoint Socket.IO responde${NC}"
+        else
+            echo -e "   ${RED}❌ Endpoint Socket.IO no responde${NC}"
+        fi
+    else
+        echo -e "   ${YELLOW}⚠️ curl no está instalado para pruebas${NC}"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}💡 RECOMENDACIONES PARA WEBSOCKET:${NC}"
+    echo -e "${GRAY_LIGHT}"
+    echo "• Verificar que los certificados SSL sean válidos"
+    echo "• Asegurar que los puertos 80 y 443 estén abiertos"
+    echo "• Verificar que el firewall no bloquee las conexiones"
+    echo "• Monitorear los logs de Nginx y PM2"
+    echo "• Configurar timeouts apropiados (86400s para WebSocket)"
+    echo -e "${NC}"
+    
+    log_message "SUCCESS" "✅ Diagnóstico de WebSocket completado"
+    sleep 2
+    return 0
+}
+
+# Función para capturar datos del usuario
+capture_user_data() {
+    print_banner
+    echo -e "${WHITE}📋 CAPTURA DE DATOS PARA INSTALACIÓN${NC}"
+    echo -e "${GRAY_LIGHT}Por favor, proporciona la siguiente información:${NC}\n"
+    
+    # Capturar nombre de la instancia
+    while [ -z "$instancia_add" ]; do
+        echo -e "${CYAN}Nombre de la instancia (ej: miempresa):${NC} "
+        read -r instancia_add
+        if [ -z "$instancia_add" ]; then
+            echo -e "${RED}❌ El nombre de la instancia es requerido${NC}"
+        fi
+    done
+    
+    # Capturar URL del frontend
+    while [ -z "$frontend_url" ]; do
+        echo -e "${CYAN}URL del frontend (ej: https://miempresa.com):${NC} "
+        read -r frontend_url
+        if [ -z "$frontend_url" ]; then
+            echo -e "${RED}❌ La URL del frontend es requerida${NC}"
+        fi
+    done
+    
+    # Capturar URL del backend
+    while [ -z "$backend_url" ]; do
+        echo -e "${CYAN}URL del backend (ej: https://api.miempresa.com):${NC} "
+        read -r backend_url
+        if [ -z "$backend_url" ]; then
+            echo -e "${RED}❌ La URL del backend es requerida${NC}"
+        fi
+    done
+    
+    # Mostrar resumen de configuración
+    echo -e "\n${GREEN}✅ Configuración capturada:${NC}"
+    echo -e "${GRAY_LIGHT}• Instancia: $instancia_add${NC}"
+    echo -e "${GRAY_LIGHT}• Frontend: $frontend_url${NC}"
+    echo -e "${GRAY_LIGHT}• Backend: $backend_url${NC}"
+    echo -e "${GRAY_LIGHT}• Contraseña MySQL: $mysql_password${NC}"
+    echo -e "${GRAY_LIGHT}• Puerto Frontend: $frontend_port${NC}"
+    echo -e "${GRAY_LIGHT}• Puerto Backend: $backend_port${NC}"
+    echo -e "${GRAY_LIGHT}• Puerto Redis: $redis_port${NC}"
+    
+    echo -e "\n${WHITE}¿Continuar con la instalación? (y/n):${NC} "
+    read -r confirm_installation
+    if [[ ! "$confirm_installation" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Instalación cancelada por el usuario${NC}"
+        exit 0
+    fi
 }
 
 # Función principal de instalación
@@ -793,79 +976,61 @@ main_installation() {
     return 0
 }
 
-# Función para capturar datos del usuario
-capture_user_data() {
-    print_banner
-    echo -e "${WHITE}📋 CAPTURA DE DATOS PARA INSTALACIÓN${NC}"
-    echo -e "${GRAY_LIGHT}Por favor, proporciona la siguiente información:${NC}\n"
-    
-    # Capturar nombre de la instancia
-    while [ -z "$instancia_add" ]; do
-        echo -e "${CYAN}Nombre de la instancia (ej: miempresa):${NC} "
-        read -r instancia_add
-        if [ -z "$instancia_add" ]; then
-            echo -e "${RED}❌ El nombre de la instancia es requerido${NC}"
-        fi
-    done
-    
-    # Capturar URL del frontend
-    while [ -z "$frontend_url" ]; do
-        echo -e "${CYAN}URL del frontend (ej: https://miempresa.com):${NC} "
-        read -r frontend_url
-        if [ -z "$frontend_url" ]; then
-            echo -e "${RED}❌ La URL del frontend es requerida${NC}"
-        fi
-    done
-    
-    # Capturar URL del backend
-    while [ -z "$backend_url" ]; do
-        echo -e "${CYAN}URL del backend (ej: https://api.miempresa.com):${NC} "
-        read -r backend_url
-        if [ -z "$backend_url" ]; then
-            echo -e "${RED}❌ La URL del backend es requerida${NC}"
-        fi
-    done
-    
-    # Mostrar resumen de configuración
-    echo -e "\n${GREEN}✅ Configuración capturada:${NC}"
-    echo -e "${GRAY_LIGHT}• Instancia: $instancia_add${NC}"
-    echo -e "${GRAY_LIGHT}• Frontend: $frontend_url${NC}"
-    echo -e "${GRAY_LIGHT}• Backend: $backend_url${NC}"
-    echo -e "${GRAY_LIGHT}• Contraseña MySQL: $mysql_password${NC}"
-    echo -e "${GRAY_LIGHT}• Puerto Frontend: $frontend_port${NC}"
-    echo -e "${GRAY_LIGHT}• Puerto Backend: $backend_port${NC}"
-    echo -e "${GRAY_LIGHT}• Puerto Redis: $redis_port${NC}"
-    
-    echo -e "\n${WHITE}¿Continuar con la instalación? (y/n):${NC} "
-    read -r confirm_installation
-    if [[ ! "$confirm_installation" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Instalación cancelada por el usuario${NC}"
-        exit 0
-    fi
-}
-
 # Función principal
 main() {
     # Crear archivo de log
     touch "$LOG_FILE"
     
-    # Capturar datos del usuario
-    capture_user_data
+    # Mostrar opciones
+    print_banner
+    echo -e "${WHITE}¿Qué deseas hacer?${NC}"
+    echo -e "${GRAY_LIGHT}1. Instalación completa${NC}"
+    echo -e "${GRAY_LIGHT}2. Diagnóstico de WebSocket${NC}"
+    echo -e "${GRAY_LIGHT}3. Salir${NC}"
+    echo ""
+    echo -e "${CYAN}Selecciona una opción (1-3):${NC} "
+    read -r option
     
-    # Ejecutar instalación principal
-    if main_installation; then
-        show_installation_summary
-        echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
-        echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
-        echo -e "${CYAN}API disponible en:${NC} $backend_url"
-        echo -e "\n${WHITE}Credenciales por defecto:${NC}"
-        echo -e "${GRAY_LIGHT}• Email: admin@admin.com${NC}"
-        echo -e "${GRAY_LIGHT}• Password: 123456${NC}"
-    else
-        show_installation_summary
-        echo -e "\n${RED}❌ La instalación falló. Revisa los errores arriba.${NC}"
-        exit 1
-    fi
+    case $option in
+        1)
+            # Capturar datos del usuario
+            capture_user_data
+            
+            # Ejecutar instalación principal
+            if main_installation; then
+                show_installation_summary
+                echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
+                echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
+                echo -e "${CYAN}API disponible en:${NC} $backend_url"
+                echo -e "\n${WHITE}Credenciales por defecto:${NC}"
+                echo -e "${GRAY_LIGHT}• Email: admin@admin.com${NC}"
+                echo -e "${GRAY_LIGHT}• Password: 123456${NC}"
+                
+                # Preguntar si quiere hacer diagnóstico
+                echo -e "\n${WHITE}¿Quieres hacer un diagnóstico de WebSocket? (y/n):${NC} "
+                read -r diagnose_confirm
+                if [[ "$diagnose_confirm" =~ ^[Yy]$ ]]; then
+                    diagnose_websocket
+                fi
+            else
+                show_installation_summary
+                echo -e "\n${RED}❌ La instalación falló. Revisa los errores arriba.${NC}"
+                exit 1
+            fi
+            ;;
+        2)
+            # Solo diagnóstico
+            diagnose_websocket
+            ;;
+        3)
+            echo -e "${YELLOW}Saliendo...${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Opción inválida${NC}"
+            exit 1
+            ;;
+    esac
 }
 
 # Ejecutar función principal

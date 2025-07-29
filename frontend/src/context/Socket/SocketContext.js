@@ -1,68 +1,53 @@
 import { createContext } from "react";
-import openSocket from "socket.io-client";
-import { isExpired } from "react-jwt";
+import { openSocket } from "socket.io-client";
+import { isExpired } from "../../utils/isExpired";
 
 class ManagedSocket {
   constructor(socketManager) {
     this.socketManager = socketManager;
-    this.rawSocket = socketManager.currentSocket;
-    this.callbacks = [];
-    this.joins = [];
+    this.socket = socketManager.currentSocket;
+    this.pendingJoins = [];
+    this.pendingEmits = [];
+    
+    const refreshJoinsOnReady = () => {
+      this.pendingJoins.forEach(({ event, callback }) => {
+        this.socket.on(event, callback);
+      });
+      this.pendingEmits.forEach(({ event, params }) => {
+        this.socket.emit(event, ...params);
+      });
+      this.pendingJoins = [];
+      this.pendingEmits = [];
+    };
+    
+    this.socket.on("ready", refreshJoinsOnReady);
+    if (this.socketManager.socketReady) {
+      refreshJoinsOnReady();
+    }
+  }
 
-    this.rawSocket.on("connect", () => {
-      if (this.rawSocket.io.opts.query?.r && !this.rawSocket.recovered) {
-        const refreshJoinsOnReady = () => {
-          for (const j of this.joins) {
-            console.debug("refreshing join", j);
-            this.rawSocket.emit(`join${j.event}`, ...j.params);
-          }
-          this.rawSocket.off("ready", refreshJoinsOnReady);
-        };
-        for (const j of this.callbacks) {
-          this.rawSocket.off(j.event, j.callback);
-          this.rawSocket.on(j.event, j.callback);
-        }
-        
-        this.rawSocket.on("ready", refreshJoinsOnReady);
-      }
-    });
-  }
-  
   on(event, callback) {
-    if (event === "ready" || event === "connect") {
-      return this.socketManager.onReady(callback);
+    if (this.socketManager.socketReady) {
+      this.socket.on(event, callback);
+    } else {
+      this.pendingJoins.push({ event, callback });
     }
-    this.callbacks.push({event, callback});
-    return this.rawSocket.on(event, callback);
   }
-  
+
   off(event, callback) {
-    const i = this.callbacks.findIndex((c) => c.event === event && c.callback === callback);
-    this.callbacks.splice(i, 1);
-    return this.rawSocket.off(event, callback);
+    this.socket.off(event, callback);
   }
-  
+
   emit(event, ...params) {
-    if (event.startsWith("join")) {
-      this.joins.push({ event: event.substring(4), params });
-      // Log solo en desarrollo y con logger controlado
-      if (process.env.NODE_ENV === 'development') {
-        const logger = require('../../utils/logger').default;
-        logger.socket.debug("Joining", { event: event.substring(4), params });
-      }
+    if (this.socketManager.socketReady) {
+      this.socket.emit(event, ...params);
+    } else {
+      this.pendingEmits.push({ event, params });
     }
-    return this.rawSocket.emit(event, ...params);
   }
-  
+
   disconnect() {
-    for (const j of this.joins) {
-      this.rawSocket.emit(`leave${j.event}`, ...j.params);
-    }
-    this.joins = [];
-    for (const c of this.callbacks) {
-      this.rawSocket.off(c.event, c.callback);
-    }
-    this.callbacks = [];
+    this.socket.disconnect();
   }
 }
 
@@ -120,12 +105,21 @@ const SocketManager = {
       this.currentCompanyId = companyId;
       this.currentUserId = userId;
       
-      this.currentSocket = openSocket(process.env.REACT_APP_BACKEND_URL, {
-        transports: ["websocket"],
-        pingTimeout: 18000,
-        pingInterval: 18000,
+      // Configuración optimizada para producción
+      const socketConfig = {
+        transports: ["websocket", "polling"], // Fallback a polling si WebSocket falla
+        pingTimeout: 60000, // 60 segundos para producción
+        pingInterval: 25000, // 25 segundos para producción
+        upgradeTimeout: 10000, // 10 segundos
+        maxReconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        autoConnect: true,
         query: { token },
-      });
+      };
+
+      this.currentSocket = openSocket(process.env.REACT_APP_BACKEND_URL, socketConfig);
 
       this.currentSocket.io.on("reconnect_attempt", () => {
         this.currentSocket.io.opts.query.r = 1;
@@ -158,7 +152,11 @@ const SocketManager = {
       
       this.currentSocket.on("connect", (...params) => {
         console.debug("socket connected", params);
-      })
+      });
+
+      this.currentSocket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+      });
       
       this.currentSocket.onAny((event, ...args) => {
         console.debug("Event: ", { socket: this.currentSocket, event, args });
