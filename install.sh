@@ -658,19 +658,19 @@ backend_migrations() {
     if [ -d "$SEEDERS_DIR" ]; then
         log_message "INFO" "Verificando seeders disponibles..."
         
-        # Listar todos los seeders disponibles
-        AVAILABLE_SEEDERS=$(find "$SEEDERS_DIR" -name "*.js" -type f | sort)
+        # Listar todos los seeders disponibles (buscar .ts y .js)
+        AVAILABLE_SEEDERS=$(find "$SEEDERS_DIR" -name "*.ts" -o -name "*.js" | sort)
         
         if [ ! -z "$AVAILABLE_SEEDERS" ]; then
             log_message "INFO" "Seeders encontrados:"
             echo "$AVAILABLE_SEEDERS" | while read seeder; do
-                seeder_name=$(basename "$seeder" .js)
+                seeder_name=$(basename "$seeder" .ts | basename "$seeder" .js)
                 log_message "INFO" "  - $seeder_name"
             done
             
             # Intentar ejecutar seeders uno por uno
             for seeder in $AVAILABLE_SEEDERS; do
-                seeder_name=$(basename "$seeder" .js)
+                seeder_name=$(basename "$seeder" .ts | basename "$seeder" .js)
                 log_message "INFO" "Ejecutando seeder: $seeder_name"
                 
                 # Verificar si la tabla ya tiene datos antes de ejecutar el seeder
@@ -693,6 +693,13 @@ backend_migrations() {
                     WHATSAPP_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Whatsapps;" 2>/dev/null | tail -n 1)
                     if [ "$WHATSAPP_COUNT" -gt 0 ]; then
                         log_message "SUCCESS" "WhatsApp ya existe, saltando seeder: $seeder_name"
+                        continue
+                    fi
+                elif [[ "$seeder_name" == *"settings"* ]]; then
+                    # Verificar si ya existen settings
+                    SETTINGS_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Settings;" 2>/dev/null | tail -n 1)
+                    if [ "$SETTINGS_COUNT" -gt 0 ]; then
+                        log_message "SUCCESS" "Settings ya existen, saltando seeder: $seeder_name"
                         continue
                     fi
                 fi
