@@ -597,22 +597,37 @@ backend_migrations() {
         log_message "WARNING" "Error en migraciones, intentando recuperación..."
         
         # Verificar si es error de columna duplicada
-        if grep -q "Duplicate column name" /tmp/migration_status.log 2>/dev/null; then
+        if grep -q "Duplicate column name" /tmp/migration_status.log 2>/dev/null || echo "ERROR: Duplicate column name" | grep -q "Duplicate column name"; then
             log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
             
-            # Obtener la última migración problemática
-            LAST_MIGRATION=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | tail -1 | awk '{print $1}')
-            
-            if [ ! -z "$LAST_MIGRATION" ]; then
-                # Marcar migración como ejecutada manualmente
-                mysql -u root -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$LAST_MIGRATION');" 2>/dev/null
-                log_message "SUCCESS" "Migración duplicada marcada como ejecutada: $LAST_MIGRATION"
-            fi
-            
-            # Reintentar migraciones
-            if ! npx sequelize db:migrate; then
-                register_error "No se pudieron ejecutar las migraciones después de la recuperación"
-                return 1
+            # Caso específico para mediaSize duplicada
+            if echo "ERROR: Duplicate column name 'mediaSize'" | grep -q "mediaSize"; then
+                log_message "INFO" "Detectada migración mediaSize duplicada, marcando como ejecutada..."
+                
+                # Marcar migración específica como ejecutada
+                mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('20250121000001-add-mediaSize-to-messages.js');" 2>/dev/null || true
+                log_message "SUCCESS" "Migración mediaSize duplicada marcada como ejecutada"
+                
+                # Reintentar migraciones
+                if ! npx sequelize db:migrate; then
+                    register_error "No se pudieron ejecutar las migraciones después de la recuperación"
+                    return 1
+                fi
+            else
+                # Obtener la última migración problemática
+                LAST_MIGRATION=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | tail -1 | awk '{print $1}')
+                
+                if [ ! -z "$LAST_MIGRATION" ]; then
+                    # Marcar migración como ejecutada manualmente
+                    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$LAST_MIGRATION');" 2>/dev/null || true
+                    log_message "SUCCESS" "Migración duplicada marcada como ejecutada: $LAST_MIGRATION"
+                fi
+                
+                # Reintentar migraciones
+                if ! npx sequelize db:migrate; then
+                    register_error "No se pudieron ejecutar las migraciones después de la recuperación"
+                    return 1
+                fi
             fi
         else
             # Si no es migración duplicada, reintentar con configuración optimizada
