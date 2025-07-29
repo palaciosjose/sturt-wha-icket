@@ -259,64 +259,47 @@ install_system_dependencies() {
 
     sleep 2
 
-    # Instalar Node.js y npm
-    log_message "INFO" "Instalando Node.js..."
-    if ! curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -; then
-        register_error "No se pudo agregar el repositorio de Node.js"
-        return 1
-    fi
-    
-    if ! sudo apt-get install -y nodejs; then
-        register_error "No se pudo instalar Node.js"
-        return 1
-    fi
+    # Actualizar repositorios
+    log_message "INFO" "Actualizando repositorios..."
+    apt-get update -qq
 
-    # Instalar PM2 globalmente
+    # Instalar herramientas básicas
+    log_message "INFO" "Instalando herramientas básicas..."
+    apt-get install -y curl wget net-tools
+
+    # Instalar Node.js
+    log_message "INFO" "Instalando Node.js..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+
+    # Instalar PM2
     log_message "INFO" "Instalando PM2..."
-    if ! sudo npm install -g pm2; then
-        register_error "No se pudo instalar PM2"
-        return 1
-    fi
+    npm install -g pm2
 
     # Instalar MySQL Server
     log_message "INFO" "Instalando MySQL Server..."
-    if ! sudo apt-get install -y mysql-server; then
-        register_error "No se pudo instalar MySQL Server"
-        return 1
-    fi
+    apt-get install -y mysql-server
 
     # Instalar Redis
     log_message "INFO" "Instalando Redis..."
-    if ! sudo apt-get install -y redis-server; then
-        register_error "No se pudo instalar Redis"
-        return 1
-    fi
+    apt-get install -y redis-server
 
     # Instalar Nginx
     log_message "INFO" "Instalando Nginx..."
-    if ! sudo apt-get install -y nginx; then
-        register_error "No se pudo instalar Nginx"
-        return 1
-    fi
+    apt-get install -y nginx
 
-    # Instalar Docker (opcional, para Redis en contenedor)
+    # Instalar Docker
     log_message "INFO" "Instalando Docker..."
-    if ! curl -fsSL https://get.docker.com -o get-docker.sh; then
-        register_error "No se pudo descargar el script de Docker"
-        return 1
-    fi
-    
-    if ! sudo sh get-docker.sh; then
-        register_error "No se pudo instalar Docker"
-        return 1
-    fi
-    
-    # Agregar usuario actual al grupo docker
-    sudo usermod -aG docker $USER
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    rm get-docker.sh
+
+    # Instalar Certbot para SSL
+    log_message "INFO" "Instalando Certbot para SSL..."
+    apt-get install -y certbot python3-certbot-nginx
 
     log_message "SUCCESS" "✅ Dependencias del sistema instaladas correctamente"
     sleep 2
-    return 0
 }
 
 # Función para configurar MySQL
@@ -667,23 +650,65 @@ backend_migrations() {
         log_message "WARNING" "No se pudieron ejecutar todas las migraciones después de $MAX_RETRIES intentos, pero continuando..."
     fi
 
-    # Ejecutar seeders con manejo de errores
+    # Ejecutar seeders con manejo de errores MEJORADO
     log_message "INFO" "Ejecutando seeders..."
-    if ! npx sequelize db:seed:all; then
-        log_message "WARNING" "Error en seeders, intentando ejecutar individualmente..."
+    
+    # Verificar si los seeders existen antes de ejecutarlos
+    SEEDERS_DIR="src/database/seeds"
+    if [ -d "$SEEDERS_DIR" ]; then
+        log_message "INFO" "Verificando seeders disponibles..."
         
-        # Lista de seeders conocidos
-        KNOWN_SEEDERS=(
-            "20200904070005-create-default-company"
-            "20200904070006-create-default-user"
-            "20200904070007-create-default-whatsapp"
-        )
+        # Listar todos los seeders disponibles
+        AVAILABLE_SEEDERS=$(find "$SEEDERS_DIR" -name "*.js" -type f | sort)
         
-        # Ejecutar seeders uno por uno
-        for seeder in "${KNOWN_SEEDERS[@]}"; do
-            log_message "INFO" "Ejecutando seeder: $seeder"
-            npx sequelize db:seed --seed "$seeder" || log_message "WARNING" "Seeder $seeder falló, continuando..."
-        done
+        if [ ! -z "$AVAILABLE_SEEDERS" ]; then
+            log_message "INFO" "Seeders encontrados:"
+            echo "$AVAILABLE_SEEDERS" | while read seeder; do
+                seeder_name=$(basename "$seeder" .js)
+                log_message "INFO" "  - $seeder_name"
+            done
+            
+            # Intentar ejecutar seeders uno por uno
+            for seeder in $AVAILABLE_SEEDERS; do
+                seeder_name=$(basename "$seeder" .js)
+                log_message "INFO" "Ejecutando seeder: $seeder_name"
+                
+                # Verificar si la tabla ya tiene datos antes de ejecutar el seeder
+                if [[ "$seeder_name" == *"company"* ]]; then
+                    # Verificar si ya existe una empresa
+                    COMPANY_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -n 1)
+                    if [ "$COMPANY_COUNT" -gt 0 ]; then
+                        log_message "SUCCESS" "Empresa ya existe, saltando seeder: $seeder_name"
+                        continue
+                    fi
+                elif [[ "$seeder_name" == *"user"* ]]; then
+                    # Verificar si ya existe un usuario
+                    USER_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Users;" 2>/dev/null | tail -n 1)
+                    if [ "$USER_COUNT" -gt 0 ]; then
+                        log_message "SUCCESS" "Usuario ya existe, saltando seeder: $seeder_name"
+                        continue
+                    fi
+                elif [[ "$seeder_name" == *"whatsapp"* ]]; then
+                    # Verificar si ya existe un whatsapp
+                    WHATSAPP_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Whatsapps;" 2>/dev/null | tail -n 1)
+                    if [ "$WHATSAPP_COUNT" -gt 0 ]; then
+                        log_message "SUCCESS" "WhatsApp ya existe, saltando seeder: $seeder_name"
+                        continue
+                    fi
+                fi
+                
+                # Ejecutar el seeder
+                if npx sequelize db:seed --seed "$seeder_name"; then
+                    log_message "SUCCESS" "Seeder ejecutado correctamente: $seeder_name"
+                else
+                    log_message "WARNING" "Seeder $seeder_name falló, pero continuando..."
+                fi
+            done
+        else
+            log_message "WARNING" "No se encontraron seeders en $SEEDERS_DIR"
+        fi
+    else
+        log_message "WARNING" "Directorio de seeders no encontrado: $SEEDERS_DIR"
     fi
 
     log_message "SUCCESS" "✅ Migraciones y seeders procesados"
@@ -859,6 +884,59 @@ EOF
     log_message "SUCCESS" "✅ Nginx configurado correctamente con optimizaciones WebSocket"
     sleep 2
     return 0
+}
+
+# Función para configurar SSL con Certbot
+configure_ssl() {
+    log_message "STEP" "=== CONFIGURANDO SSL CON CERTBOT ==="
+    
+    print_banner
+    printf "${WHITE} 🔒 Configurando certificados SSL...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Verificar que Nginx esté configurado
+    if [ ! -f "/etc/nginx/sites-available/watoolx" ]; then
+        log_message "WARNING" "Nginx no está configurado, configurando primero..."
+        configure_nginx
+    fi
+
+    # Habilitar el sitio en Nginx
+    if [ ! -L "/etc/nginx/sites-enabled/watoolx" ]; then
+        log_message "INFO" "Habilitando sitio en Nginx..."
+        ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/
+        systemctl reload nginx
+    fi
+
+    # Verificar si los certificados ya existen
+    if [ -d "/etc/letsencrypt/live/$frontend_url" ] && [ -d "/etc/letsencrypt/live/$backend_url" ]; then
+        log_message "SUCCESS" "✅ Certificados SSL ya existen"
+        return 0
+    fi
+
+    # Solicitar certificados SSL
+    log_message "INFO" "Solicitando certificados SSL para $frontend_url y $backend_url..."
+    
+    # Certificado para el frontend
+    if certbot --nginx -d "$frontend_url" --non-interactive --agree-tos --email admin@$frontend_url; then
+        log_message "SUCCESS" "✅ Certificado SSL obtenido para $frontend_url"
+    else
+        log_message "WARNING" "No se pudo obtener certificado para $frontend_url"
+    fi
+
+    # Certificado para el backend
+    if certbot --nginx -d "$backend_url" --non-interactive --agree-tos --email admin@$backend_url; then
+        log_message "SUCCESS" "✅ Certificado SSL obtenido para $backend_url"
+    else
+        log_message "WARNING" "No se pudo obtener certificado para $backend_url"
+    fi
+
+    # Configurar renovación automática
+    log_message "INFO" "Configurando renovación automática de certificados..."
+    (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
+
+    log_message "SUCCESS" "✅ SSL configurado correctamente"
+    sleep 2
 }
 
 # Función para diagnóstico completo del sistema
@@ -1144,6 +1222,11 @@ main_installation() {
     
     # Configurar Nginx
     if ! configure_nginx; then
+        return 1
+    fi
+    
+    # Configurar SSL
+    if ! configure_ssl; then
         return 1
     fi
     
