@@ -103,7 +103,7 @@ print_banner() {
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                WATOOLX INSTALADOR TODO EN UNO                ║"
     echo "║              Usuario Actual - Versión 1.1.0                  ║"
-    echo "║                        CON MYSQL                              ║"
+    echo "║                        CON MYSQL                             ║"
     echo "║                                                              ║"
     echo "║  🚀 Instalación Automática   📋 Captura de Datos             ║"
     echo "║  🔧 Configuración Personal   ✅ Docker + PM2 + Nginx         ║"
@@ -216,6 +216,12 @@ check_system_requirements() {
     else
         log_message "SUCCESS" "✅ Permisos de sudo verificados correctamente"
     fi
+    
+    # Verificar que se puede ejecutar un comando básico con sudo
+    if ! sudo echo "Sudo funcionando" > /dev/null 2>&1; then
+        register_error "No se puede ejecutar comandos con sudo"
+        return 1
+    fi
 
     # Verificar espacio en disco (mínimo 2GB)
     available_space=$(df / | awk 'NR==2 {print $4}')
@@ -230,15 +236,573 @@ check_system_requirements() {
         register_error "Se requieren al menos 1GB de RAM"
         return 1
     fi
+    
+    # Verificar permisos de escritura en directorios críticos
+    log_message "INFO" "Verificando permisos de escritura..."
+    
+    # Verificar directorio actual
+    if [ ! -w "$SCRIPT_DIR" ]; then
+        register_error "No se puede escribir en el directorio actual: $SCRIPT_DIR"
+        return 1
+    fi
+    
+    # Verificar directorio /tmp
+    if [ ! -w "/tmp" ]; then
+        register_error "No se puede escribir en /tmp"
+        return 1
+    fi
+    
+    # Verificar directorio /var/log (para logs del sistema)
+    if ! sudo test -w "/var/log" 2>/dev/null; then
+        log_message "WARNING" "⚠️ No se puede escribir en /var/log (puede afectar logs del sistema)"
+        
+        # Intentar crear directorio de logs específico para la aplicación
+        if sudo mkdir -p /var/log/watoolx 2>/dev/null; then
+            log_message "SUCCESS" "✅ Directorio de logs de aplicación creado: /var/log/watoolx"
+        else
+            log_message "WARNING" "⚠️ No se pudo crear directorio de logs específico"
+        fi
+    fi
+    
+    # Verificar directorio /etc/nginx (para configuración de Nginx)
+    # Solo verificar si el directorio existe (Nginx puede no estar instalado aún)
+    if sudo test -d "/etc/nginx" 2>/dev/null; then
+        if ! sudo test -w "/etc/nginx" 2>/dev/null; then
+            register_error "No se puede escribir en /etc/nginx (requerido para configuración)"
+            return 1
+        fi
+    else
+        log_message "INFO" "Directorio /etc/nginx no existe aún (Nginx se instalará más adelante)"
+        
+        # Verificar que se puede crear el directorio cuando sea necesario
+        if ! sudo test -w "/etc" 2>/dev/null; then
+            register_error "No se puede escribir en /etc (requerido para crear directorios de configuración)"
+            return 1
+        fi
+    fi
+    
+    # Verificar directorio /etc/letsencrypt (para certificados SSL)
+    # Solo verificar si el directorio existe (Certbot puede no estar instalado aún)
+    if sudo test -d "/etc/letsencrypt" 2>/dev/null; then
+        if ! sudo test -w "/etc/letsencrypt" 2>/dev/null; then
+            log_message "WARNING" "⚠️ No se puede escribir en /etc/letsencrypt (puede afectar certificados SSL)"
+        fi
+    else
+        log_message "INFO" "Directorio /etc/letsencrypt no existe aún (Certbot se instalará más adelante)"
+    fi
 
     # Verificar conectividad a internet
-    if ! check_internet_connectivity; then
+    if ! ping -c 1 google.com &> /dev/null; then
+        register_error "No hay conectividad a internet"
         return 1
     fi
 
     log_message "SUCCESS" "✅ Requisitos del sistema verificados correctamente"
     sleep 2
     return 0
+}
+
+# Función para crear directorios críticos si es necesario
+create_critical_directories() {
+    log_message "INFO" "Creando directorios críticos si es necesario..."
+    
+    # Lista de directorios críticos
+    local critical_dirs=(
+        "/etc/nginx"
+        "/etc/nginx/sites-available"
+        "/etc/nginx/sites-enabled"
+        "/var/log/nginx"
+        "/etc/letsencrypt"
+        "/var/www/html"
+        "/var/log/watoolx"
+        "/opt/watoolx"
+    )
+    
+    for dir in "${critical_dirs[@]}"; do
+        if ! sudo test -d "$dir" 2>/dev/null; then
+            log_message "INFO" "Creando directorio: $dir"
+            if sudo mkdir -p "$dir" 2>/dev/null; then
+                log_message "SUCCESS" "✅ Directorio creado: $dir"
+            else
+                log_message "WARNING" "⚠️ No se pudo crear directorio: $dir"
+            fi
+        else
+            log_message "SUCCESS" "✅ Directorio existe: $dir"
+        fi
+    done
+}
+
+# Función para verificar todos los permisos del sistema
+verify_all_permissions() {
+    log_message "STEP" "=== VERIFICANDO PERMISOS DEL SISTEMA ==="
+    
+    print_banner
+    printf "${WHITE} 🔐 Verificando permisos del sistema...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+    
+    # Verificar permisos de PM2
+    log_message "INFO" "Verificando permisos de PM2..."
+    if command -v pm2 &> /dev/null; then
+    if ! sudo pm2 list > /dev/null 2>&1; then
+        log_message "WARNING" "⚠️ PM2 no tiene permisos adecuados"
+        sudo mkdir -p /root/.pm2 2>/dev/null || true
+        if sudo chown -R $USER:$USER /root/.pm2 2>/dev/null; then
+            log_message "SUCCESS" "✅ Permisos de PM2 configurados"
+        else
+            log_message "WARNING" "⚠️ No se pudieron configurar permisos de PM2 completamente"
+        fi
+    else
+        log_message "SUCCESS" "✅ Permisos de PM2 verificados"
+    fi
+    else
+        log_message "INFO" "PM2 no está instalado aún, se instalará más adelante"
+    fi
+
+    # Verificar permisos de Docker
+    log_message "INFO" "Verificando permisos de Docker..."
+    if command -v docker &> /dev/null; then
+    if ! sudo systemctl is-active --quiet docker; then
+        log_message "WARNING" "⚠️ Servicio Docker no está ejecutándose"
+        log_message "INFO" "Iniciando servicio Docker..."
+        if ! sudo systemctl start docker; then
+            register_error "No se pudo iniciar el servicio Docker"
+            return 1
+        fi
+    fi
+    
+    if ! docker ps > /dev/null 2>&1; then
+        log_message "WARNING" "⚠️ Usuario actual no puede usar Docker, corrigiendo permisos..."
+        if ! groups $USER | grep -q docker; then
+            log_message "INFO" "➕ Agregando usuario al grupo docker..."
+            if ! sudo usermod -aG docker $USER; then
+                register_error "No se pudo agregar usuario al grupo docker"
+                return 1
+            fi
+        fi
+        
+        if [ -S /var/run/docker.sock ]; then
+            log_message "INFO" "🔧 Corrigiendo permisos del socket de Docker..."
+            if ! sudo chmod 666 /var/run/docker.sock; then
+                register_error "No se pudieron corregir los permisos del socket de Docker"
+                return 1
+            fi
+        fi
+        
+        if ! docker ps > /dev/null 2>&1; then
+            log_message "WARNING" "⚠️ Los permisos aún no están activos, intentando con newgrp..."
+            if ! newgrp docker -c "docker ps > /dev/null 2>&1"; then
+                register_error "No se pudieron corregir los permisos de Docker"
+                return 1
+            fi
+        fi
+        
+        log_message "SUCCESS" "✅ Permisos de Docker corregidos"
+    else
+        log_message "SUCCESS" "✅ Permisos de Docker correctos"
+    fi
+    else
+        log_message "INFO" "Docker no está instalado aún, se instalará más adelante"
+    fi
+
+    # Verificar permisos de Nginx
+    log_message "INFO" "Verificando permisos de Nginx..."
+    if command -v nginx &> /dev/null; then
+    local nginx_dirs=("/etc/nginx" "/etc/nginx/sites-available" "/etc/nginx/sites-enabled" "/var/log/nginx")
+    
+    for dir in "${nginx_dirs[@]}"; do
+        if ! sudo test -w "$dir" 2>/dev/null; then
+            log_message "WARNING" "⚠️ No se puede escribir en $dir"
+        else
+            log_message "SUCCESS" "✅ Permisos de escritura en $dir"
+        fi
+    done
+    
+    if ! sudo nginx -t > /dev/null 2>&1; then
+        log_message "WARNING" "⚠️ Nginx tiene problemas de configuración"
+    else
+        log_message "SUCCESS" "✅ Configuración de Nginx válida"
+    fi
+    
+    if ! sudo systemctl reload nginx > /dev/null 2>&1; then
+        log_message "WARNING" "⚠️ No se puede recargar Nginx (puede estar detenido)"
+    else
+        log_message "SUCCESS" "✅ Nginx puede ser recargado"
+    fi
+    else
+        log_message "INFO" "Nginx no está instalado aún, se instalará más adelante"
+    fi
+
+    # Verificar permisos de Certbot
+    log_message "INFO" "Verificando permisos de Certbot..."
+    if command -v certbot &> /dev/null; then
+    if ! sudo test -w "/etc/letsencrypt" 2>/dev/null; then
+        log_message "WARNING" "⚠️ No se puede escribir en /etc/letsencrypt"
+        
+        if ! sudo test -d "/etc/letsencrypt" 2>/dev/null; then
+            log_message "INFO" "Creando directorio /etc/letsencrypt..."
+            sudo mkdir -p /etc/letsencrypt 2>/dev/null || true
+        fi
+        
+        if sudo chmod 755 /etc/letsencrypt 2>/dev/null; then
+            log_message "SUCCESS" "✅ Permisos de /etc/letsencrypt configurados"
+        else
+            log_message "WARNING" "⚠️ No se pudieron configurar permisos de /etc/letsencrypt"
+        fi
+    else
+        log_message "SUCCESS" "✅ Permisos de Certbot verificados"
+    fi
+    
+    if ! sudo test -w "/var/www/html" 2>/dev/null; then
+        log_message "WARNING" "⚠️ No se puede escribir en /var/www/html"
+        
+        if ! sudo test -d "/var/www/html" 2>/dev/null; then
+            log_message "INFO" "Creando directorio /var/www/html..."
+            sudo mkdir -p /var/www/html 2>/dev/null || true
+        fi
+        
+        if sudo chmod 755 /var/www/html 2>/dev/null; then
+            log_message "SUCCESS" "✅ Permisos de /var/www/html configurados"
+        else
+            log_message "WARNING" "⚠️ No se pudieron configurar permisos de /var/www/html"
+        fi
+    else
+        log_message "SUCCESS" "✅ Permisos de webroot verificados"
+    fi
+    else
+        log_message "INFO" "Certbot no está instalado aún, se instalará más adelante"
+    fi
+
+    log_message "SUCCESS" "✅ Verificación de permisos completada"
+    sleep 2
+}
+
+# Función para limpiar procesos y puertos
+cleanup_processes_and_ports() {
+    log_message "STEP" "=== LIMPIANDO PROCESOS Y PUERTOS ==="
+    
+    print_banner
+    printf "${WHITE} 💻 Limpiando procesos y puertos ocupados...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Limpiar PM2
+    if command -v pm2 &> /dev/null; then
+        sudo pm2 delete all 2>/dev/null || true
+        sudo pm2 kill 2>/dev/null || true
+        sudo pm2 unstartup 2>/dev/null || true
+    fi
+
+    # Matar procesos en puertos específicos
+    for port in 3435 4142 5050 3000 3001 4000 4001 8080 6379; do
+        pid=$(sudo lsof -ti:$port 2>/dev/null)
+        if [ ! -z "$pid" ]; then
+            sudo kill -9 $pid 2>/dev/null || true
+            log_message "INFO" "Proceso en puerto $port terminado"
+        fi
+    done
+
+    # Limpiar contenedores Docker si existen
+    if command -v docker &> /dev/null; then
+        docker stop $(docker ps -q) 2>/dev/null || true
+        docker rm $(docker ps -aq) 2>/dev/null || true
+    fi
+
+    log_message "SUCCESS" "✅ Limpieza de procesos y puertos completada"
+    sleep 2
+}
+
+# Función para verificar y corregir DNS
+verify_and_fix_dns() {
+    log_message "STEP" "=== VERIFICANDO Y CORRIGIENDO DNS ==="
+    
+    print_banner
+    printf "${WHITE} 🌐 Verificando configuración DNS...${GRAY_LIGHT}\n\n"
+    
+    # Obtener IP actual del servidor (IPv4 específicamente)
+    local current_ip=$(curl -4 -s ifconfig.me 2>/dev/null)
+    if [[ ! "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # Método alternativo si el primero falla
+        current_ip=$(curl -4 -s ipinfo.io/ip 2>/dev/null)
+        if [[ ! "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            current_ip=$(curl -4 -s icanhazip.com 2>/dev/null)
+        fi
+    fi
+    
+    # Permitir corrección manual de la IP si es necesario
+    if [[ "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_message "INFO" "IP detectada: $current_ip"
+        echo -e "${YELLOW}¿La IP detectada es correcta? (y/n):${NC} "
+        read -r ip_correct
+        if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
+            echo -e "${INPUT}Ingresa la IP correcta del servidor:${NC} "
+            read -r current_ip
+            log_message "INFO" "IP corregida manualmente: $current_ip"
+        fi
+    fi
+    
+    if [[ "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_message "INFO" "IP actual del servidor (IPv4): $current_ip"
+    else
+        log_message "ERROR" "No se pudo obtener IPv4 válida"
+        echo -e "${RED}❌ No se pudo obtener la IP IPv4 del servidor${NC}"
+        echo -e "${YELLOW}Verifica la conectividad a internet y ejecuta:${NC}"
+        echo -e "${CYAN}curl -4 ifconfig.me${NC}"
+        return 1
+    fi
+    
+    # Extraer solo el dominio de las URLs
+    local backend_domain=$(echo "$backend_url" | sed 's|^https?://||')
+    local frontend_domain=$(echo "$frontend_url" | sed 's|^https?://||')
+    
+    # Verificar DNS de los dominios con múltiples métodos
+    local api_ip=""
+    local app_ip=""
+    
+    # Método 1: Usar dig si está disponible
+    if command -v dig &> /dev/null; then
+        api_ip=$(dig +short "$backend_domain" 2>/dev/null | head -1)
+        app_ip=$(dig +short "$frontend_domain" 2>/dev/null | head -1)
+    fi
+    
+    # Método 2: Usar nslookup si dig falló o no está disponible
+    if [ -z "$api_ip" ] || [ -z "$app_ip" ]; then
+        if command -v nslookup &> /dev/null; then
+            api_ip=$(nslookup "$backend_domain" 2>/dev/null | grep "Address:" | tail -1 | awk '{print $2}')
+            app_ip=$(nslookup "$frontend_domain" 2>/dev/null | grep "Address:" | tail -1 | awk '{print $2}')
+        fi
+    fi
+    
+    # Método 3: Usar host si está disponible
+    if [ -z "$api_ip" ] || [ -z "$app_ip" ]; then
+        if command -v host &> /dev/null; then
+            api_ip=$(host "$backend_domain" 2>/dev/null | grep "has address" | awk '{print $NF}')
+            app_ip=$(host "$frontend_domain" 2>/dev/null | grep "has address" | awk '{print $NF}')
+        fi
+    fi
+    
+    log_message "INFO" "DNS actual:"
+    log_message "INFO" "  $backend_domain -> $api_ip"
+    log_message "INFO" "  $frontend_domain -> $app_ip"
+    
+    # Verificar si los dominios apuntan a la IP correcta
+    if [ "$api_ip" = "$current_ip" ] && [ "$app_ip" = "$current_ip" ]; then
+        log_message "SUCCESS" "✅ DNS configurado correctamente"
+        return 0
+    elif [ -z "$api_ip" ] || [ -z "$app_ip" ]; then
+        log_message "WARNING" "⚠️ No se pudo verificar DNS - Verificación manual requerida"
+        echo -e "${YELLOW}⚠️  No se pudo verificar DNS automáticamente${NC}"
+        echo -e "${WHITE}Verifica manualmente que los dominios apunten a:${NC} $current_ip"
+        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
+        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
+        echo ""
+        echo -e "${WHITE}¿Quieres continuar sin verificar DNS? (y/n):${NC} "
+        read -r continue_without_dns
+        if [[ ! "$continue_without_dns" =~ ^[Yy]$ ]]; then
+            log_message "INFO" "Usuario optó por verificar DNS manualmente"
+            echo -e "${YELLOW}Por favor, verifica el DNS y ejecuta el script nuevamente.${NC}"
+            exit 0
+        fi
+    else
+        log_message "WARNING" "⚠️ DNS incorrecto - Los dominios deben apuntar a $current_ip"
+        echo -e "${YELLOW}⚠️  DNS incorrecto detectado${NC}"
+        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
+        echo -e "${WHITE}Configura en tu proveedor de DNS:${NC}"
+        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
+        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
+        echo ""
+        echo -e "${WHITE}¿Quieres continuar sin corregir DNS? (y/n):${NC} "
+        read -r continue_without_dns
+        if [[ ! "$continue_without_dns" =~ ^[Yy]$ ]]; then
+            echo -e "\n${CYAN}¿Quieres ingresar la IP correcta manualmente? (y/n):${NC} "
+            read -r manual_ip
+            if [[ "$manual_ip" =~ ^[Yy]$ ]]; then
+                echo -e "${WHITE}Ingresa la IP correcta del servidor:${NC} "
+                read -r manual_ip_address
+                
+                # Validar formato de IP
+                if [[ "$manual_ip_address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    log_message "INFO" "IP corregida manualmente: $manual_ip_address"
+                    current_ip="$manual_ip_address"
+                    echo -e "${GREEN}✅ IP actualizada a: $current_ip${NC}"
+                    
+                    # Verificar DNS con la nueva IP
+                    echo -e "\n${CYAN}Verificando DNS con la nueva IP...${NC}"
+                    local api_ip_new=""
+                    local app_ip_new=""
+                    
+                    if command -v dig &> /dev/null; then
+                        api_ip_new=$(dig +short "$backend_domain" 2>/dev/null | head -1)
+                        app_ip_new=$(dig +short "$frontend_domain" 2>/dev/null | head -1)
+                    fi
+                    
+                    if [ "$api_ip_new" = "$current_ip" ] && [ "$app_ip_new" = "$current_ip" ]; then
+                        log_message "SUCCESS" "✅ DNS verificado correctamente con la nueva IP"
+                        return 0
+                    else
+                        echo -e "${YELLOW}⚠️  DNS aún no apunta a la IP correcta${NC}"
+                        echo -e "${WHITE}Configura en tu proveedor de DNS:${NC}"
+                        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
+                        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
+                        echo -e "${WHITE}¿Continuar de todas formas? (y/n):${NC} "
+                        read -r continue_anyway
+                        if [[ ! "$continue_anyway" =~ ^[Yy]$ ]]; then
+                            log_message "INFO" "Usuario optó por corregir DNS manualmente"
+                            echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
+                            exit 0
+                        fi
+                    fi
+                else
+                    echo -e "${RED}❌ Formato de IP inválido: $manual_ip_address${NC}"
+                    echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
+                    exit 0
+                fi
+            else
+                log_message "INFO" "Usuario optó por corregir DNS manualmente"
+                echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
+                exit 0
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
+# Función para detectar puertos activos automáticamente
+detect_active_ports() {
+    log_message "INFO" "Detectando puertos activos..."
+    
+    # Detectar puerto del frontend
+    detected_frontend_port=$(pm2 list 2>/dev/null | grep frontend | grep -o "localhost:[0-9]*" | head -1 | cut -d: -f2)
+    if [ -z "$detected_frontend_port" ]; then
+        detected_frontend_port="3435"  # Puerto por defecto
+    fi
+    
+    # Detectar puerto del backend
+    detected_backend_port=$(pm2 list 2>/dev/null | grep backend | grep -o "localhost:[0-9]*" | head -1 | cut -d: -f2)
+    if [ -z "$detected_backend_port" ]; then
+        detected_backend_port="4142"  # Puerto por defecto
+    fi
+    
+    # Detectar puerto de Redis
+    detected_redis_port=$(docker ps 2>/dev/null | grep redis | grep -o ":[0-9]*->" | head -1 | tr -d ':->')
+    if [ -z "$detected_redis_port" ]; then
+        detected_redis_port="5050"  # Puerto por defecto
+    fi
+    
+    log_message "SUCCESS" "Puertos detectados - Frontend: $detected_frontend_port, Backend: $detected_backend_port, Redis: $detected_redis_port"
+}
+
+# Función para extraer solo el dominio de una URL
+extract_domain_only() {
+    local url="$1"
+    local domain
+    
+    # Remover protocolo
+    domain=$(echo "$url" | sed 's|^https://||' | sed 's|^http://||')
+    # Remover path y parámetros
+    domain=$(echo "$domain" | cut -d'/' -f1)
+    # Remover puerto si existe
+    domain=$(echo "$domain" | cut -d':' -f1)
+    # Remover espacios en blanco
+    domain=$(echo "$domain" | tr -d ' ')
+    # Validar que no esté vacío
+    if [ -z "$domain" ]; then
+        echo "localhost"
+        return
+    fi
+    
+    echo "$domain"
+}
+
+# Función para validar dominio
+validate_domain() {
+    local domain="$1"
+    
+    # Validar formato básico de dominio
+    if [[ "$domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Función para diagnosticar puertos automáticamente
+diagnose_ports_auto() {
+    log_message "STEP" "=== DIAGNÓSTICO AUTOMÁTICO DE PUERTOS ==="
+    
+    print_banner
+    echo -e "${WHITE}🔍 Detectando puertos automáticamente...${GRAY_LIGHT}\n"
+    
+    # Detección por nombre de proceso y respuesta HTTP
+    local backend_detected=false
+    local frontend_detected=false
+    
+    # Verificar backend en puerto configurado
+    if ps aux | grep -q "backend/dist/server.js" && curl -s -o /dev/null -w "%{http_code}" "http://localhost:$backend_port" | grep -q "200\|301\|302\|404"; then
+        log_message "SUCCESS" "✅ Backend detectado en puerto $backend_port"
+        backend_detected=true
+    fi
+    
+    # Verificar frontend en puerto configurado
+    if ps aux | grep -q "frontend/server.js" && curl -s -o /dev/null -w "%{http_code}" "http://localhost:$frontend_port" | grep -q "200\|301\|302\|404"; then
+        log_message "SUCCESS" "✅ Frontend detectado en puerto $frontend_port"
+        frontend_detected=true
+    fi
+    
+    # Si ambos están detectados, configurar correctamente
+    if [[ "$backend_detected" == true && "$frontend_detected" == true ]]; then
+        log_message "SUCCESS" "✅ Ambos servicios detectados correctamente"
+    elif [[ "$backend_detected" == true ]]; then
+        log_message "WARNING" "⚠️ Solo backend detectado, configurando frontend por defecto"
+        frontend_port="3435"
+    elif [[ "$frontend_detected" == true ]]; then
+        log_message "WARNING" "⚠️ Solo frontend detectado, usando configuración por defecto"
+    else
+        log_message "WARNING" "⚠️ No se pudo detectar automáticamente, usando configuración por defecto"
+    fi
+    
+    log_message "INFO" "Puertos configurados: Backend=$backend_port, Frontend=$frontend_port"
+}
+
+# Función para verificar instalación final
+verify_installation() {
+    log_message "STEP" "=== VERIFICANDO INSTALACIÓN ==="
+    
+    print_banner
+    printf "${WHITE} 💻 Verificando que todo esté funcionando...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Verificar procesos PM2
+    echo -e "${WHITE}Verificando procesos PM2:${NC}"
+    pm2 list | grep -E "(backend|frontend)" || echo "No hay procesos PM2 activos"
+
+    # Verificar puertos
+    echo -e "\n${WHITE}Verificando puertos:${NC}"
+    if command -v netstat &> /dev/null; then
+        netstat -tuln | grep -E ":(${frontend_port}|${backend_port})" || echo "Puertos no están activos"
+    elif command -v ss &> /dev/null; then
+        ss -tuln | grep -E ":(${frontend_port}|${backend_port})" || echo "Puertos no están activos"
+    else
+        echo "No se puede verificar puertos (netstat/ss no disponible)"
+    fi
+
+    # Verificar Nginx
+    echo -e "\n${WHITE}Verificando Nginx:${NC}"
+    sudo systemctl status nginx --no-pager -l || echo "Nginx no está corriendo"
+
+    # Verificar certificados SSL
+    echo -e "\n${WHITE}Verificando certificados SSL:${NC}"
+    ls -la /etc/letsencrypt/live/ 2>/dev/null || echo "No hay certificados SSL"
+
+    # Verificar conectividad
+    echo -e "\n${WHITE}Verificando conectividad:${NC}"
+    curl -s -o /dev/null -w "Frontend: %{http_code}\n" http://localhost:${frontend_port} 2>/dev/null || echo "Frontend no responde"
+    curl -s -o /dev/null -w "Backend: %{http_code}\n" http://localhost:${backend_port} 2>/dev/null || echo "Backend no responde"
+
+    log_message "SUCCESS" "✅ Verificación completada"
+    sleep 2
 }
 
 # Función para verificar permisos de MySQL
@@ -259,9 +823,9 @@ verify_mysql_permissions() {
         # Verificar que el servicio MySQL esté ejecutándose
         if ! sudo systemctl is-active --quiet mysql; then
             log_message "ERROR" "❌ Servicio MySQL no está ejecutándose"
-            return 1
-        fi
-        
+        return 1
+    fi
+
         # Intentar configurar acceso sin contraseña para root
         sudo mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY ''; FLUSH PRIVILEGES;" 2>/dev/null || true
         
@@ -272,13 +836,13 @@ verify_mysql_permissions() {
             echo -e "${WHITE}Por favor, configura MySQL manualmente o continúa:${NC} "
             read -r continue_with_mysql
             if [[ ! "$continue_with_mysql" =~ ^[Yy]$ ]]; then
-                return 1
-            fi
-        fi
+        return 1
+    fi
+    fi
     fi
     
     log_message "SUCCESS" "✅ Permisos de MySQL verificados"
-    return 0
+            return 0
 }
 
 # Función para instalar dependencias del sistema
@@ -345,13 +909,13 @@ configure_mysql() {
     # Iniciar servicio MySQL
     if ! sudo systemctl start mysql; then
         register_error "No se pudo iniciar el servicio MySQL"
-        return 1
+            return 1
     fi
 
     # Habilitar MySQL para iniciar con el sistema
     if ! sudo systemctl enable mysql; then
         register_error "No se pudo habilitar MySQL para inicio automático"
-        return 1
+            return 1
     fi
 
     # Configurar MySQL para acceso sin contraseña (para desarrollo)
@@ -362,7 +926,7 @@ configure_mysql() {
         register_error "No se pudo crear la base de datos ${instancia_add}"
         return 1
     fi
-
+    
     # Crear usuario MySQL
     if ! sudo mysql -u root -e "CREATE USER IF NOT EXISTS '${instancia_add}'@'localhost' IDENTIFIED BY '${mysql_password}';"; then
         register_error "No se pudo crear el usuario MySQL ${instancia_add}"
@@ -374,13 +938,13 @@ configure_mysql() {
         register_error "No se pudieron otorgar permisos al usuario MySQL"
         return 1
     fi
-
+    
     # Verificar conexión
     if ! sudo mysql -u ${instancia_add} -p${mysql_password} -e "SELECT 1;" > /dev/null 2>&1; then
         register_error "No se puede conectar a MySQL con las credenciales configuradas"
         return 1
     fi
-
+    
     log_message "SUCCESS" "✅ MySQL configurado correctamente"
     sleep 2
     return 0
@@ -400,7 +964,7 @@ configure_redis() {
         register_error "No se pudo iniciar el servicio Redis"
         return 1
     fi
-
+    
     # Habilitar Redis para iniciar con el sistema
     if ! sudo systemctl enable redis-server; then
         register_error "No se pudo habilitar Redis para inicio automático"
@@ -656,7 +1220,7 @@ backend_migrations() {
                     done
                     
                     # Reintentar migraciones
-                    sleep 2
+            sleep 2
                     continue
                 else
                     log_message "WARNING" "No se pudieron identificar migraciones pendientes, continuando..."
@@ -720,8 +1284,8 @@ backend_migrations() {
                         log_message "SUCCESS" "Seeder ejecutado correctamente: $seeder_name"
                     else
                         log_message "WARNING" "Seeder $seeder_name falló, pero continuando..."
-                    fi
-                done
+        fi
+    done
             fi
         else
             log_message "INFO" "No se encontraron seeders en $SEEDERS_DIR"
@@ -844,7 +1408,7 @@ server {
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
     }
-
+    
     # Configuración para archivos estáticos
     location /public/ {
         alias /var/www/watoolx/backend/public/;
@@ -871,13 +1435,13 @@ server {
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
         proxy_connect_timeout 60s;
-
+        
         # Buffer sizes para frontend
         proxy_buffering on;
         proxy_buffer_size 4k;
         proxy_buffers 8 4k;
     }
-
+    
     # Configuración para archivos estáticos
     location /static/ {
         alias /home/watoolxoficial/frontend/build/static/;
@@ -1065,7 +1629,7 @@ EOF
         register_error "Error al instalar dependencias del frontend"
         return 1
     fi
-
+    
     # Compilar frontend para producción
     log_message "INFO" "Compilando frontend para producción..."
     if npm run build; then
@@ -1075,7 +1639,7 @@ EOF
         register_error "Error al compilar frontend"
         return 1
     fi
-
+    
     # Instalar serve para servir el frontend
     log_message "INFO" "Instalando serve para servir el frontend..."
     npm install -g serve
@@ -1314,87 +1878,95 @@ capture_user_data() {
     fi
 }
 
-# Función principal de instalación
-main_installation() {
-    log_message "INFO" "Iniciando instalación de Watoolx con MySQL..."
+# Función principal de instalación completa
+run_complete_installation() {
+    log_message "INFO" "=== INICIANDO INSTALACIÓN COMPLETA ==="
+    
+    echo -e "\n${WHITE}🚀 Iniciando instalación completa de WATOOLX...${NC}"
+    
+    # Verificar requisitos del sistema
+    if ! check_system_requirements; then
+        echo -e "\n${RED}❌ No se cumplen los requisitos del sistema. Instalación cancelada.${NC}"
+        return 1
+    fi
+    
+    # Verificar permisos del sistema
+    verify_all_permissions
+    
+    # Crear directorios críticos si es necesario
+    create_critical_directories
     
     # Actualizar sistema
     if ! system_update; then
+        echo -e "\n${RED}❌ Error al actualizar el sistema. Instalación cancelada.${NC}"
         return 1
     fi
     
-    # Verificar requisitos
-    if ! check_system_requirements; then
-        return 1
+    # Limpiar procesos y puertos
+    cleanup_processes_and_ports
+    
+    # Capturar datos de configuración
+    get_urls_validated
+    
+    # Verificar y corregir DNS
+    verify_and_fix_dns
+    
+    # Verificar conectividad de red (ahora sí tiene los dominios)
+    if ! check_internet_connectivity; then
+        echo -e "\n${YELLOW}⚠️  Advertencias de conectividad detectadas, continuando...${NC}"
     fi
     
-    # Verificar permisos de MySQL
-    if ! verify_mysql_permissions; then
-        return 1
-    fi
-    
-    # Instalar dependencias del sistema
+    # Dependencias del sistema
     if ! install_system_dependencies; then
-        return 1
+        register_error "Error en instalación de dependencias del sistema"
     fi
     
-    # Configurar MySQL
-    if ! configure_mysql; then
-        return 1
+    if ! install_nodejs; then
+        register_error "Error en instalación de Node.js"
     fi
     
-    # Configurar Redis
-    if ! configure_redis; then
-        return 1
+    if ! install_pm2; then
+        register_error "Error en instalación de PM2"
     fi
     
-    # Configurar variables de entorno del backend
-    if ! backend_environment; then
-        return 1
+    if ! install_nginx; then
+        register_error "Error en instalación de Nginx"
     fi
     
-    # Instalar dependencias del backend
-    if ! backend_node_dependencies; then
-        return 1
+    if ! install_certbot; then
+        register_error "Error en instalación de Certbot"
     fi
     
-    # Compilar backend
-    if ! backend_build; then
-        return 1
+    # Backend
+    if ! install_backend; then
+        register_error "Error en instalación del backend"
     fi
     
-    # Ejecutar migraciones
-    if ! backend_migrations; then
-        return 1
-    fi
-    
-    # Configurar PM2
-    if ! configure_pm2; then
-        return 1
-    fi
-    
-    # Configurar Nginx
-    if ! configure_nginx; then
-        return 1
-    fi
-    
-    # Configurar SSL
-    if ! configure_ssl; then
-        return 1
-    fi
-    
-    # Instalar y configurar frontend
+    # Frontend
     if ! install_frontend; then
-        return 1
+        register_error "Error en instalación del frontend"
     fi
     
-    log_message "SUCCESS" "🎉 Instalación completada exitosamente"
-    print_banner
-    printf "${WHITE} 🎉 ¡Instalación completada exitosamente!${GRAY_LIGHT}\n\n"
-    printf "${WHITE} Accede a tu aplicación en: ${GREEN}${frontend_url}${NC}\n"
-    printf "${WHITE} API disponible en: ${GREEN}${backend_url}${NC}\n\n"
+    # Configuración SSL y Proxy directo (sin mostrar proceso HTTP)
+    log_message "STEP" "=== CONFIGURACIÓN SSL Y PROXY DIRECTO ==="
     
-    return 0
+    # Configuración SSL y Proxy mejorada
+    if ! configure_ssl; then
+        register_error "Error en obtención de certificados SSL"
+    fi
+    
+    if ! configure_nginx; then
+        register_error "Error en configuración de proxy inverso"
+    fi
+    
+    # Verificación final de servicios
+    verify_services_status
+    
+    # Verificación final
+    verify_installation
+    
+    # Mostrar resumen final
+    show_installation_summary
 }
 
 # Función principal
@@ -1441,14 +2013,14 @@ main() {
             ;;
         3)
             echo -e "${YELLOW}¡Hasta luego!${NC}"
-            exit 0
-            ;;
-        *)
+                exit 0
+                ;;
+            *) 
             echo -e "${RED}Opción inválida. Por favor, selecciona 1, 2 o 3.${NC}"
             main
-            ;;
-    esac
+                ;;
+        esac
 }
 
 # Ejecutar función principal
-main "$@"
+main "$@" 
