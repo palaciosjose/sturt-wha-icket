@@ -1316,7 +1316,7 @@ export const verifyMessage = async (
           
           console.log("📤 VERIFYMESSAGE - Enviando mensaje de error:", invalidOptionMessage);
           
-          const wbot = await GetWhatsappWbot(ticket.whatsappId);
+          const wbot = await GetWhatsappWbot(ticket.whatsapp);
           const sendMsg = await wbot.sendMessage(
             `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
             { text: invalidOptionMessage }
@@ -2392,7 +2392,7 @@ const handleMessage = async (
               );
               await verifyMessage(sentMessage, ticket, contact);
               await UpdateTicketService({
-                ticketData: { queueId: null, chatbot },
+                ticketData: { queueId: null, chatbot: false },
                 ticketId: ticket.id,
                 companyId: ticket.companyId,
               });

@@ -12,37 +12,16 @@ import { CounterManager } from "./counter";
 let io: SocketIO;
 
 export const initIO = (httpServer: Server): SocketIO => {
-  // Configuración optimizada para producción
-  const corsOrigins = process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://localhost:3000', 'http://localhost:3000'].filter(Boolean)
-    : ['http://localhost:3000', 'https://localhost:3000', process.env.FRONTEND_URL].filter(Boolean);
-
   io = new SocketIO(httpServer, {
     cors: {
-      origin: corsOrigins,
-      methods: ["GET", "POST"],
-      credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"]
-    },
-    // Configuración optimizada para producción
-    transports: ['websocket', 'polling'],
-    allowEIO3: true,
-    pingTimeout: 60000, // 60 segundos para producción
-    pingInterval: 25000, // 25 segundos para producción
-    upgradeTimeout: 10000, // 10 segundos
-    maxHttpBufferSize: 1e8, // 100MB
-    allowRequest: (req, callback) => {
-      // Log para debugging en producción
-      logger.debug(`WebSocket connection attempt from: ${req.headers.origin}`);
-      callback(null, true);
+      origin: process.env.FRONTEND_URL
     }
   });
 
   io.on("connection", async socket => {
-    logger.info(`Client Connected - ID: ${socket.id}`);
+    logger.info("Client Connected");
     const { token } = socket.handshake.query;
     let tokenData = null;
-    
     try {
       tokenData = verify(token as string, authConfig.secret);
       logger.debug(tokenData, "io-onConnection: tokenData");
@@ -51,7 +30,6 @@ export const initIO = (httpServer: Server): SocketIO => {
       socket.disconnect();
       return io;
     }
-    
     const counters = new CounterManager();
 
     let user: User = null;
@@ -62,7 +40,6 @@ export const initIO = (httpServer: Server): SocketIO => {
       if (user) {
         user.online = true;
         await user.save();
-        logger.info(`User ${user.id} connected and marked as online`);
       } else {
         logger.info(`onConnect: User ${userId} not found`);
         socket.disconnect();
@@ -77,29 +54,27 @@ export const initIO = (httpServer: Server): SocketIO => {
     socket.join(`company-${user.companyId}-mainchannel`);
     socket.join(`user-${user.id}`);
 
-    // Emitir evento de ready para el frontend
-    socket.emit("ready");
-
     socket.on("joinChatBox", async (ticketId: string) => {
       if (!ticketId || ticketId === "undefined") {
         return;
       }
-      
-      try {
-        const ticket = await Ticket.findByPk(ticketId);
-        if (ticket && ticket.companyId === user.companyId
-          && (ticket.userId === user.id || user.profile === "admin")) {
-          let c: number;
-          if ((c = counters.incrementCounter(`ticket-${ticketId}`)) === 1) {
-            socket.join(ticketId);
-            logger.info(`💬 Chat iniciado - Ticket: ${ticketId}, Usuario: ${user.id}`);
+      Ticket.findByPk(ticketId).then(
+        (ticket) => {
+          if (ticket && ticket.companyId === user.companyId
+            && (ticket.userId === user.id || user.profile === "admin")) {
+            let c: number;
+            if ((c = counters.incrementCounter(`ticket-${ticketId}`)) === 1) {
+              socket.join(ticketId);
+            }
+            logger.info(`💬 Chat iniciado - Ticket: ${ticketId}, Usuario: ${user.id}`)
+          } else {
+            logger.info(`Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`)
           }
-        } else {
-          logger.info(`Invalid attempt to join channel of ticket ${ticketId} by user ${user.id}`);
+        },
+        (error) => {
+          logger.error(error, `Error fetching ticket ${ticketId}`);
         }
-      } catch (error) {
-        logger.error(`Error joining chat box for ticket ${ticketId}:`, error);
-      }
+      );
     });
     
     socket.on("leaveChatBox", async (ticketId: string) => {
@@ -108,10 +83,12 @@ export const initIO = (httpServer: Server): SocketIO => {
       }
 
       let c: number;
+      // o último que sair apaga a luz
+
       if ((c = counters.decrementCounter(`ticket-${ticketId}`)) === 0) {
         socket.leave(ticketId);
-        logger.info(`💬 Chat finalizado - Ticket: ${ticketId}, Usuario: ${user.id}`);
       }
+      logger.info(`💬 Chat finalizado - Ticket: ${ticketId}, Usuario: ${user.id}`)
     });
 
     socket.on("joinNotification", async () => {
@@ -121,12 +98,18 @@ export const initIO = (httpServer: Server): SocketIO => {
           socket.join(`company-${user.companyId}-notification`);
         } else {
           user.queues.forEach((queue) => {
+            logger.debug(`User ${user.id} of company ${user.companyId} joined queue ${queue.id} channel.`);
             socket.join(`queue-${queue.id}-notification`);
           });
+          if (user.allTicket === "enabled") {
+            socket.join("queue-null-notification");
+          }
+
         }
       }
+      logger.debug(`joinNotification[${c}]: User: ${user.id}`);
     });
-
+    
     socket.on("leaveNotification", async () => {
       let c: number;
       if ((c = counters.decrementCounter("notification")) === 0) {
@@ -134,36 +117,61 @@ export const initIO = (httpServer: Server): SocketIO => {
           socket.leave(`company-${user.companyId}-notification`);
         } else {
           user.queues.forEach((queue) => {
+            logger.debug(`User ${user.id} of company ${user.companyId} leaved queue ${queue.id} channel.`);
             socket.leave(`queue-${queue.id}-notification`);
           });
+          if (user.allTicket === "enabled") {
+            socket.leave("queue-null-notification");
+          }
+        }
+      }
+      logger.debug(`leaveNotification[${c}]: User: ${user.id}`);
+    });
+ 
+    socket.on("joinTickets", (status: string) => {
+      if (counters.incrementCounter(`status-${status}`) === 1) {
+        if (user.profile === "admin") {
+          logger.debug(`Admin ${user.id} of company ${user.companyId} joined ${status} tickets channel.`);
+          socket.join(`company-${user.companyId}-${status}`);
+        } else if (status === "pending") {
+          user.queues.forEach((queue) => {
+            logger.debug(`User ${user.id} of company ${user.companyId} joined queue ${queue.id} pending tickets channel.`);
+            socket.join(`queue-${queue.id}-pending`);
+          });
+          if (user.allTicket === "enabled") {
+            socket.join("queue-null-pending");
+          }
+        } else {
+          logger.debug(`User ${user.id} cannot subscribe to ${status}`);
         }
       }
     });
-
-    socket.on("disconnect", async () => {
-      logger.info(`Client Disconnected - ID: ${socket.id}, User: ${user?.id}`);
-      if (user) {
-        user.online = false;
-        await user.save();
+    
+    socket.on("leaveTickets", (status: string) => {
+      if (counters.decrementCounter(`status-${status}`) === 0) {
+        if (user.profile === "admin") {
+          logger.debug(`Admin ${user.id} of company ${user.companyId} leaved ${status} tickets channel.`);
+          socket.leave(`company-${user.companyId}-${status}`);
+        } else if (status === "pending") {
+          user.queues.forEach((queue) => {
+            logger.debug(`User ${user.id} of company ${user.companyId} leaved queue ${queue.id} pending tickets channel.`);
+            socket.leave(`queue-${queue.id}-pending`);
+          });
+          if (user.allTicket === "enabled") {
+            socket.leave("queue-null-pending");
+          }
+        }
       }
     });
-
-    socket.on("error", (error) => {
-      logger.error(`Socket error for user ${user?.id}:`, error);
-    });
+    
+    socket.emit("ready");
   });
-
-  // Log de eventos del servidor Socket.IO
-  io.engine.on("connection_error", (err) => {
-    logger.error("Socket.IO connection error:", err);
-  });
-
   return io;
 };
 
 export const getIO = (): SocketIO => {
   if (!io) {
-    throw new AppError("Socket.IO not initialized");
+    throw new AppError("Socket IO not initialized");
   }
   return io;
 };
