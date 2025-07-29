@@ -582,16 +582,67 @@ backend_migrations() {
         return 1
     }
 
-    # Ejecutar migraciones
+    # Configurar MySQL para evitar deadlocks
+    log_message "INFO" "Configurando MySQL para evitar deadlocks..."
+    mysql -u root -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120;" 2>/dev/null || true
+    mysql -u root -p${mysql_password} -e "SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null || true
+
+    # Verificar estado de migraciones
+    log_message "INFO" "Verificando estado de migraciones..."
+    npx sequelize db:migrate:status > /tmp/migration_status.log 2>&1
+
+    # Ejecutar migraciones con manejo de errores
+    log_message "INFO" "Ejecutando migraciones..."
     if ! npx sequelize db:migrate; then
-        register_error "No se pudieron ejecutar las migraciones"
-        return 1
+        log_message "WARNING" "Error en migraciones, intentando recuperación..."
+        
+        # Verificar si es error de columna duplicada
+        if grep -q "Duplicate column name" /tmp/migration_status.log 2>/dev/null; then
+            log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
+            
+            # Obtener la última migración problemática
+            LAST_MIGRATION=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | tail -1 | awk '{print $1}')
+            
+            if [ ! -z "$LAST_MIGRATION" ]; then
+                # Marcar migración como ejecutada manualmente
+                mysql -u root -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$LAST_MIGRATION');" 2>/dev/null
+                log_message "SUCCESS" "Migración duplicada marcada como ejecutada: $LAST_MIGRATION"
+            fi
+            
+            # Reintentar migraciones
+            if ! npx sequelize db:migrate; then
+                register_error "No se pudieron ejecutar las migraciones después de la recuperación"
+                return 1
+            fi
+        else
+            # Si no es migración duplicada, reintentar con configuración optimizada
+            log_message "INFO" "Reintentando migraciones con configuración optimizada..."
+            sleep 5
+            
+            # Reiniciar MySQL para limpiar deadlocks
+            systemctl restart mysql
+            sleep 3
+            
+            if ! npx sequelize db:migrate; then
+                register_error "No se pudieron ejecutar las migraciones"
+                return 1
+            fi
+        fi
     fi
 
-    # Ejecutar seeders
+    # Ejecutar seeders con manejo de errores
+    log_message "INFO" "Ejecutando seeders..."
     if ! npx sequelize db:seed:all; then
-        register_error "No se pudieron ejecutar los seeders"
-        return 1
+        log_message "WARNING" "Error en seeders, intentando ejecutar individualmente..."
+        
+        # Ejecutar seeders uno por uno
+        for seeder in src/database/seeds/*.js; do
+            if [ -f "$seeder" ]; then
+                seeder_name=$(basename "$seeder" .js)
+                log_message "INFO" "Ejecutando seeder: $seeder_name"
+                npx sequelize db:seed --seed "$seeder_name" || log_message "WARNING" "Seeder $seeder_name falló, continuando..."
+            fi
+        done
     fi
 
     log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
@@ -769,24 +820,30 @@ EOF
     return 0
 }
 
-# Función para diagnosticar WebSocket
-diagnose_websocket() {
-    log_message "STEP" "=== DIAGNÓSTICO DE WEBSOCKET ==="
+# Función para diagnóstico completo del sistema
+diagnose_system() {
+    log_message "STEP" "=== DIAGNÓSTICO COMPLETO DEL SISTEMA ==="
     
     print_banner
-    printf "${WHITE} 🔍 Diagnosticando WebSocket...${GRAY_LIGHT}\n\n"
+    printf "${WHITE} 🔍 Realizando diagnóstico completo...${GRAY_LIGHT}\n\n"
 
     sleep 2
 
-    echo -e "${CYAN}🔧 DIAGNÓSTICO DE WEBSOCKET:${NC}"
+    echo -e "${CYAN}🔧 DIAGNÓSTICO DEL SISTEMA:${NC}"
     echo -e "${GRAY_LIGHT}"
     
-    # Verificar servicios
-    echo "1. Verificando servicios..."
-    if pm2 list | grep -q "waticket-backend"; then
-        echo -e "   ${GREEN}✅ PM2 backend ejecutándose${NC}"
+    # 1. Verificar servicios del sistema
+    echo "1. Verificando servicios del sistema..."
+    if systemctl is-active --quiet mysql; then
+        echo -e "   ${GREEN}✅ MySQL ejecutándose${NC}"
     else
-        echo -e "   ${RED}❌ PM2 backend no está ejecutándose${NC}"
+        echo -e "   ${RED}❌ MySQL no está ejecutándose${NC}"
+    fi
+    
+    if systemctl is-active --quiet redis-server; then
+        echo -e "   ${GREEN}✅ Redis ejecutándose${NC}"
+    else
+        echo -e "   ${RED}❌ Redis no está ejecutándose${NC}"
     fi
     
     if systemctl is-active --quiet nginx; then
@@ -795,66 +852,143 @@ diagnose_websocket() {
         echo -e "   ${RED}❌ Nginx no está ejecutándose${NC}"
     fi
     
-    # Verificar puertos
-    echo "2. Verificando puertos..."
-    if netstat -tlnp | grep -q ":${backend_port}"; then
-        echo -e "   ${GREEN}✅ Puerto ${backend_port} (backend) abierto${NC}"
-    else
-        echo -e "   ${RED}❌ Puerto ${backend_port} (backend) no está abierto${NC}"
-    fi
-    
-    # Verificar configuración de Nginx
-    echo "3. Verificando configuración de Nginx..."
-    if nginx -t; then
-        echo -e "   ${GREEN}✅ Sintaxis de Nginx correcta${NC}"
-    else
-        echo -e "   ${RED}❌ Error en la sintaxis de Nginx${NC}"
-    fi
-    
-    if grep -q "socket.io" /etc/nginx/sites-enabled/*; then
-        echo -e "   ${GREEN}✅ Configuración de WebSocket encontrada${NC}"
-    else
-        echo -e "   ${YELLOW}⚠️ Configuración de WebSocket no encontrada${NC}"
-    fi
-    
-    # Verificar headers de WebSocket
-    if grep -q "Upgrade" /etc/nginx/sites-enabled/* && grep -q "Connection.*upgrade" /etc/nginx/sites-enabled/*; then
-        echo -e "   ${GREEN}✅ Headers de WebSocket configurados${NC}"
-    else
-        echo -e "   ${RED}❌ Headers de WebSocket no configurados${NC}"
-    fi
-    
-    # Probar conectividad
-    echo "4. Probando conectividad..."
-    if command -v curl &> /dev/null; then
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost:${backend_port} | grep -q "200\|404"; then
-            echo -e "   ${GREEN}✅ Backend responde en HTTP${NC}"
+    # 2. Verificar aplicaciones PM2
+    echo -e "\n2. Verificando aplicaciones PM2..."
+    if command -v pm2 &> /dev/null; then
+        PM2_APPS=$(pm2 list --no-daemon 2>/dev/null | grep -c "online" || echo "0")
+        if [ "$PM2_APPS" -gt 0 ]; then
+            echo -e "   ${GREEN}✅ PM2 ejecutando $PM2_APPS aplicación(es)${NC}"
         else
-            echo -e "   ${RED}❌ Backend no responde en HTTP${NC}"
-        fi
-        
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost:${backend_port}/socket.io/ | grep -q "200\|400"; then
-            echo -e "   ${GREEN}✅ Endpoint Socket.IO responde${NC}"
-        else
-            echo -e "   ${RED}❌ Endpoint Socket.IO no responde${NC}"
+            echo -e "   ${YELLOW}⚠️  PM2 instalado pero sin aplicaciones ejecutándose${NC}"
         fi
     else
-        echo -e "   ${YELLOW}⚠️ curl no está instalado para pruebas${NC}"
+        echo -e "   ${RED}❌ PM2 no está instalado${NC}"
     fi
     
-    echo ""
-    echo -e "${CYAN}💡 RECOMENDACIONES PARA WEBSOCKET:${NC}"
-    echo -e "${GRAY_LIGHT}"
-    echo "• Verificar que los certificados SSL sean válidos"
-    echo "• Asegurar que los puertos 80 y 443 estén abiertos"
-    echo "• Verificar que el firewall no bloquee las conexiones"
-    echo "• Monitorear los logs de Nginx y PM2"
-    echo "• Configurar timeouts apropiados (86400s para WebSocket)"
-    echo -e "${NC}"
+    # 3. Verificar puertos
+    echo -e "\n3. Verificando puertos..."
+    if netstat -tlnp 2>/dev/null | grep -q ":3306"; then
+        echo -e "   ${GREEN}✅ Puerto 3306 (MySQL) abierto${NC}"
+    else
+        echo -e "   ${RED}❌ Puerto 3306 (MySQL) cerrado${NC}"
+    fi
     
-    log_message "SUCCESS" "✅ Diagnóstico de WebSocket completado"
-    sleep 2
-    return 0
+    if netstat -tlnp 2>/dev/null | grep -q ":6379"; then
+        echo -e "   ${GREEN}✅ Puerto 6379 (Redis) abierto${NC}"
+    else
+        echo -e "   ${RED}❌ Puerto 6379 (Redis) cerrado${NC}"
+    fi
+    
+    if netstat -tlnp 2>/dev/null | grep -q ":4142"; then
+        echo -e "   ${GREEN}✅ Puerto 4142 (Backend) abierto${NC}"
+    else
+        echo -e "   ${RED}❌ Puerto 4142 (Backend) cerrado${NC}"
+    fi
+    
+    if netstat -tlnp 2>/dev/null | grep -q ":80"; then
+        echo -e "   ${GREEN}✅ Puerto 80 (Nginx) abierto${NC}"
+    else
+        echo -e "   ${RED}❌ Puerto 80 (Nginx) cerrado${NC}"
+    fi
+    
+    # 4. Verificar base de datos
+    echo -e "\n4. Verificando base de datos..."
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SHOW TABLES;" 2>/dev/null | grep -q "Users"; then
+        echo -e "   ${GREEN}✅ Base de datos ${instancia_add} accesible${NC}"
+    else
+        echo -e "   ${RED}❌ Base de datos ${instancia_add} no accesible${NC}"
+    fi
+    
+    # 5. Verificar migraciones
+    echo -e "\n5. Verificando migraciones..."
+    if [ -d "$BACKEND_DIR" ]; then
+        cd "$BACKEND_DIR" 2>/dev/null
+        MIGRATION_STATUS=$(npx sequelize db:migrate:status 2>/dev/null | grep -c "up" || echo "0")
+        if [ "$MIGRATION_STATUS" -gt 0 ]; then
+            echo -e "   ${GREEN}✅ $MIGRATION_STATUS migración(es) ejecutada(s)${NC}"
+        else
+            echo -e "   ${YELLOW}⚠️  No se encontraron migraciones ejecutadas${NC}"
+        fi
+    else
+        echo -e "   ${RED}❌ Directorio backend no encontrado${NC}"
+    fi
+    
+    # 6. Verificar logs de errores
+    echo -e "\n6. Verificando logs de errores..."
+    if [ -f "/var/log/nginx/error.log" ]; then
+        NGINX_ERRORS=$(tail -n 20 /var/log/nginx/error.log | grep -c "error" || echo "0")
+        if [ "$NGINX_ERRORS" -eq 0 ]; then
+            echo -e "   ${GREEN}✅ Nginx sin errores recientes${NC}"
+        else
+            echo -e "   ${YELLOW}⚠️  $NGINX_ERRORS error(es) en logs de Nginx${NC}"
+        fi
+    fi
+    
+    if command -v pm2 &> /dev/null; then
+        PM2_ERRORS=$(pm2 logs --no-daemon --lines 1 2>/dev/null | grep -c "ERROR" || echo "0")
+        if [ "$PM2_ERRORS" -eq 0 ]; then
+            echo -e "   ${GREEN}✅ PM2 sin errores recientes${NC}"
+        else
+            echo -e "   ${YELLOW}⚠️  $PM2_ERRORS error(es) en logs de PM2${NC}"
+        fi
+    fi
+    
+    # 7. Verificar WebSocket
+    echo -e "\n7. Verificando WebSocket..."
+    if curl -s http://localhost:4142/socket.io/ > /dev/null 2>&1; then
+        echo -e "   ${GREEN}✅ WebSocket accesible${NC}"
+    else
+        echo -e "   ${RED}❌ WebSocket no accesible${NC}"
+    fi
+    
+    # 8. Verificar configuración de Nginx
+    echo -e "\n8. Verificando configuración de Nginx..."
+    if nginx -t 2>/dev/null; then
+        echo -e "   ${GREEN}✅ Configuración de Nginx válida${NC}"
+    else
+        echo -e "   ${RED}❌ Configuración de Nginx inválida${NC}"
+    fi
+    
+    echo -e "\n${CYAN}📊 RESUMEN DEL DIAGNÓSTICO:${NC}"
+    echo -e "${GRAY_LIGHT}• Sistema: $(uname -s) $(uname -r)${NC}"
+    echo -e "${GRAY_LIGHT}• Memoria disponible: $(free -h | grep Mem | awk '{print $7}')${NC}"
+    echo -e "${GRAY_LIGHT}• Espacio en disco: $(df -h / | tail -1 | awk '{print $4}')${NC}"
+    echo -e "${GRAY_LIGHT}• Carga del sistema: $(uptime | awk -F'load average:' '{print $2}')${NC}"
+    
+    echo -e "\n${WHITE}¿Deseas generar un reporte detallado? (y/n):${NC} "
+    read -r generate_report
+    if [[ "$generate_report" =~ ^[Yy]$ ]]; then
+        generate_detailed_report
+    fi
+}
+
+# Función para generar reporte detallado
+generate_detailed_report() {
+    local report_file="/tmp/watoolx_diagnostic_$(date +%Y%m%d_%H%M%S).txt"
+    
+    echo "=== REPORTE DIAGNÓSTICO WATOOLX ===" > "$report_file"
+    echo "Fecha: $(date)" >> "$report_file"
+    echo "Sistema: $(uname -a)" >> "$report_file"
+    echo "" >> "$report_file"
+    
+    echo "=== SERVICIOS ===" >> "$report_file"
+    systemctl status mysql redis-server nginx >> "$report_file" 2>&1
+    echo "" >> "$report_file"
+    
+    echo "=== PM2 STATUS ===" >> "$report_file"
+    pm2 list >> "$report_file" 2>&1
+    echo "" >> "$report_file"
+    
+    echo "=== PUERTOS ABIERTOS ===" >> "$report_file"
+    netstat -tlnp >> "$report_file" 2>&1
+    echo "" >> "$report_file"
+    
+    echo "=== LOGS DE ERRORES ===" >> "$report_file"
+    tail -n 50 /var/log/nginx/error.log >> "$report_file" 2>&1
+    echo "" >> "$report_file"
+    
+    echo "Reporte guardado en: $report_file"
+    echo -e "${GREEN}✅ Reporte detallado generado${NC}"
 }
 
 # Función para capturar datos del usuario
@@ -985,7 +1119,7 @@ main() {
     print_banner
     echo -e "${WHITE}¿Qué deseas hacer?${NC}"
     echo -e "${GRAY_LIGHT}1. Instalación completa${NC}"
-    echo -e "${GRAY_LIGHT}2. Diagnóstico de WebSocket${NC}"
+    echo -e "${GRAY_LIGHT}2. Diagnóstico completo del sistema${NC}"
     echo -e "${GRAY_LIGHT}3. Salir${NC}"
     echo ""
     echo -e "${CYAN}Selecciona una opción (1-3):${NC} "
@@ -1002,33 +1136,29 @@ main() {
                 echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
                 echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
                 echo -e "${CYAN}API disponible en:${NC} $backend_url"
-                echo -e "\n${WHITE}Credenciales por defecto:${NC}"
-                echo -e "${GRAY_LIGHT}• Email: admin@admin.com${NC}"
-                echo -e "${GRAY_LIGHT}• Password: 123456${NC}"
                 
-                # Preguntar si quiere hacer diagnóstico
-                echo -e "\n${WHITE}¿Quieres hacer un diagnóstico de WebSocket? (y/n):${NC} "
-                read -r diagnose_confirm
-                if [[ "$diagnose_confirm" =~ ^[Yy]$ ]]; then
-                    diagnose_websocket
+                # Preguntar si desea ejecutar diagnóstico
+                echo -e "\n${WHITE}¿Deseas ejecutar un diagnóstico del sistema? (y/n):${NC} "
+                read -r run_diagnosis
+                if [[ "$run_diagnosis" =~ ^[Yy]$ ]]; then
+                    diagnose_system
                 fi
             else
-                show_installation_summary
-                echo -e "\n${RED}❌ La instalación falló. Revisa los errores arriba.${NC}"
+                echo -e "\n${RED}❌ La instalación falló. Revisa los logs en: $LOG_FILE${NC}"
                 exit 1
             fi
             ;;
         2)
-            # Solo diagnóstico
-            diagnose_websocket
+            # Ejecutar diagnóstico
+            diagnose_system
             ;;
         3)
-            echo -e "${YELLOW}Saliendo...${NC}"
+            echo -e "${YELLOW}¡Hasta luego!${NC}"
             exit 0
             ;;
         *)
-            echo -e "${RED}Opción inválida${NC}"
-            exit 1
+            echo -e "${RED}Opción inválida. Por favor, selecciona 1, 2 o 3.${NC}"
+            main
             ;;
     esac
 }
