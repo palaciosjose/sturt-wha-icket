@@ -1990,7 +1990,7 @@ main() {
             capture_user_data
             
             # Ejecutar instalación principal
-            if main_installation; then
+            if run_complete_installation; then
                 show_installation_summary
                 echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
                 echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
