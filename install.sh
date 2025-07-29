@@ -1622,7 +1622,7 @@ EOF
 
     # Instalar dependencias del frontend
     log_message "INFO" "Instalando dependencias del frontend..."
-    if npm install; then
+    if npm install --legacy-peer-deps; then
         log_message "SUCCESS" "✅ Dependencias del frontend instaladas correctamente"
     else
         log_message "ERROR" "❌ Error al instalar dependencias del frontend"
