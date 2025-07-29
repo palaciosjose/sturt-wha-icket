@@ -611,15 +611,20 @@ backend_migrations() {
                 log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
                 
                 # Obtener todas las migraciones pendientes
-                PENDING_MIGRATIONS=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | awk '{print $1}')
+                PENDING_MIGRATIONS=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | awk '{print $1}' | grep -v "^down$" | grep -v "^up$")
                 
                 if [ ! -z "$PENDING_MIGRATIONS" ]; then
                     log_message "INFO" "Marcando migraciones duplicadas como ejecutadas..."
                     
                     # Marcar cada migración pendiente como ejecutada
                     for migration in $PENDING_MIGRATIONS; do
-                        mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
-                        log_message "SUCCESS" "Migración marcada como ejecutada: $migration"
+                        # Verificar que el nombre de la migración sea válido
+                        if [[ "$migration" =~ ^[0-9]+.*\.js$ ]]; then
+                            mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+                            log_message "SUCCESS" "Migración marcada como ejecutada: $migration"
+                        else
+                            log_message "WARNING" "Nombre de migración inválido ignorado: $migration"
+                        fi
                     done
                     
                     # Reintentar migraciones
