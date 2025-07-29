@@ -70,10 +70,10 @@ const messages = {
       companies: {
         title: "Registrar Empresa",
         form: {
-          name: "Nombre",
+          name: "Nombre de Empresa",
           email: "Correo electrónico",
-          phone: "Teléfono",
-          plan: "Plan",
+          phone: "Número de WhatsApp",
+          plan: "Planes",
           status: "Estado",
           campaigns: "Campañas",
           dueDate: "Fecha de Vencimiento",
@@ -86,7 +86,7 @@ const messages = {
           name: "Nombre",
           email: "Correo electrónico",
           phone: "Teléfono",
-          plan: "Plan",
+          plan: "Planes",
           campaigns: "Campañas",
           status: "Estado",
           createdAt: "Creada En",
@@ -216,6 +216,8 @@ const messages = {
         table: {
           name: "Nombre",
           number: "Número",
+          aliasWa: "Alias WA",
+          waName: "Nombre WA",
           status: "Estado",
           lastUpdate: "Última actualización",
           default: "Predeterminado",
@@ -1095,6 +1097,15 @@ const messages = {
         },
         undefinedTitle: "Título no definido",
       },
+      transferQueueModal: {
+        title: "Seleccionar Departamento de Transferencia",
+        description: "Selecciona el departamento al que se transferirán los tickets cuando el usuario seleccione esta opción.",
+        searchPlaceholder: "Buscar departamentos...",
+        cancel: "Cancelar",
+        confirm: "Confirmar Transferencia",
+        noResults: "No se encontraron departamentos con ese nombre",
+        noQueues: "No hay departamentos disponibles para transferencia",
+      },
       queueSelect: {
         inputLabel: "Departamentos",
       },
@@ -1125,7 +1136,7 @@ const messages = {
         title: "Centro de Ayuda",
         form: {
           title: "Título",
-          videoCode: "Código del Video",
+          videoCode: "URL de Video (YouTube)",
           description: "Descripción",
         },
         table: {

@@ -10,6 +10,8 @@ import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import GetWhatsAppInfoService from "../services/WhatsappService/GetWhatsAppInfoService";
 import AppError from "../errors/AppError";
+import ReassignTicketsService from "../services/WhatsappService/ReassignTicketsService";
+import Ticket from "../models/Ticket";
 
 interface WhatsappData {
   name: string;
@@ -67,6 +69,20 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   }: WhatsappData = req.body;
   const { companyId } = req.user;
 
+  // ✅ LIMPIAR Y VALIDAR queueIds
+  const cleanQueueIds = Array.isArray(queueIds) 
+    ? queueIds
+        .flat() // ✅ APLANAR ARRAYS ANIDADOS
+        .filter(id => id && id !== null && id !== undefined && !isNaN(Number(id)))
+    : [];
+
+  console.log("🔄 DATOS RECIBIDOS:");
+  console.log("  - queueIds original:", queueIds);
+  console.log("  - queueIds limpio:", cleanQueueIds);
+  console.log("  - token:", token);
+  console.log("  - name:", name);
+  console.log("  - status:", status);
+
   const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
     name,
     status,
@@ -74,7 +90,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     greetingMessage,
     complationMessage,
     outOfHoursMessage,
-    queueIds,
+    queueIds: cleanQueueIds, // ✅ USAR ARRAY LIMPIO
     companyId,
     token,
     //timeSendQueue,
@@ -213,5 +229,56 @@ export const getInfo = async (req: Request, res: Response): Promise<Response> =>
     return res.status(200).json(whatsappInfo);
   } catch (error) {
     throw new AppError(error.message, 400);
+  }
+};
+
+export const reassignTickets = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { oldWhatsappId, newWhatsappId } = req.body;
+  const { companyId } = req.user;
+
+  try {
+    const result = await ReassignTicketsService({
+      oldWhatsappId,
+      newWhatsappId,
+      companyId
+    });
+
+    return res.status(200).json({
+      message: "Tickets reasignados exitosamente",
+      reassignedCount: result.reassignedCount,
+      deletedCount: result.deletedCount
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error reasignando tickets" });
+  }
+};
+
+export const deleteOrphanTickets = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { whatsappId } = req.params;
+  const { companyId } = req.user;
+
+  try {
+    // Eliminar tickets huérfanos (sin conexión válida)
+    const deletedCount = await Ticket.destroy({
+      where: { 
+        whatsappId: parseInt(whatsappId), 
+        companyId 
+      }
+    });
+
+    return res.status(200).json({
+      message: "Tickets huérfanos eliminados",
+      deletedCount
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error eliminando tickets" });
   }
 };

@@ -39,6 +39,7 @@ import { AllInclusive, AttachFile, DeviceHubOutlined, Schedule } from '@material
 import usePlans from "../hooks/usePlans";
 import Typography from "@material-ui/core/Typography";
 import { FaBell } from 'react-icons/fa';
+import { getVersionText } from "../config/version";
 
 const useStyles = makeStyles((theme) => ({
   ListSubheader: {
@@ -632,7 +633,7 @@ const MainListItems = (props) => {
                   textAlign: 'center',
                   marginLeft: '4px'
                 }}>
-                  BASIC
+                  {getVersionText()}
                 </span>
               </Typography>
               </React.Fragment>

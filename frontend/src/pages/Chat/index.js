@@ -139,10 +139,10 @@ export function ChatModal({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} color="primary">
-          Fechar
+          {i18n.t("ticketsManager.buttons.closeallTicket")}
         </Button>
         <Button onClick={handleSave} color="primary" variant="contained">
-          Salvar
+          {i18n.t("contactModal.buttons.okAdd")}
         </Button>
       </DialogActions>
     </Dialog>

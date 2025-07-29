@@ -9,6 +9,7 @@ import { useMediaQuery } from "@material-ui/core";
 import ColorModeContext from "./layout/themeContext";
 import { SocketContext, SocketManager } from './context/Socket/SocketContext';
 import logger from "./utils/logger";
+import { getAppFullName } from "./config/version";
 
 import Routes from "./routes";
 // import DragDropTest from "./components/DragDropTest";
@@ -27,6 +28,9 @@ const App = () => {
         logger.debug("🎯 App.js cargado - Aplicación iniciada");
         logger.whatsapp.debug("🧪 LOG DE PRUEBA - WhatsApp desde App.js");
         logger.socket.debug("🧪 LOG DE PRUEBA - Socket desde App.js");
+        
+        // Actualizar el título de la página dinámicamente
+        document.title = getAppFullName();
     }, []);
 
     const colorMode = React.useMemo(

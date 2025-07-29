@@ -13,9 +13,29 @@ const useStyles = makeStyles(theme => ({
 	chips: {
 		display: "flex",
 		flexWrap: "wrap",
+		gap: "4px",
+		maxWidth: "100%",
+		alignItems: "flex-start",
 	},
 	chip: {
-		margin: 2,
+		margin: 1,
+		maxWidth: "100%",
+		height: "auto",
+		"& .MuiChip-label": {
+			whiteSpace: "normal",
+			wordBreak: "break-word",
+			lineHeight: "1.2",
+			padding: "4px 8px",
+			fontSize: "0.75rem",
+		},
+	},
+	selectContainer: {
+		"& .MuiSelect-select": {
+			minHeight: "40px",
+			display: "flex",
+			alignItems: "flex-start",
+			padding: "8px 12px",
+		},
 	},
 }));
 
@@ -40,7 +60,7 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 
 	return (
 		<div style={{ marginTop: 6 }}>
-			<FormControl fullWidth margin="dense" variant="outlined">
+			<FormControl fullWidth margin="dense" variant="outlined" className={classes.selectContainer}>
 				<InputLabel>{i18n.t("queueSelect.inputLabel")}</InputLabel>
 				<Select
 					multiple

@@ -183,14 +183,10 @@ const SignUp = () => {
 								<Grid item xs={12}>
 									<Field
 										as={TextField}
-										autoComplete="name"
-										name="name"
-										error={touched.name && Boolean(errors.name)}
-										helperText={touched.name && errors.name}
 										variant="outlined"
 										fullWidth
 										id="name"
-										label="Nome da Empresa"
+										label={i18n.t("companies.form.name")}
 									/>
 								</Grid>
 
@@ -226,7 +222,7 @@ const SignUp = () => {
 													variant="outlined"
 													fullWidth
 													id="phone"
-													label="DDD988888888"
+													label={i18n.t("companies.form.phone")}
 													error={touched.phone && Boolean(errors.phone)}
 													helperText={touched.phone && errors.phone}
 													autoComplete="phone"
@@ -254,13 +250,13 @@ const SignUp = () => {
 									/>
 								</Grid>
 								<Grid item xs={12}>
-									<InputLabel htmlFor="plan-selection">Plano</InputLabel>
+									<InputLabel htmlFor="plan-selection">{i18n.t("companies.form.plan")}</InputLabel>
 									<Field
 										as={Select}
 										variant="outlined"
 										fullWidth
 										id="plan-selection"
-										label="Plano"
+										label={i18n.t("companies.form.plan")}
 										name="planId"
 										required
 									>

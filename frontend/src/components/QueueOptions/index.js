@@ -4,7 +4,7 @@ import Stepper from "@material-ui/core/Stepper";
 import Step from "@material-ui/core/Step";
 import StepLabel from "@material-ui/core/StepLabel";
 import Typography from "@material-ui/core/Typography";
-import { Button, Grid, IconButton, StepContent, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, FormControl, InputLabel } from "@material-ui/core";
+import { Button, Grid, IconButton, StepContent, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from "@material-ui/core";
 import AddIcon from "@material-ui/icons/Add";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import SaveIcon from "@material-ui/icons/Save";
@@ -15,6 +15,7 @@ import toastError from "../../errors/toastError";
 import { AttachFile, DeleteOutline } from "@material-ui/icons";
 import { head } from "lodash";
 import { i18n } from "../../translate/i18n";
+import TransferQueueModal from "../TransferQueueModal";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -44,6 +45,8 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   const attachmentFile = useRef(null);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedOptionForTransfer, setSelectedOptionForTransfer] = useState(null);
+  const [deleteTransferModalOpen, setDeleteTransferModalOpen] = useState(false);
+  const [optionToDeleteTransfer, setOptionToDeleteTransfer] = useState(null);
   const [queues, setQueues] = useState([]);
 
 
@@ -67,44 +70,82 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   // ✅ ELIMINAR TRANSFERENCIA
   const handleRemoveTransfer = async (option) => {
     try {
-      const optionToUpdate = { ...option, transferQueueId: null };
-      
-      await api.request({
-        url: `/queue-options/${optionToUpdate.id}`,
-        method: "PUT",
-        data: optionToUpdate,
-      });
-      
-      // ✅ ACTUALIZAR LA OPCIÓN EN EL ARRAY LOCAL
-      const optionIndex = options.findIndex(opt => opt.id === optionToUpdate.id);
-      if (optionIndex !== -1) {
-        options[optionIndex] = optionToUpdate;
-      }
-      
-      updateOptions();
-      toastError("Transferencia eliminada correctamente");
+      // ✅ ABRIR MODAL DE CONFIRMACIÓN
+      setOptionToDeleteTransfer(option);
+      setDeleteTransferModalOpen(true);
     } catch (e) {
       toastError(e);
     }
   };
 
+  const confirmDeleteTransfer = async () => {
+    try {
+      const option = optionToDeleteTransfer;
+      // console.log("✅ Usuario confirmó eliminación de transferencia");
+      
+      const optionToUpdate = { 
+        ...option, 
+        transferQueueId: null,
+        transferQueue: null // ✅ TAMBIÉN LIMPIAR EL OBJETO transferQueue
+      };
+      
+      // ✅ GUARDAR TEMPORALMENTE EN MEMORIA
+      const optionIndex = options.findIndex(opt => opt === option);
+      if (optionIndex !== -1) {
+        options[optionIndex] = optionToUpdate;
+        updateOptions(); // ✅ ACTUALIZAR EL ESTADO
+        // console.log("✅ Transferencia eliminada temporalmente en memoria");
+      }
+      
+      toastError("Transferencia eliminada correctamente");
+      
+      // ✅ CERRAR MODAL
+      setDeleteTransferModalOpen(false);
+      setOptionToDeleteTransfer(null);
+    } catch (e) {
+      toastError(e);
+    }
+  };
+
+  const cancelDeleteTransfer = () => {
+    console.log("❌ Eliminación cancelada por el usuario");
+    setDeleteTransferModalOpen(false);
+    setOptionToDeleteTransfer(null);
+  };
+
   // ✅ GUARDAR TRANSFERENCIA EN ESTADO TEMPORAL
   const handleSaveTransfer = async (transferQueueId) => {
     try {
-      let optionToUpdate = { ...selectedOptionForTransfer, transferQueueId };
+      console.log("🔗 handleSaveTransfer - transferQueueId:", transferQueueId);
+      console.log("🔗 handleSaveTransfer - selectedOptionForTransfer:", selectedOptionForTransfer);
       
-      // ✅ NO GUARDAR EN DB, SOLO MANTENER EN MEMORIA
+      // ✅ Buscar el departamento seleccionado para obtener sus datos completos
+      const selectedQueue = queues.find(q => q.id === transferQueueId);
+      console.log("🔗 Departamento seleccionado:", selectedQueue);
+      
+      let optionToUpdate = { 
+        ...selectedOptionForTransfer, 
+        transferQueueId,
+        transferQueue: selectedQueue || null // ✅ ACTUALIZAR TAMBIÉN EL OBJETO transferQueue
+      };
+      
+      // ✅ GUARDAR TEMPORALMENTE EN MEMORIA
       const optionIndex = options.findIndex(opt => opt === selectedOptionForTransfer);
       if (optionIndex !== -1) {
         options[optionIndex] = optionToUpdate;
+        updateOptions(); // ✅ ACTUALIZAR EL ESTADO
+        // console.log("✅ Transferencia guardada temporalmente en memoria");
+      }
+      
+      // ✅ MOSTRAR MENSAJE DE CONFIRMACIÓN
+      if (transferQueueId) {
+        toastError(`Transferencia configurada: → ${selectedQueue?.name || 'Departamento'}`);
+      } else {
+        toastError("Transferencia eliminada");
       }
       
       setTransferModalOpen(false);
       setSelectedOptionForTransfer(null);
-      updateOptions();
-      
-      // ✅ MOSTRAR MENSAJE TEMPORAL
-      toastError("Transferencia configurada temporalmente. Presiona 'AGREGAR' para guardar el departamento completo.");
     } catch (e) {
       toastError(e);
     }
@@ -139,8 +180,8 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   // ✅ GUARDAR OPCIÓN EN ESTADO TEMPORAL (NO EN DB)
   const handleSave = async (option) => {
     try {
-      console.log("🔍 ANTES - option.queueId:", option.queueId);
-      console.log("🔍 ANTES - queueId del componente:", queueId);
+      // console.log("🔍 ANTES - option.queueId:", option.queueId);
+      // console.log("🔍 ANTES - queueId del componente:", queueId);
       
       // ✅ Verificar que tengamos queueId válido
       if (!queueId) {
@@ -157,20 +198,29 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
         console.log("🔧 Asignando queueId:", queueId);
       }
       
-      console.log("🔍 DESPUÉS - option.queueId:", option.queueId);
-      console.log("🔍 DESPUÉS - datos a enviar:", option);
+              // console.log("🔍 DESPUÉS - option.queueId:", option.queueId);
+        // console.log("🔍 DESPUÉS - option.transferQueueId:", option.transferQueueId);
+        // console.log("🔍 DESPUÉS - datos a enviar:", option);
+      
+      // ✅ Asegurar que transferQueueId se envíe correctamente
+      const dataToSend = {
+        ...option,
+        transferQueueId: option.transferQueueId || null
+      };
+      
+              // console.log("🔍 DATOS FINALES A ENVIAR:", dataToSend);
       
       if (option.id) {
         await api.request({
           url: `/queue-options/${option.id}`,
           method: "PUT",
-          data: option,
+          data: dataToSend,
         });
       } else {
         const { data } = await api.request({
           url: `/queue-options`,
           method: "POST",
-          data: option,
+          data: dataToSend,
         });
         option.id = data.id;
       }
@@ -230,6 +280,13 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
 
   const renderTitle = (index) => {
     const option = options[index];
+    // console.log("🎨 renderTitle - option:", {
+    //   id: option.id,
+    //   title: option.title,
+    //   edition: option.edition,
+    //   transferQueueId: option.transferQueueId,
+    //   transferQueue: option.transferQueue
+    // });
     if (option.edition) {
       return (
         <>
@@ -294,7 +351,7 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
                     </Grid>
                   )}
               
-              {/* ✅ ICONO DE TRANSFERENCIA DENTRO DEL MODO EDICIÓN - TEMPORALMENTE COMENTADO
+              {/* ✅ ICONO DE TRANSFERENCIA DENTRO DEL MODO EDICIÓN */}
               <IconButton
                 variant="outlined"
                 size="small"
@@ -308,15 +365,17 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
               >
                 <LinkIcon />
               </IconButton>
-              */}
               
               {/* ✅ INDICADOR DE TRANSFERENCIA CONFIGURADA */}
               {option.transferQueueId && (
                 <>
-                  {/* Buscar el nombre del departamento destino */}
+                  {/* ✅ Usar directamente option.transferQueue del backend */}
                   {(() => {
-                    const transferQueue = queues.find(q => q.id === option.transferQueueId);
-                    return transferQueue ? (
+                                                                      // console.log("🔍 Usando transferQueue directo:", {
+                         //   optionTransferQueueId: option.transferQueueId,
+                         //   optionTransferQueue: option.transferQueue
+                         // });
+                    return option.transferQueue ? (
                       <Typography
                         variant="body2"
                         style={{
@@ -330,7 +389,7 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
                         onClick={() => openTransferModal(option)}
                         title="Click para editar transferencia"
                       >
-                        → {transferQueue.name}
+                        → {option.transferQueue.name}
                       </Typography>
                     ) : null;
                   })()}
@@ -371,7 +430,7 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
     }
     return (
       <>
-        <Typography>
+        <Typography variant="body1">
           {option.title !== "" ? option.title : i18n.t("queueOptions.undefinedTitle")}
           <IconButton
             variant="outlined"
@@ -381,6 +440,28 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
           >
             <EditIcon />
           </IconButton>
+          
+          {/* ✅ SOLO MOSTRAR TEXTO DE TRANSFERENCIA EN MODO NO-EDICIÓN */}
+          {option.transferQueueId && (
+            <>
+              {(() => {
+                const transferQueue = queues.find(q => q.id === option.transferQueueId);
+                return transferQueue ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: '8px',
+                      color: 'green',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    → {transferQueue.name}
+                  </span>
+                ) : null;
+              })()}
+            </>
+          )}
         </Typography>
       </>
     );
@@ -483,45 +564,44 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
       {renderStepper()}
       
       {/* ✅ MODAL DE TRANSFERENCIA */}
-      <Dialog open={transferModalOpen} onClose={() => setTransferModalOpen(false)}>
+      <TransferQueueModal
+        open={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        onSelect={(selectedQueue) => {
+          handleSaveTransfer(selectedQueue.id);
+        }}
+        currentTransferQueueId={selectedOptionForTransfer?.transferQueueId}
+      />
+      
+      {/* ✅ MODAL DE CONFIRMACIÓN PARA ELIMINAR TRANSFERENCIA */}
+      <Dialog
+        open={deleteTransferModalOpen}
+        onClose={cancelDeleteTransfer}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
-          🔗 Configurar Transferencia - {selectedOptionForTransfer?.title}
+          Eliminar Transferencia
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" style={{ marginBottom: '16px' }}>
-            Selecciona el departamento destino para esta opción:
+          <Typography variant="h6" gutterBottom>
+            ¿Está seguro que desea eliminar la transferencia a → {optionToDeleteTransfer?.transferQueue?.name || 'el departamento'}?
           </Typography>
-          
-          <FormControl fullWidth>
-            <InputLabel>Departamento Destino</InputLabel>
-            <Select
-              value={selectedOptionForTransfer?.transferQueueId || ""}
-              onChange={(e) => {
-                const updatedOption = { ...selectedOptionForTransfer, transferQueueId: e.target.value };
-                setSelectedOptionForTransfer(updatedOption);
-              }}
-            >
-              <MenuItem value="">
-                <em>-- Sin transferencia --</em>
-              </MenuItem>
-              {queues.map((queue) => (
-                <MenuItem key={queue.id} value={queue.id}>
-                  {queue.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Typography variant="body2" color="textSecondary">
+            Esta acción no se puede deshacer. La opción seguirá existiendo pero ya no tendrá departamento de transferencia asignado.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTransferModalOpen(false)} color="secondary">
+          <Button onClick={cancelDeleteTransfer} color="secondary">
             Cancelar
           </Button>
           <Button 
-            onClick={() => handleSaveTransfer(selectedOptionForTransfer?.transferQueueId)}
-            color="primary"
+            onClick={confirmDeleteTransfer} 
+            color="primary" 
             variant="contained"
+            style={{ backgroundColor: '#f50057', color: 'white' }}
           >
-            Guardar Transferencia
+            Confirmar
           </Button>
         </DialogActions>
       </Dialog>
@@ -534,17 +614,24 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
   const [options, setOptions] = useState([]);
 
   useEffect(() => {
-    console.log("🔄 useEffect ejecutado - queueId:", queueId);
+    // console.log("🔄 useEffect ejecutado - queueId:", queueId);
     if (queueId) {
       const fetchOptions = async () => {
         try {
-          console.log("📡 Cargando opciones para queueId:", queueId);
+          // console.log("📡 Cargando opciones para queueId:", queueId);
           const { data } = await api.request({
             url: "/queue-options",
             method: "GET",
             params: { queueId, parentId: -1 },
           });
-          console.log("📥 Opciones recibidas:", data);
+          // console.log("📥 Opciones recibidas:", data);
+          // console.log("📥 Detalles de opciones:", data.map(opt => ({
+          //   id: opt.id,
+          //   title: opt.title,
+          //   transferQueueId: opt.transferQueueId,
+          //   transferQueue: opt.transferQueue,
+          //   edition: opt.edition
+          // })));
           const optionList = data.map((option) => {
             return {
               ...option,

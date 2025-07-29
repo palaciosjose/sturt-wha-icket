@@ -243,6 +243,9 @@ const UpdateTicketService = async ({
       whatsappId,
       chatbot,
       queueOptionId,
+      useIntegration,
+      promptId,
+      integrationId,
       lastMessage: lastMessage !== null ? lastMessage : ticket.lastMessage
     });
 
@@ -296,6 +299,8 @@ const UpdateTicketService = async ({
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
     Sentry.captureException(err);
+    console.error("❌ Error en UpdateTicketService:", err);
+    throw new AppError("Error al actualizar ticket", 500);
   }
 };
 

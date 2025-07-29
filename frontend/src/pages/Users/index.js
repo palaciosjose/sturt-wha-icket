@@ -84,6 +84,30 @@ const useStyles = makeStyles((theme) => ({
     overflowY: "scroll",
     ...theme.scrollbarStyles,
   },
+  departmentContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '4px',
+    justifyContent: 'center',
+    maxWidth: '200px',
+    alignItems: 'flex-start',
+    margin: '0 auto',
+    width: '100%',
+  },
+  departmentChip: {
+    backgroundColor: '#1976d2',
+    color: 'white',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    maxWidth: '100%',
+    wordBreak: 'break-word',
+    whiteSpace: 'normal',
+    lineHeight: '1.2',
+    textAlign: 'center',
+    display: 'inline-block',
+  },
 }));
 
 const Users = () => {
@@ -253,7 +277,7 @@ const Users = () => {
               <TableCell align="center">
                 {i18n.t("users.table.profile")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" style={{ width: '200px', minWidth: '200px' }}>
                 {i18n.t("users.table.department")}
               </TableCell>
               <TableCell align="center">
@@ -270,19 +294,15 @@ const Users = () => {
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">{user.profile}</TableCell>
-                  <TableCell align="center">
+                  <TableCell align="center" style={{ width: '200px', minWidth: '200px' }}>
                     {user.queues && user.queues.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
+                      <div className={classes.departmentContainer}>
                         {user.queues.map((queue, index) => (
                           <span
                             key={queue.id}
+                            className={classes.departmentChip}
                             style={{
                               backgroundColor: queue.color || '#1976d2',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '12px',
-                              fontWeight: 'bold'
                             }}
                           >
                             {queue.name}

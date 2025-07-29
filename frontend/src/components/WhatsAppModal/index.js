@@ -2,29 +2,25 @@ import React, { useState, useEffect } from "react";
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
-
 import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
-
 import {
   Dialog,
-  DialogContent,
   DialogTitle,
-  Button,
+  DialogContent,
   DialogActions,
-  CircularProgress,
+  Button,
   TextField,
-  Switch,
-  FormControlLabel,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
+  CircularProgress,
+  FormControlLabel,
+  Switch,
   MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from "@material-ui/core";
-
-import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
+import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
 
@@ -46,7 +42,7 @@ const useStyles = makeStyles((theme) => ({
   },
 
   buttonProgress: {
-    color: green[500],
+    color: theme.palette.success.main, // Changed to success color
     position: "absolute",
     top: "50%",
     left: "50%",
@@ -64,6 +60,7 @@ const SessionSchema = Yup.object().shape({
 
 const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const classes = useStyles();
+
   const initialState = {
     name: "",
     greetingMessage: "",
@@ -72,6 +69,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
     ratingMessage: "",
     isDefault: false,
     token: "",
+    status: "OPENING",
     provider: "beta",
     //timeSendQueue: 0,
     //sendIdQueue: 0,
@@ -263,6 +261,30 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                         className={classes.textField}
                       />
                     </Grid>
+                    <Grid item>
+                      <Field
+                        as={TextField}
+                        label="Token (Opcional)"
+                        name="token"
+                        variant="outlined"
+                        margin="dense"
+                        className={classes.textField}
+                      />
+                    </Grid>
+                    <Grid item>
+                      <FormControl variant="outlined" margin="dense" className={classes.textField}>
+                        <InputLabel>Status</InputLabel>
+                        <Field
+                          as={Select}
+                          name="status"
+                          label="Status"
+                        >
+                          <MenuItem value="OPENING">Abriendo</MenuItem>
+                          <MenuItem value="CONNECTED">Conectado</MenuItem>
+                          <MenuItem value="DISCONNECTED">Desconectado</MenuItem>
+                        </Field>
+                      </FormControl>
+                    </Grid>
                     <Grid style={{ paddingTop: 15 }} item>
                       <FormControlLabel
                         control={
@@ -414,7 +436,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                 </FormControl>
                 <div>
                   <h3 style={{ color: '#2196f3', marginBottom: '8px' }}>
-                    🔄 {i18n.t("whatsappModal.form.queueRedirection")} - TRANSFERENCIAS AUTOMÁTICAS
+                    <span role="img" aria-label="transferencia automática">🔄</span> {i18n.t("whatsappModal.form.queueRedirection")} - TRANSFERENCIAS AUTOMÁTICAS
                   </h3>
                   <p style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>
                     {i18n.t("whatsappModal.form.queueRedirectionDesc")}
@@ -429,7 +451,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     border: '1px solid #e0e0e0'
                   }}>
                     <h4 style={{ color: '#333', marginBottom: '8px' }}>
-                      ⏰ Transferencia por Tiempo
+                      <span role="img" aria-label="reloj">⏰</span> Transferencia por Tiempo
                     </h4>
                     <p style={{ color: '#666', fontSize: '12px', marginBottom: '12px' }}>
                       Transferir tickets automáticamente después de X minutos sin respuesta
@@ -441,10 +463,10 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                           fullWidth
                           type="number"
                           as={TextField}
-                          label="⏱️ Minutos para transferir"
+                          label={<span><span role="img" aria-label="cronómetro">⏱️</span> Minutos para transferir</span>}
                           name="timeToTransfer"
                           error={touched.timeToTransfer && Boolean(errors.timeToTransfer)}
-                          helperText={touched.timeToTransfer && errors.timeToTransfer || "Ej: 30 = transferir después de 30 minutos"}
+                          helperText={(touched.timeToTransfer && errors.timeToTransfer) || "Ej: 30 = transferir después de 30 minutos"}
                           variant="outlined"
                           margin="dense"
                           className={classes.textField}
@@ -459,7 +481,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                             setSelectedQueueId(selectedId)
                           }}
                           multiple={false}
-                          title="🎯 Departamento destino"
+                          title={<span><span role="img" aria-label="diana">🎯</span> Departamento destino</span>}
                         />
                       </Grid>
                     </Grid>
@@ -474,18 +496,18 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     border: '1px solid #c8e6c9'
                   }}>
                     <h4 style={{ color: '#2e7d32', marginBottom: '8px' }}>
-                      🤖 Transferencias Inteligentes
+                      <span role="img" aria-label="robot">🤖</span> Transferencias Inteligentes
                     </h4>
                     <p style={{ color: '#666', fontSize: '12px', marginBottom: '8px' }}>
                       <strong>Automático:</strong> Los tickets se transfieren entre departamentos según el contenido del mensaje:
                     </p>
                     <ul style={{ color: '#666', fontSize: '12px', marginLeft: '20px', marginBottom: '8px' }}>
-                      <li>📈 <strong>VENTAS:</strong> Palabras como "precio", "comprar", "oferta", "producto"</li>
-                      <li>🔧 <strong>SOPORTE:</strong> Palabras como "error", "problema", "ayuda", "técnico"</li>
-                      <li>⏰ <strong>Tiempo:</strong> Sin respuesta por más de 30 minutos</li>
+                      <li><span role="img" aria-label="gráfico creciente">📈</span> <strong>VENTAS:</strong> Palabras como "precio", "comprar", "oferta", "producto"</li>
+                      <li><span role="img" aria-label="herramienta">🔧</span> <strong>SOPORTE:</strong> Palabras como "error", "problema", "ayuda", "técnico"</li>
+                      <li><span role="img" aria-label="reloj">⏰</span> <strong>Tiempo:</strong> Sin respuesta por más de 30 minutos</li>
                     </ul>
                     <p style={{ color: '#2e7d32', fontSize: '11px', fontStyle: 'italic' }}>
-                      ✅ Sistema activo automáticamente cuando hay múltiples departamentos configurados
+                      <span role="img" aria-label="verificado">✅</span> Sistema activo automáticamente cuando hay múltiples departamentos configurados
                     </p>
                   </div>
                   <Grid spacing={2} container>
@@ -539,7 +561,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                   {whatsAppId
                     ? i18n.t("whatsappModal.buttons.okEdit")
                     : i18n.t("whatsappModal.buttons.okAdd")}
-                  {(isSubmitting || isLoading) && (
+                  {((isSubmitting || isLoading)) && (
                     <CircularProgress
                       size={24}
                       className={classes.buttonProgress}

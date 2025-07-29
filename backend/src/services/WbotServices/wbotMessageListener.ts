@@ -64,6 +64,8 @@ import { provider } from "./providers";
 import SendWhatsAppMessage from "./SendWhatsAppMessage";
 import { getMessageOptions } from "./SendWhatsAppMedia";
 import Prompt from "../../models/Prompt";
+import GetTicketWbot from "../../helpers/GetTicketWbot";
+import GetWhatsappWbot from "../../helpers/GetWhatsappWbot";
 
 const request = require("request");
 
@@ -675,6 +677,22 @@ const handleOpenAi = async (
     return;
   }
 
+  // ✅ RECARGAR TICKET ANTES DE PROCESAR
+  console.log("🔄 HANDLEOPENAI - Recargando ticket antes de procesar...");
+  await reloadTicketSafely(ticket);
+  
+  // ✅ VERIFICAR SI DEBE USAR IA DESPUÉS DE RECARGAR
+  if (!shouldUseAI(ticket)) {
+    console.log("⚠️ HANDLEOPENAI - Ticket no está configurado para IA después de recarga");
+    console.log("🔄 HANDLEOPENAI - Intentando recarga adicional...");
+    await reloadTicketSafely(ticket);
+    
+    if (!shouldUseAI(ticket)) {
+      console.log("❌ HANDLEOPENAI - Error: Ticket no está configurado para IA");
+      return;
+    }
+  }
+
   // Crear una clave única basada en el contenido del mensaje y el ticket
   const messageKey = `${ticket.id}-${bodyMessage.substring(0, 50)}`;
   const currentTime = Date.now();
@@ -920,7 +938,53 @@ const handleOpenAi = async (
         const sentMessage = await wbot.sendMessage(msg.key.remoteJid!, {
           text: `\u200e ${response!}`
         });
-        await verifyMessage(sentMessage!, ticket, contact);
+        
+        // ✅ CORREGIR: Crear estructura de mensaje completa para guardar en BD
+        const aiMessageData = {
+          id: sentMessage.key.id,
+          ticketId: ticket.id,
+          contactId: undefined, // Mensaje del bot
+          body: response!,
+          fromMe: true,
+          mediaType: "conversation",
+          read: true,
+          quotedMsgId: undefined,
+          ack: 2, // ACK_SUCCESS
+          remoteJid: sentMessage.key.remoteJid,
+          participant: sentMessage.key.participant,
+          dataJson: JSON.stringify(sentMessage),
+          isEdited: false,
+        };
+
+        // ✅ GUARDAR MENSAJE DE IA EN BASE DE DATOS
+        await CreateMessageService({ messageData: aiMessageData, companyId: ticket.companyId });
+        
+        // ✅ ACTUALIZAR TICKET
+        await ticket.update({
+          lastMessage: response!
+        });
+
+        // ✅ EMITIR EVENTO PARA ACTUALIZAR INTERFAZ
+        await ticket.reload({
+          include: [
+            { model: Queue, as: "queue" },
+            { model: User, as: "user" },
+            { model: Contact, as: "contact" }
+          ]
+        });
+
+        const io = getIO();
+        io.to(`company-${ticket.companyId}-${ticket.status}`)
+          .to(`queue-${ticket.queueId}-${ticket.status}`)
+          .to(`company-${ticket.companyId}-notification`)
+          .to(`queue-${ticket.queueId}-notification`)
+          .to(ticket.id.toString())
+          .emit(`company-${ticket.companyId}-ticket`, {
+            action: "update",
+            ticket
+          });
+
+        console.log("✅ MENSAJE DE IA GUARDADO Y EVENTO EMITIDO");
       } else {
         const fileNameWithOutExtension = `${ticket.id}_${Date.now()}`;
         convertTextToSpeechAndSaveToFile(
@@ -997,11 +1061,90 @@ const transferQueue = async (
   ticket: Ticket,
   contact: Contact
 ): Promise<void> => {
-  await UpdateTicketService({
-    ticketData: { queueId: queueId, useIntegration: false, promptId: null },
-    ticketId: ticket.id,
-    companyId: ticket.companyId
-  });
+  console.log("🚀 TRANSFERQUEUE - Iniciando transferencia a departamento:", queueId);
+  
+  // ✅ EVITAR PROCESAMIENTO DUPLICADO
+  const transferKey = `transfer-${ticket.id}-${Date.now()}`;
+  const isProcessing = await cacheLayer.get(transferKey);
+  if (isProcessing) {
+    console.log("⚠️ TRANSFERQUEUE - Transferencia ya en proceso, evitando duplicado");
+    return;
+  }
+  await cacheLayer.set(transferKey, "processing", "5"); // 5 segundos de expiración
+  
+  try {
+    // ✅ OBTENER PROMPT DEL DEPARTAMENTO DESTINO
+    const destinationQueue = await Queue.findByPk(queueId);
+    console.log("🔍 TRANSFERQUEUE - Departamento destino:", destinationQueue?.name);
+    console.log("🔍 TRANSFERQUEUE - PromptId del departamento:", destinationQueue?.promptId);
+    
+    // ✅ ACTUALIZAR TICKET CON PROMPT
+    console.log("🔧 TRANSFERQUEUE - Actualizando ticket con datos:");
+    console.log("  - queueId:", queueId);
+    console.log("  - useIntegration: true");
+    console.log("  - promptId:", destinationQueue?.promptId);
+    
+    await UpdateTicketService({
+      ticketData: { 
+        queueId: queueId, 
+        useIntegration: true,  // ✅ CAMBIAR A true PARA ACTIVAR IA
+        promptId: destinationQueue?.promptId || null 
+      },
+      ticketId: ticket.id,
+      companyId: ticket.companyId
+    });
+    
+    // ✅ RECARGAR TICKET DE FORMA ROBUSTA
+    console.log("🔄 TRANSFERQUEUE - Recargando ticket después de transferencia...");
+    await reloadTicketSafely(ticket);
+    
+    // ✅ VERIFICAR QUE LA TRANSFERENCIA FUE EXITOSA
+    if (!shouldUseAI(ticket)) {
+      console.log("⚠️ TRANSFERQUEUE - Ticket no está configurado para IA después de transferencia");
+      console.log("🔄 TRANSFERQUEUE - Intentando recarga adicional...");
+      await reloadTicketSafely(ticket);
+      
+      if (!shouldUseAI(ticket)) {
+        console.log("❌ TRANSFERQUEUE - Error: Ticket no se configuró correctamente para IA");
+        return;
+      }
+    }
+    
+    console.log("✅ TRANSFERQUEUE - Ticket transferido y configurado correctamente para IA");
+    
+    // ✅ EMITIR EVENTOS PARA ACTUALIZAR INTERFAZ WEB
+    const io = getIO();
+    await ticket.reload({
+      include: [
+        { model: Queue, as: "queue" },
+        { model: User, as: "user" },
+        { model: Contact, as: "contact" }
+      ]
+    });
+    
+    // ✅ EMITIR EVENTO DE ACTUALIZACIÓN DE TICKET
+    io.to(`company-${ticket.companyId}-${ticket.status}`)
+      .to(`queue-${ticket.queueId}-${ticket.status}`)
+      .to(`company-${ticket.companyId}-notification`)
+      .to(`queue-${ticket.queueId}-notification`)
+      .to(ticket.id.toString())
+      .emit(`company-${ticket.companyId}-ticket`, {
+        action: "update",
+        ticket
+      });
+    
+    console.log("📡 TRANSFERQUEUE - Eventos emitidos para actualizar interfaz web");
+    
+    // ✅ FASE 1: ELIMINAR PALABRA CLAVE DE ACTIVACIÓN
+    // ✅ NO ENVIAR MENSAJE ARTIFICIAL - EL MENSAJE ORIGINAL SE PROCESARÁ DIRECTAMENTE
+    console.log("✅ TRANSFERQUEUE - Transferencia completada. El mensaje original se procesará con el nuevo prompt.");
+    
+    // ✅ EL MENSAJE ORIGINAL DEL USUARIO SE PROCESARÁ EN EL FLUJO NORMAL
+    // ✅ NO CREAR MENSAJES ARTIFICIALES - EVITAR DUPLICACIÓN
+    
+  } catch (error) {
+    console.error("❌ TRANSFERQUEUE - Error en transferencia:", error);
+  }
 };
 
 const verifyMediaMessage = async (
@@ -1118,6 +1261,89 @@ export const verifyMessage = async (
   const body = getBodyMessage(msg);
   const isEdited = getTypeMessage(msg) == 'editedMessage';
 
+  // ✅ RECARGAR TICKET ANTES DE VERIFICAR
+  console.log("🔄 VERIFYMESSAGE - Recargando ticket antes de verificar...");
+  await reloadTicketSafely(ticket);
+
+  // ✅ DETECTAR PALABRAS CLAVE DE TRANSFERENCIA PARA CUALQUIER MENSAJE
+  if (!msg.key.fromMe && body) {
+    console.log("🔍 VERIFYMESSAGE - Verificando palabras clave de transferencia...");
+    console.log("🔍 VERIFYMESSAGE - Mensaje recibido:", body);
+    
+    const transferResult = await detectTransferKeywords(body, ticket.companyId);
+    
+    if (transferResult.targetQueueId && transferResult.keyword) {
+      console.log("🚀 VERIFYMESSAGE - TRANSFERENCIA ENTRE DEPARTAMENTOS IA DETECTADA:");
+      console.log("  - Departamento origen:", ticket.queueId);
+      console.log("  - Departamento destino:", transferResult.targetQueueId);
+      console.log("  - Palabra clave:", transferResult.keyword);
+      
+      // ✅ TRANSFERIR TICKET A NUEVO DEPARTAMENTO
+      await transferQueue(transferResult.targetQueueId, ticket, contact);
+      
+      // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
+      // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
+      console.log("✅ VERIFYMESSAGE - Transferencia completada, procesando mensaje original con nuevo prompt");
+    } else {
+      console.log("🔍 VERIFYMESSAGE - No se detectaron palabras clave de transferencia");
+    }
+  }
+
+  // ✅ VERIFICAR SI EL TICKET TIENE CHATBOT ACTIVADO
+  if (ticket.chatbot && !msg.key.fromMe) {
+    console.log("🔍 VERIFYMESSAGE - Ticket con chatbot activado, procesando opción:", body);
+    
+    // ✅ OBTENER WHATSAPP Y VERIFICAR QUEUES
+    const whatsapp = await ShowWhatsAppService(ticket.whatsappId, ticket.companyId);
+    const { queues } = whatsapp;
+    
+    if (queues.length === 1) {
+      console.log("🔍 VERIFYMESSAGE - Un solo departamento detectado");
+      
+      const currentQueue = queues[0];
+      if (currentQueue.options && currentQueue.options.length > 0) {
+        const optionIndex = parseInt(body) - 1;
+        const selectedQueueOption = currentQueue.options[optionIndex];
+        
+        console.log("🔍 VERIFYMESSAGE - Opción encontrada:", selectedQueueOption);
+        
+        // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA PRIMERO
+        if (!selectedQueueOption) {
+          console.log("❌ VERIFYMESSAGE - Opción no válida:", body);
+          
+          // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+          const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+          
+          console.log("📤 VERIFYMESSAGE - Enviando mensaje de error:", invalidOptionMessage);
+          
+          const wbot = await GetWhatsappWbot(ticket.whatsappId);
+          const sendMsg = await wbot.sendMessage(
+            `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+            { text: invalidOptionMessage }
+          );
+          
+          await verifyMessage(sendMsg, ticket, contact);
+          console.log("✅ VERIFYMESSAGE - Mensaje de opción inválida enviado");
+          return;
+        }
+        
+        // ✅ VERIFICAR SI TIENE TRANSFERENCIA A DEPARTAMENTO IA
+        if (selectedQueueOption.transferQueueId) {
+          console.log("🚀 VERIFYMESSAGE - TRANSFERENCIA DETECTADA a departamento:", selectedQueueOption.transferQueueId);
+          
+          // ✅ TRANSFERIR AL DEPARTAMENTO IA
+          await transferQueue(selectedQueueOption.transferQueueId, ticket, contact);
+          
+          // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
+          // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
+          console.log("✅ VERIFYMESSAGE - Transferencia desde chatbot completada, procesando mensaje original con nuevo prompt");
+        } else {
+          console.log("⚠️ VERIFYMESSAGE - Opción válida pero sin transferencia configurada");
+        }
+      }
+    }
+  }
+
   const messageData = {
     id: isEdited ? msg?.message?.editedMessage?.message?.protocolMessage?.key?.id : msg.key.id,
     ticketId: ticket.id,
@@ -1140,6 +1366,25 @@ export const verifyMessage = async (
 
 
   await CreateMessageService({ messageData, companyId: ticket.companyId });
+
+  // ✅ EMITIR EVENTO DE ACTUALIZACIÓN DE TICKET PARA TODOS LOS MENSAJES
+  await ticket.reload({
+    include: [
+      { model: Queue, as: "queue" },
+      { model: User, as: "user" },
+      { model: Contact, as: "contact" }
+    ]
+  });
+
+  io.to(`company-${ticket.companyId}-${ticket.status}`)
+    .to(`queue-${ticket.queueId}-${ticket.status}`)
+    .to(`company-${ticket.companyId}-notification`)
+    .to(`queue-${ticket.queueId}-notification`)
+    .to(ticket.id.toString())
+    .emit(`company-${ticket.companyId}-ticket`, {
+      action: "update",
+      ticket
+    });
 
   if (!msg.key.fromMe && ticket.status === "closed") {
     await ticket.update({ status: "pending" });
@@ -1231,14 +1476,22 @@ const verifyQueue = async (
 ) => {
   const companyId = ticket.companyId;
 
+  console.log("🔍 VERIFYQUEUE - Iniciando...");
+
   const { queues, greetingMessage, maxUseBotQueues, timeUseBotQueues } = await ShowWhatsAppService(
     wbot.id!,
     ticket.companyId
   )
 
+  console.log("🔍 VERIFYQUEUE - Queues encontradas:", queues.length);
+  console.log("🔍 VERIFYQUEUE - Queues:", queues.map(q => ({ id: q.id, name: q.name, options: q.options?.length || 0 })));
 
 
+
+  console.log("🔍 VERIFYQUEUE - Verificando si hay un solo departamento...");
+  
   if (queues.length === 1) {
+    console.log("✅ VERIFYQUEUE - Un solo departamento detectado");
 
     const sendGreetingMessageOneQueues = await Setting.findOne({
       where: {
@@ -1307,13 +1560,102 @@ const verifyQueue = async (
       companyId: ticket.companyId,
     });
 
-    // Removido logs de debug innecesarios
+    // ✅ AGREGAR LÓGICA DE CHATBOT PARA UN SOLO DEPARTAMENTO
+    console.log("🔍 VERIFYQUEUE - Verificando chatbot:", chatbot);
+    console.log("🔍 VERIFYQUEUE - firstQueue.options:", firstQueue.options?.length || 0);
+    
+    if (chatbot && firstQueue.options && firstQueue.options.length > 0) {
+      console.log("🤖 CHATBOT SIMPLE - Enviando menú de opciones");
+      
+      let options = "";
+      firstQueue.options.forEach((option, index) => {
+        options += `*[ ${index + 1} ]* - ${option.title}\n`;
+      });
+
+      const queueGreetingMessage = firstQueue.greetingMessage || greetingMessage;
+      const textMessage = {
+        text: formatBody(`\u200e${queueGreetingMessage}\n\n${options}`, contact),
+      };
+
+      const sendMsg = await wbot.sendMessage(
+        `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+        textMessage
+      );
+      
+      await verifyMessage(sendMsg, ticket, ticket.contact);
+      console.log("✅ MENÚ DE OPCIONES ENVIADO");
+    }
 
     return;
   }
 
   const selectedOption = getBodyMessage(msg);
+  console.log("🔍 VERIFYQUEUE - Opción seleccionada:", selectedOption);
+  
+  // ✅ LÓGICA PARA UN SOLO DEPARTAMENTO CON OPCIONES
+  if (queues.length === 1) {
+    const currentQueue = queues[0];
+    console.log("🔍 VERIFYQUEUE - Procesando opción para departamento único:", currentQueue.name);
+    
+    if (currentQueue.options && currentQueue.options.length > 0) {
+      const optionIndex = parseInt(selectedOption) - 1;
+      const selectedQueueOption = currentQueue.options[optionIndex];
+      
+      console.log("🔍 VERIFYQUEUE - Opción encontrada:", selectedQueueOption);
+      
+      if (selectedQueueOption) {
+        console.log("🔍 VERIFYQUEUE - Verificando transferencia...");
+        
+        // ✅ VERIFICAR SI TIENE TRANSFERENCIA A DEPARTAMENTO IA
+        if (selectedQueueOption.transferQueueId) {
+          console.log("🚀 VERIFYQUEUE - TRANSFERENCIA DETECTADA a departamento:", selectedQueueOption.transferQueueId);
+          
+          // ✅ TRANSFERIR AL DEPARTAMENTO IA
+          await transferQueue(selectedQueueOption.transferQueueId, ticket, contact);
+          
+          // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
+          // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
+          console.log("✅ VERIFYQUEUE - Transferencia completada, procesando mensaje original con nuevo prompt");
+        } else {
+          console.log("⚠️ VERIFYQUEUE - Opción sin transferencia configurada");
+        }
+      } else {
+        console.log("❌ VERIFYQUEUE - Opción no válida:", selectedOption);
+        
+        // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+        const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+        
+        const sendMsg = await wbot.sendMessage(
+          `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+          { text: invalidOptionMessage }
+        );
+        
+        await verifyMessage(sendMsg, ticket, contact);
+        console.log("✅ VERIFYQUEUE - Mensaje de opción inválida enviado");
+        return;
+      }
+    }
+  }
+  
+  // ✅ LÓGICA ORIGINAL PARA MÚLTIPLES DEPARTAMENTOS
   const choosenQueue = queues[+selectedOption - 1];
+
+  // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA PARA MÚLTIPLES DEPARTAMENTOS
+  if (!choosenQueue) {
+    console.log("❌ VERIFYQUEUE - Opción no válida para múltiples departamentos:", selectedOption);
+    
+    // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+    const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+    
+    const sendMsg = await wbot.sendMessage(
+      `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+      { text: invalidOptionMessage }
+    );
+    
+    await verifyMessage(sendMsg, ticket, contact);
+    console.log("✅ VERIFYQUEUE - Mensaje de opción inválida enviado para múltiples departamentos");
+    return;
+  }
 
   const buttonActive = await Setting.findOne({
     where: {
@@ -1326,7 +1668,7 @@ const verifyQueue = async (
 
   /**
    * recebe as mensagens dos usuários e envia as opções de fila
-   * tratamento de mensagens para resposta aos usuarios apartir do chatbot/fila.         
+   * tratamiento de mensajes para respuesta a los usuarios desde el chatbot/fila.         
    */
   const botText = async () => {
     let options = "";
@@ -1340,7 +1682,7 @@ const verifyQueue = async (
       text: formatBody(`\u200e${greetingMessage}\n\n${options}`, contact),
     };
     let lastMsg = map_msg.get(contact.number)
-    let invalidOption = "Opção inválida, por favor, escolha uma opção válida."
+    let invalidOption = "Opción inválida, por favor, elige una opción válida."
     
 
     // console.log('getBodyMessage(msg)', getBodyMessage(msg))
@@ -1404,7 +1746,7 @@ const verifyQueue = async (
 
 
         if (now.isBefore(startTime) || now.isAfter(endTime)) {
-          const body = formatBody(`\u200e ${queue.outOfHoursMessage}\n\n*[ # ]* - Voltar ao Menu Principal`, ticket.contact);
+          const body = formatBody(`\u200e ${queue.outOfHoursMessage}\n\n*[ # ]* - Volver al Menú Principal`, ticket.contact);
           console.log('body222', body)
           const sentMessage = await wbot.sendMessage(
             `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`, {
@@ -1421,7 +1763,7 @@ const verifyQueue = async (
         }
       }
 
-      //inicia integração dialogflow/n8n
+      //inicia integración dialogflow/n8n
       if (
         !msg.key.fromMe &&
         !ticket.isGroup &&
@@ -1438,7 +1780,7 @@ const verifyQueue = async (
         // return;
       }
 
-      //inicia integração openai
+      //inicia integración openai
       if (
         !msg.key.fromMe &&
         !ticket.isGroup &&
@@ -1487,7 +1829,7 @@ const verifyQueue = async (
       return;
     }
 
-    //Regra para desabilitar o chatbot por x minutos/horas após o primeiro envio
+    //Regra para deshabilitar el chatbot por x minutos/horas después del primer envío
     const ticketTraking = await FindOrCreateATicketTrakingService({ ticketId: ticket.id, companyId });
     let dataLimite = new Date();
     let Agora = new Date();
@@ -1598,11 +1940,35 @@ const handleChartbot = async (
 ) => {
   const companyId = ticket.companyId;
   
+  // ✅ RECARGAR TICKET ANTES DE PROCESAR
+  console.log("🔄 HANDLECHATBOT - Recargando ticket antes de procesar...");
+  await reloadTicketSafely(ticket);
+  
+  // ✅ DETECTAR PALABRAS CLAVE DE TRANSFERENCIA ENTRE DEPARTAMENTOS IA
+  const messageBody = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "") as string;
+  if (messageBody) {
+    console.log("🔍 HANDLECHATBOT - Verificando palabras clave de transferencia...");
+    const transferResult = await detectTransferKeywords(messageBody, companyId);
+    
+    if (transferResult.targetQueueId && transferResult.keyword) {
+      console.log("🚀 HANDLECHATBOT - TRANSFERENCIA ENTRE DEPARTAMENTOS IA DETECTADA:");
+      console.log("  - Departamento origen:", ticket.queueId);
+      console.log("  - Departamento destino:", transferResult.targetQueueId);
+      console.log("  - Palabra clave:", transferResult.keyword);
+      
+      // ✅ TRANSFERIR TICKET A NUEVO DEPARTAMENTO
+      await transferQueue(transferResult.targetQueueId, ticket, contact);
+      
+      // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
+      // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
+      console.log("✅ HANDLECHATBOT - Transferencia completada, procesando mensaje original con nuevo prompt");
+    }
+  }
+  
   // ✅ GENERAR PALABRAS CLAVE DINÁMICAMENTE
   const activationKeywords = await generateActivationKeywords(companyId);
   
   // ✅ DETECTAR SI ES MENSAJE DE ACTIVACIÓN
-  const messageBody = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "") as string;
   const lowerMessage = messageBody.toLowerCase();
   
   // ✅ BUSCAR DEPARTAMENTO POR PALABRA CLAVE
@@ -1647,6 +2013,87 @@ const handleChartbot = async (
 
   // ✅ LÓGICA EXISTENTE DEL CHATBOT
   // ... resto del código existente ...
+
+  // ✅ LÓGICA EXISTENTE DEL CHATBOT
+  const { queues, greetingMessage } = await ShowWhatsAppService(
+    wbot.id!,
+    ticket.companyId
+  );
+
+  console.log("🔍 HANDLECHATBOT - Queues encontradas:", queues.length);
+
+  // ✅ LÓGICA PARA MÚLTIPLES DEPARTAMENTOS
+  if (queues.length > 1) {
+    console.log("🔍 HANDLECHATBOT - Múltiples departamentos detectados");
+    
+    const selectedOption = getBodyMessage(msg);
+    console.log("🔍 HANDLECHATBOT - Opción seleccionada:", selectedOption);
+    
+    // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA
+    const optionIndex = parseInt(selectedOption) - 1;
+    const choosenQueue = queues[optionIndex];
+    
+    if (choosenQueue) {
+      console.log("✅ HANDLECHATBOT - Opción válida seleccionada:", choosenQueue.name);
+      
+      // ✅ PROCESAR OPCIÓN VÁLIDA
+      await verifyQueue(wbot, msg, ticket, contact, mediaSent);
+    } else {
+      console.log("❌ HANDLECHATBOT - Opción inválida:", selectedOption);
+      
+      // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+      const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+      
+      const sendMsg = await wbot.sendMessage(
+        `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+        { text: invalidOptionMessage }
+      );
+      
+      await verifyMessage(sendMsg, ticket, contact);
+      console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado");
+    }
+  } else {
+    console.log("🔍 HANDLECHATBOT - Un solo departamento detectado");
+    
+    // ✅ LÓGICA PARA UN SOLO DEPARTAMENTO
+    const currentQueue = queues[0];
+    
+    if (currentQueue.options && currentQueue.options.length > 0) {
+      console.log("🔍 HANDLECHATBOT - Departamento con opciones detectado");
+      
+      const selectedOption = getBodyMessage(msg);
+      console.log("🔍 HANDLECHATBOT - Opción seleccionada:", selectedOption);
+      
+      // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA
+      const optionIndex = parseInt(selectedOption) - 1;
+      const selectedQueueOption = currentQueue.options[optionIndex];
+      
+      if (selectedQueueOption) {
+        console.log("✅ HANDLECHATBOT - Opción válida seleccionada:", selectedQueueOption.title);
+        
+        // ✅ PROCESAR OPCIÓN VÁLIDA
+        await verifyQueue(wbot, msg, ticket, contact, mediaSent);
+      } else {
+        console.log("❌ HANDLECHATBOT - Opción inválida:", selectedOption);
+        
+        // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+        const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+        
+        const sendMsg = await wbot.sendMessage(
+          `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+          { text: invalidOptionMessage }
+        );
+        
+        await verifyMessage(sendMsg, ticket, contact);
+        console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado");
+      }
+    } else {
+      console.log("🔍 HANDLECHATBOT - Departamento sin opciones, procesando normalmente");
+      
+      // ✅ PROCESAR NORMALMENTE
+      await verifyQueue(wbot, msg, ticket, contact, mediaSent);
+    }
+  }
 };
 
 export const handleMessageIntegration = async (
@@ -1873,7 +2320,7 @@ const handleMessage = async (
     try {
       if (!msg.key.fromMe && scheduleType) {
         /**
-         * Tratamento para envio de mensagem quando a empresa está fora do expediente
+         * Tratamento para envio de mensagem quando a empresa está fuera do expediente
          */
         if (
           scheduleType.value === "company" &&
@@ -1904,7 +2351,7 @@ const handleMessage = async (
         if (scheduleType.value === "queue" && ticket.queueId !== null) {
 
           /**
-           * Tratamento para envio de mensagem quando a fila está fora do expediente
+           * Tratamento para envio de mensagem quando a fila está fuera do expediente
            */
 
 
@@ -1936,22 +2383,19 @@ const handleMessage = async (
             const endTime = moment(schedule.endTime, "HH:mm");
 
             if (now.isBefore(startTime) || now.isAfter(endTime)) {
-              const body = `${queue.outOfHoursMessage}`;
-              console.log('body:23801', body)
-              const debouncedSentMessage = debounce(
-                async () => {
-                  await wbot.sendMessage(
-                    `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"
-                    }`,
-                    {
-                      text: body
-                    }
-                  );
-                },
-                3000,
-                ticket.id
+              const body = formatBody(`\u200e ${queue.outOfHoursMessage}\n\n*[ # ]* - Volver al Menú Principal`, ticket.contact);
+              console.log('body222', body)
+              const sentMessage = await wbot.sendMessage(
+                `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`, {
+                text: body,
+              }
               );
-              debouncedSentMessage();
+              await verifyMessage(sentMessage, ticket, contact);
+              await UpdateTicketService({
+                ticketData: { queueId: null, chatbot },
+                ticketId: ticket.id,
+                companyId: ticket.companyId,
+              });
               return;
             }
           }
@@ -2003,6 +2447,26 @@ const handleMessage = async (
       await handleMessageIntegration(msg, wbot, integrations, ticket)
 
       return
+    }
+
+    // ✅ DETECTAR PALABRAS CLAVE DE TRANSFERENCIA ENTRE DEPARTAMENTOS IA
+    if (!isGroup && !msg.key.fromMe && !ticket.userId && bodyMessage) {
+      console.log("🔍 VERIFICANDO PALABRAS CLAVE DE TRANSFERENCIA...");
+      const transferResult = await detectTransferKeywords(bodyMessage, companyId);
+      
+      if (transferResult.targetQueueId && transferResult.keyword) {
+        console.log("🚀 TRANSFERENCIA ENTRE DEPARTAMENTOS IA DETECTADA:");
+        console.log("  - Departamento origen:", ticket.queueId);
+        console.log("  - Departamento destino:", transferResult.targetQueueId);
+        console.log("  - Palabra clave:", transferResult.keyword);
+        
+        // ✅ TRANSFERIR TICKET A NUEVO DEPARTAMENTO
+        await transferQueue(transferResult.targetQueueId, ticket, contact);
+        
+        // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
+        // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
+        console.log("✅ HANDLEMESSAGE - Transferencia completada, procesando mensaje original con nuevo prompt");
+      }
     }
 
     //openai na fila
@@ -2482,6 +2946,22 @@ const generateActivationKeywords = async (companyId: number) => {
       keyword = "hola ventas";
     } else if (queueName.includes("atención") || queueName.includes("atencion")) {
       keyword = "hola atención";
+    } else if (queueName.includes("técnico") || queueName.includes("tecnico")) {
+      keyword = "hola técnico";
+    } else if (queueName.includes("facturación") || queueName.includes("facturacion")) {
+      keyword = "hola facturación";
+    } else if (queueName.includes("cobranza")) {
+      keyword = "hola cobranza";
+    } else if (queueName.includes("reclamos")) {
+      keyword = "hola reclamos";
+    } else if (queueName.includes("bot-ai") || queueName.includes("ia") || queueName.includes("ai")) {
+      // ✅ DEPARTAMENTOS IA: Palabras clave más específicas
+      const cleanName = queueName.replace(/bot-ai|ia|ai/g, '').trim();
+      if (cleanName) {
+        keyword = `transferir a ${cleanName}`;
+      } else {
+        keyword = "transferir departamento";
+      }
     } else {
       // ✅ PALABRA CLAVE GENÉRICA
       keyword = `hola ${queueName.replace(/[^a-z]/g, '')}`;
@@ -2492,4 +2972,132 @@ const generateActivationKeywords = async (companyId: number) => {
   
   console.log("🔑 PALABRAS CLAVE GENERADAS:", keywords);
   return keywords;
+};
+
+// ✅ FUNCIÓN HELPER: Recargar ticket de forma robusta
+const reloadTicketSafely = async (ticket: Ticket): Promise<Ticket> => {
+  try {
+    console.log("🔄 RELOADING TICKET - ID:", ticket.id);
+    
+    // ✅ FORZAR RECARGA DESDE BD
+    await ticket.reload();
+    
+    // ✅ VERIFICAR DATOS CRÍTICOS
+    console.log("🔍 TICKET RELOADED - Estado actual:");
+    console.log("  - queueId:", ticket.queueId);
+    console.log("  - useIntegration:", ticket.useIntegration);
+    console.log("  - promptId:", ticket.promptId);
+    console.log("  - chatbot:", ticket.chatbot);
+    console.log("  - status:", ticket.status);
+    
+    return ticket;
+  } catch (error) {
+    console.error("❌ ERROR recargando ticket:", error);
+    // ✅ FALLBACK: Buscar ticket directamente desde BD
+    try {
+      const freshTicket = await Ticket.findByPk(ticket.id);
+      if (freshTicket) {
+        console.log("✅ TICKET RECUPERADO DESDE BD");
+        return freshTicket;
+      }
+    } catch (fallbackError) {
+      console.error("❌ ERROR en fallback:", fallbackError);
+    }
+    return ticket; // Retornar el original si todo falla
+  }
+};
+
+// ✅ FUNCIÓN HELPER: Verificar si ticket debe usar IA
+const shouldUseAI = (ticket: Ticket): boolean => {
+  const hasPrompt = ticket.promptId != null;
+  const hasIntegration = ticket.useIntegration === true;
+  const hasQueue = ticket.queueId != null;
+  
+  console.log("🔍 VERIFICANDO SI DEBE USAR IA:");
+  console.log("  - hasPrompt:", hasPrompt);
+  console.log("  - hasIntegration:", hasIntegration);
+  console.log("  - hasQueue:", hasQueue);
+  console.log("  - RESULTADO:", hasPrompt && hasIntegration && hasQueue);
+  
+  return hasPrompt && hasIntegration && hasQueue;
+};
+
+// ✅ FUNCIÓN HELPER: Detectar palabras clave de transferencia
+const detectTransferKeywords = async (messageBody: string, companyId: number): Promise<{ targetQueueId: number | null, keyword: string | null }> => {
+  try {
+    const activationKeywords = await generateActivationKeywords(companyId);
+    const lowerMessage = messageBody.toLowerCase();
+    
+    // ✅ DETECCIÓN PRINCIPAL: Palabras clave exactas
+    for (const [queueId, keyword] of Object.entries(activationKeywords)) {
+      if (lowerMessage.includes((keyword as string).toLowerCase())) {
+        console.log("🔑 TRANSFERENCIA DETECTADA (palabra clave exacta):");
+        console.log("  - Mensaje:", messageBody);
+        console.log("  - Palabra clave:", keyword);
+        console.log("  - Departamento destino:", queueId);
+        
+        return {
+          targetQueueId: parseInt(queueId),
+          keyword: keyword as string
+        };
+      }
+    }
+    
+    // ✅ DETECCIÓN SECUNDARIA: Palabras clave específicas por departamento
+    const aiQueues = await detectAIQueues(companyId);
+    for (const queue of aiQueues) {
+      const queueName = queue.name.toLowerCase();
+      
+      // ✅ DETECTAR PALABRAS ESPECÍFICAS POR DEPARTAMENTO
+      if (queueName.includes("ventas") || queueName.includes("bot-ai-ventas")) {
+        if (lowerMessage.includes("comprar") || lowerMessage.includes("compra") || 
+            lowerMessage.includes("venta") || lowerMessage.includes("producto") ||
+            lowerMessage.includes("precio") || lowerMessage.includes("costo")) {
+          console.log("🔑 TRANSFERENCIA DETECTADA (palabra específica ventas):");
+          console.log("  - Mensaje:", messageBody);
+          console.log("  - Departamento destino:", queue.name);
+          
+          return {
+            targetQueueId: queue.id,
+            keyword: "comprar/ventas"
+          };
+        }
+      }
+      
+      if (queueName.includes("soporte") || queueName.includes("bot-ai-soporte")) {
+        if (lowerMessage.includes("ayuda") || lowerMessage.includes("problema") || 
+            lowerMessage.includes("error") || lowerMessage.includes("soporte") ||
+            lowerMessage.includes("asistencia")) {
+          console.log("🔑 TRANSFERENCIA DETECTADA (palabra específica soporte):");
+          console.log("  - Mensaje:", messageBody);
+          console.log("  - Departamento destino:", queue.name);
+          
+          return {
+            targetQueueId: queue.id,
+            keyword: "ayuda/soporte"
+          };
+        }
+      }
+      
+      if (queueName.includes("técnico") || queueName.includes("tecnico") || queueName.includes("bot-ai-tecnico")) {
+        if (lowerMessage.includes("técnico") || lowerMessage.includes("reparar") || 
+            lowerMessage.includes("arreglar") || lowerMessage.includes("falla") ||
+            lowerMessage.includes("daño")) {
+          console.log("🔑 TRANSFERENCIA DETECTADA (palabra específica técnico):");
+          console.log("  - Mensaje:", messageBody);
+          console.log("  - Departamento destino:", queue.name);
+          
+          return {
+            targetQueueId: queue.id,
+            keyword: "técnico/reparación"
+          };
+        }
+      }
+    }
+    
+    return { targetQueueId: null, keyword: null };
+  } catch (error) {
+    console.error("❌ ERROR detectando palabras clave:", error);
+    return { targetQueueId: null, keyword: null };
+  }
 };

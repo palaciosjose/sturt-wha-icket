@@ -249,7 +249,9 @@ const QueueModal = ({ open, onClose, queueId }) => {
   };
 
   const handleChangePrompt = (e) => {
-    setSelectedPrompt(e.target.value);
+    const value = e.target.value;
+    // Si el valor es vacío, establecer como null para deseleccionar
+    setSelectedPrompt(value === "" ? null : value);
   };
 
   return (
@@ -427,6 +429,9 @@ const QueueModal = ({ open, onClose, queueId }) => {
                             getContentAnchorEl: null,
                           }}
                         >
+                          <MenuItem value="">
+                            Ninguna
+                          </MenuItem>
                           {prompts.map((prompt) => (
                             <MenuItem
                               key={prompt.id}

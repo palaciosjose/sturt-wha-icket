@@ -16,6 +16,10 @@ whatsappRoutes.put("/whatsapp/:whatsappId", isAuth, WhatsAppController.update);
 
 whatsappRoutes.post("/whatsapp-restart/", isAuth, WhatsAppController.restart);
 
+// ✅ NUEVAS RUTAS PARA GESTIÓN DE TICKETS
+whatsappRoutes.post("/whatsapp/reassign-tickets", isAuth, WhatsAppController.reassignTickets);
+whatsappRoutes.delete("/whatsapp/:whatsappId/tickets", isAuth, WhatsAppController.deleteOrphanTickets);
+
 whatsappRoutes.delete(
   "/whatsapp/:whatsappId",
   isAuth,

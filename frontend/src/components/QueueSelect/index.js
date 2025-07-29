@@ -13,9 +13,29 @@ const useStyles = makeStyles(theme => ({
 	chips: {
 		display: "flex",
 		flexWrap: "wrap",
+		gap: "4px",
+		maxWidth: "100%",
+		alignItems: "flex-start",
 	},
 	chip: {
-		margin: 2,
+		margin: 1,
+		maxWidth: "100%",
+		height: "auto",
+		"& .MuiChip-label": {
+			whiteSpace: "normal",
+			wordBreak: "break-word",
+			lineHeight: "1.2",
+			padding: "4px 8px",
+			fontSize: "0.75rem",
+		},
+	},
+	selectContainer: {
+		"& .MuiSelect-select": {
+			minHeight: "40px",
+			display: "flex",
+			alignItems: "flex-start",
+			padding: "8px 12px",
+		},
 	},
 }));
 
@@ -44,7 +64,7 @@ const QueueSelect = ({ selectedQueueIds, onChange, multiple = true, title = i18n
 
 	return (
 		<div >
-			<FormControl fullWidth margin="dense" variant="outlined">
+			<FormControl fullWidth margin="dense" variant="outlined" className={classes.selectContainer}>
 				<InputLabel shrink={selectedQueueIds ? true : false} >{title}</InputLabel>
 				<Select
 					label={title}

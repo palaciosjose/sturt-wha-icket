@@ -9,13 +9,13 @@ type QueueOptionFilter = {
 };
 
 const ListService = async ({ queueId, queueOptionId, parentId }: QueueOptionFilter): Promise<QueueOption[]> => {
-  console.log("🔍 ListService - Parámetros recibidos:", { queueId, queueOptionId, parentId });
+  // console.log("🔍 ListService - Parámetros recibidos:", { queueId, queueOptionId, parentId });
 
   const whereOptions: WhereOptions = {};
 
   if (queueId) {
     whereOptions.queueId = queueId;
-    console.log("🔍 ListService - Agregando queueId al where:", queueId);
+    // console.log("🔍 ListService - Agregando queueId al where:", queueId);
   }
 
   if (queueOptionId) {
@@ -24,14 +24,14 @@ const ListService = async ({ queueId, queueOptionId, parentId }: QueueOptionFilt
 
   if (parentId == -1) {
     whereOptions.parentId = null;
-    console.log("🔍 ListService - Agregando parentId null al where");
+          // console.log("🔍 ListService - Agregando parentId null al where");
   }
 
   if (typeof parentId === 'number' && parentId > 0) {
     whereOptions.parentId = parentId;
   }
 
-  console.log("🔍 ListService - whereOptions final:", whereOptions);
+      // console.log("🔍 ListService - whereOptions final:", whereOptions);
 
   const queueOptions = await QueueOption.findAll({
     where: whereOptions,
@@ -42,8 +42,14 @@ const ListService = async ({ queueId, queueOptionId, parentId }: QueueOptionFilt
     order: [["id", "ASC"]]
   });
 
-  console.log("🔍 ListService - Opciones encontradas:", queueOptions.length);
-  console.log("🔍 ListService - Opciones:", queueOptions.map(opt => ({ id: opt.id, title: opt.title, queueId: opt.queueId })));
+      // console.log("🔍 ListService - Opciones encontradas:", queueOptions.length);
+    // console.log("🔍 ListService - Opciones:", queueOptions.map(opt => ({ 
+    //   id: opt.id, 
+    //   title: opt.title, 
+    //   queueId: opt.queueId,
+    //   transferQueueId: opt.transferQueueId,
+    //   transferQueue: opt.transferQueue ? { id: opt.transferQueue.id, name: opt.transferQueue.name } : null
+    // })));
 
   return queueOptions;
 };

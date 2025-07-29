@@ -185,12 +185,12 @@ export function ContactNotes ({ ticket }) {
                                             variant="outlined"
                                             fullWidth
                                         >
-                                            Cancelar
+                                            {i18n.t("contactModal.buttons.cancel")}
                                         </Button>
                                     </Grid>
                                     <Grid xs={6} item>
                                         <ButtonWithSpinner loading={loading} color="primary" type="submit" variant="contained" autoFocus fullWidth>
-                                            Salvar
+                                            {i18n.t("contactModal.buttons.okAdd")}
                                         </ButtonWithSpinner>
                                     </Grid>
                                 </Grid>

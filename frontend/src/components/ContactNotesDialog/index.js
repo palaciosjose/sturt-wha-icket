@@ -191,10 +191,10 @@ export default function ContactNotesDialog ({ modalOpen, onClose, ticket }) {
                             </DialogContent>
                             <DialogActions>
                                 <Button onClick={handleClose} color="primary">
-                                    Fechar
+                                    {i18n.t("ticketsManager.buttons.closeallTicket")}
                                 </Button>
                                 <ButtonWithSpinner loading={loading} color="primary" type="submit" variant="contained" autoFocus>
-                                    Salvar
+                                    {i18n.t("contactModal.buttons.okAdd")}
                                 </ButtonWithSpinner>
                             </DialogActions>
                         </Form>

@@ -14,16 +14,10 @@ import {
 	TableHead,
 	Paper,
 	Tooltip,
-	Typography,
-	CircularProgress,
 } from "@material-ui/core";
 import {
 	Edit,
 	CheckCircle,
-	SignalCellularConnectedNoInternet2Bar,
-	SignalCellularConnectedNoInternet0Bar,
-	SignalCellular4Bar,
-	CropFree,
 	DeleteOutline,
 } from "@material-ui/icons";
 
@@ -82,35 +76,7 @@ const useStyles = makeStyles(theme => ({
 		minWidth: '220px',
 		maxWidth: '250px',
 	},
-	instanceCell: {
-		padding: theme.spacing(1),
-		minWidth: '100px',
-	},
 }));
-
-const CustomToolTip = ({ title, content, children }) => {
-	const classes = useStyles();
-
-	return (
-		<Tooltip
-			arrow
-			classes={{
-				tooltip: classes.tooltip,
-				popper: classes.tooltipPopper,
-			}}
-			title={
-				<React.Fragment>
-					<Typography gutterBottom color="inherit">
-						{title}
-					</Typography>
-					{content && <Typography>{content}</Typography>}
-				</React.Fragment>
-			}
-		>
-			{children}
-		</Tooltip>
-	);
-};
 
 const Connections = () => {
 	const classes = useStyles();
@@ -287,45 +253,6 @@ const Connections = () => {
 		);
 	};
 
-	const renderStatusToolTips = whatsApp => {
-		return (
-			<div className={classes.customTableCell}>
-				{whatsApp.status === "DISCONNECTED" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.disconnected.title")}
-						content={i18n.t("connections.toolTips.disconnected.content")}
-					>
-						<SignalCellularConnectedNoInternet0Bar color="secondary" />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "OPENING" && (
-					<CircularProgress size={24} className={classes.buttonProgress} />
-				)}
-				{whatsApp.status === "qrcode" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.qrcode.title")}
-						content={i18n.t("connections.toolTips.qrcode.content")}
-					>
-						<CropFree />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "CONNECTED" && (
-					<CustomToolTip title={i18n.t("connections.toolTips.connected.title")}>
-						<SignalCellular4Bar style={{ color: green[500] }} />
-					</CustomToolTip>
-				)}
-				{(whatsApp.status === "TIMEOUT" || whatsApp.status === "PAIRING") && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.timeout.title")}
-						content={i18n.t("connections.toolTips.timeout.content")}
-					>
-						<SignalCellularConnectedNoInternet2Bar color="secondary" />
-					</CustomToolTip>
-				)}
-			</div>
-		);
-	};
-
 	return (
 		<MainContainer>
 			<ConfirmationModal
@@ -379,23 +306,20 @@ const Connections = () => {
 					<TableHead>
 						<TableRow>
 							<TableCell align="center">
-								{i18n.t("connections.table.name")}
+								{i18n.t("connections.table.aliasWa")}
 							</TableCell>
-														<TableCell align="center">
+							<TableCell align="center">
+								{i18n.t("connections.table.waName")}
+							</TableCell>
+							<TableCell align="center">
 								{i18n.t("connections.table.number")}
                             </TableCell>
 							<TableCell align="center">
 								Avatar
 							</TableCell>
 							<TableCell align="center">
-								Instancia
-							</TableCell>
-							<TableCell align="center">
 								Token
 							</TableCell>							
-							<TableCell align="center">
-								{i18n.t("connections.table.status")}
-							</TableCell>
 							<Can
 								role={user.profile}
 								perform="connections-page:actionButtons"
@@ -430,7 +354,34 @@ const Connections = () => {
 								{whatsApps?.length > 0 &&
 									whatsApps.map(whatsApp => (
 										<TableRow key={whatsApp.id}>
-											<TableCell align="center">{whatsApp.name}</TableCell>
+											<TableCell align="center">
+												<span style={{
+													fontFamily: 'monospace',
+													fontSize: '13px',
+													fontWeight: 'bold',
+													color: '#2e7d32',
+													backgroundColor: '#e8f5e8',
+													padding: '4px 8px',
+													borderRadius: '4px',
+													border: '1px solid #2e7d32'
+												}}>
+													{whatsApp.name}
+												</span>
+											</TableCell>
+											<TableCell align="center">
+												<span style={{
+													fontFamily: 'monospace',
+													fontSize: '13px',
+													fontWeight: 'bold',
+													color: '#ff6f00',
+													backgroundColor: '#fff3e0',
+													padding: '4px 8px',
+													borderRadius: '4px',
+													border: '1px solid #ff6f00'
+												}}>
+													{whatsApp.waName || "-"}
+												</span>
+											</TableCell>
 											<TableCell align="center">
 											  {whatsApp.number ? (
 												<span style={{
@@ -488,24 +439,6 @@ const Connections = () => {
 													</div>
 												)}
 											</TableCell>
-											<TableCell align="center" className={classes.instanceCell}>
-												{whatsApp.instance ? (
-													<span style={{ 
-														fontFamily: 'monospace',
-														fontSize: '13px',
-														backgroundColor: '#f5f5f5',
-														padding: '6px 10px',
-														borderRadius: '6px',
-														border: '1px solid #757575',
-														fontWeight: 'bold',
-														color: '#424242'
-													}}>
-														{whatsApp.instance.replace('whatsapp_', '').replace('_', '')}
-													</span>
-												) : (
-													"-"
-												)}
-											</TableCell>
 											<TableCell align="center" className={classes.tokenCell}>
 												{whatsApp.token ? (
 													<Tooltip title={whatsApp.token} placement="top">
@@ -531,9 +464,6 @@ const Connections = () => {
 												) : (
 													"-"
 												)}
-											</TableCell>
-											<TableCell align="center">
-												{renderStatusToolTips(whatsApp)}
 											</TableCell>
 											<Can
 												role={user.profile}

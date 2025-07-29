@@ -21,6 +21,31 @@ import { toast } from "react-toastify";
 import useHelps from "../../hooks/useHelps";
 import { i18n } from "../../translate/i18n";
 
+// Función para extraer el código de video de YouTube
+const extractYouTubeVideoCode = (url) => {
+    if (!url) return '';
+    
+    // Patrones comunes de URLs de YouTube
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+        /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/,
+        /youtu\.be\/([a-zA-Z0-9_-]{11})/
+    ];
+    
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) {
+            return match[1];
+        }
+    }
+    
+    // Si no coincide con ningún patrón, asumir que ya es un código de video
+    if (url.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(url)) {
+        return url;
+    }
+    
+    return '';
+};
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -70,6 +95,18 @@ export function HelpManagerForm (props) {
     }, [initialValue])
 
     const handleSubmit = async(data) => {
+        // Extraer el código de video si se proporcionó una URL
+        if (data.video && (data.video.includes('youtube') || data.video.includes('youtu.be'))) {
+            const videoCode = extractYouTubeVideoCode(data.video);
+            if (videoCode) {
+                data.video = videoCode;
+                toast.success(`Código de video extraído: ${videoCode}`);
+            } else {
+                toast.error('No se pudo extraer el código de video de la URL proporcionada');
+                return;
+            }
+        }
+        
         onSubmit(data)
     }
 
@@ -106,6 +143,8 @@ export function HelpManagerForm (props) {
                                 variant="outlined"
                                 className={classes.fullWidth}
                                 margin="dense"
+                                placeholder="https://youtu.be/6FdRJTw46qI o código de video"
+                                helperText="Pega la URL de YouTube o el código de video"
                             />
                         </Grid>
                         <Grid xs={12} sm={12} md={6} item>

@@ -25,6 +25,7 @@ import DeleteBaileysService from "../services/BaileysServices/DeleteBaileysServi
 import NodeCache from 'node-cache';
 import Contact from "../models/Contact";
 import Ticket from "../models/Ticket";
+import ExtractWhatsAppNameService from "../services/WhatsappService/ExtractWhatsAppNameService";
 const loggerBaileys = MAIN_LOGGER.child({});
 loggerBaileys.level = "error";
 
@@ -140,38 +141,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
           shouldIgnoreJid: jid => isJidBroadcast(jid),
         });
 
-        // wsocket = makeWASocket({
-        //   version,
-        //   logger: loggerBaileys,
-        //   printQRInTerminal: false,
-        //   auth: state as AuthenticationState,
-        //   generateHighQualityLinkPreview: false,
-        //   shouldIgnoreJid: jid => isJidBroadcast(jid),
-        //   browser: ["Chat", "Chrome", "10.15.7"],
-        //   patchMessageBeforeSending: (message) => {
-        //     const requiresPatch = !!(
-        //       message.buttonsMessage ||
-        //       // || message.templateMessage
-        //       message.listMessage
-        //     );
-        //     if (requiresPatch) {
-        //       message = {
-        //         viewOnceMessage: {
-        //           message: {
-        //             messageContextInfo: {
-        //               deviceListMetadataVersion: 2,
-        //               deviceListMetadata: {},
-        //             },
-        //             ...message,
-        //           },
-        //         },
-        //       };
-        //     }
-
-        //     return message;
-        //   },
-        // })
-
         wsocket.ev.on(
           "connection.update",
           async ({ connection, lastDisconnect, qr }) => {
@@ -218,6 +187,51 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     ? jidNormalizedUser((wsocket as WASocket).user.id).split("@")[0]
                     : "-"
               });
+
+              // Extraer el nombre del WhatsApp desde la sesión con delay
+              setTimeout(async () => {
+                try {
+                  logger.info(`🔄 Extrayendo nombre de WhatsApp para ID: ${whatsapp.id}`);
+                  
+                  // Verificar que la sesión esté realmente establecida
+                  if (!wsocket.store || !wsocket.user) {
+                    logger.warn(`⚠️ Sesión no completamente establecida para ID: ${whatsapp.id}, reintentando en 3 segundos...`);
+                    setTimeout(async () => {
+                      try {
+                        await ExtractWhatsAppNameService({
+                          whatsappId: whatsapp.id,
+                          sessionData: wsocket.store
+                        });
+                        logger.info(`✅ Nombre de WhatsApp extraído para ID: ${whatsapp.id} (reintento 1)`);
+                      } catch (error) {
+                        logger.error("Error extracting WhatsApp name (reintento 1):", error);
+                      }
+                    }, 3000);
+                    return;
+                  }
+                  
+                  await ExtractWhatsAppNameService({
+                    whatsappId: whatsapp.id,
+                    sessionData: wsocket.store
+                  });
+                  logger.info(`✅ Nombre de WhatsApp extraído para ID: ${whatsapp.id}`);
+                  
+                  // ✅ EXTRAER AVATAR
+                  setTimeout(async () => {
+                    try {
+                      // await ExtractWhatsAppAvatarService({
+                      //   whatsappId: whatsapp.id
+                      // });
+                      // logger.info(`✅ Avatar de WhatsApp extraído para ID: ${whatsapp.id}`);
+                    } catch (error) {
+                      logger.error("Error extracting WhatsApp avatar:", error);
+                    }
+                  }, 2000); // 2 segundos después del nombre
+                } catch (error) {
+                  logger.error("Error extracting WhatsApp name:", error);
+                }
+
+              }, 8000); // ✅ AUMENTADO A 8 SEGUNDOS
 
               io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
                 action: "update",

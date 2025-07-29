@@ -15,45 +15,86 @@ const useStyles = makeStyles(theme => ({
   mainPaper: {
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: theme.spacing(3),
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: theme.spacing(2),
     padding: theme.spacing(2),
     marginBottom: theme.spacing(3),
   },
   helpPaper: {
     position: 'relative',
     width: '100%',
-    minHeight: '340px',
-    padding: theme.spacing(2),
-    boxShadow: theme.shadows[3],
+    maxWidth: '320px',
+    padding: 0,
+    boxShadow: theme.shadows[2],
     borderRadius: theme.spacing(1),
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'space-between',
-    maxWidth: '340px',
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: theme.shadows[4],
+    },
   },
   paperHover: {
-    transition: 'transform 0.3s, box-shadow 0.3s',
-    '&:hover': {
-      transform: 'scale(1.03)',
-      boxShadow: `0 0 8px`,
-      color: theme.palette.primary.main,
-    },
+    // Los estilos de hover se movieron al helpPaper
   },
   videoThumbnail: {
     width: '100%',
-    height: 'calc(100% - 56px)',
+    height: '180px', // Altura fija para mantener proporción 16:9
     objectFit: 'cover',
-    borderRadius: `${theme.spacing(1)}px ${theme.spacing(1)}px 0 0`,
+    objectPosition: 'center',
+    display: 'block',
+    backgroundColor: '#f0f0f0', // Color de fondo mientras carga
+  },
+  videoThumbnailContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '180px',
+  },
+  videoDuration: {
+    position: 'absolute',
+    bottom: '8px',
+    right: '8px',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: 'white',
+    padding: '2px 4px',
+    borderRadius: '2px',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    lineHeight: 1,
+  },
+  videoContent: {
+    padding: theme.spacing(1.5),
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
   },
   videoTitle: {
-    marginTop: theme.spacing(1),
-    flex: 1,
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    lineHeight: 1.2,
+    marginBottom: theme.spacing(0.5),
+    color: '#030303',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
   },
   videoDescription: {
-    maxHeight: '100px',
+    fontSize: '0.75rem',
+    lineHeight: 1.3,
+    color: '#606060',
     overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    marginTop: 'auto',
   },
   videoModal: {
     display: 'flex',
@@ -137,17 +178,25 @@ const Helps = () => {
         <div className={`${classes.mainPaper} ${classes.mainPaperContainer}`}>
           {records.length ? records.map((record, key) => (
             <Paper key={key} className={`${classes.helpPaper} ${classes.paperHover}`} onClick={() => openVideoModal(record.video)}>
-              <img
-                src={`https://img.youtube.com/vi/${record.video}/mqdefault.jpg`}
-                alt="Thumbnail"
-                className={classes.videoThumbnail}
-              />
-              <Typography variant="button" className={classes.videoTitle}>
-                {record.title}
-              </Typography>
-              <Typography variant="caption" className={classes.videoDescription}>
-                {record.description}
-              </Typography>
+              <div className={classes.videoThumbnailContainer}>
+                <img
+                  src={`https://img.youtube.com/vi/${record.video}/hqdefault.jpg`}
+                  alt="Thumbnail"
+                  className={classes.videoThumbnail}
+                  loading="lazy"
+                />
+                <div className={classes.videoDuration}>
+                  ▶
+                </div>
+              </div>
+              <div className={classes.videoContent}>
+                <Typography variant="button" className={classes.videoTitle}>
+                  {record.title}
+                </Typography>
+                <Typography variant="caption" className={classes.videoDescription}>
+                  {record.description}
+                </Typography>
+              </div>
             </Paper>
           )) : null}
         </div>

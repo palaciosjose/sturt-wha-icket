@@ -15,6 +15,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { nomeEmpresa } from "../../../package.json";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { getVersionText } from "../../config/version";
 //import logo from "../../assets/logo.png";
 
 
@@ -40,7 +41,7 @@ const Copyright = () => {
 				textAlign: 'center',
 				marginTop: '8px'
 			}}>
-				BASIC
+				{getVersionText()}
 			</span>
  		</Typography>
  	);

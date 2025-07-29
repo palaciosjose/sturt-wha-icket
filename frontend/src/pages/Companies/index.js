@@ -126,7 +126,7 @@ const SignUp = () => {
 										variant="outlined"
 										fullWidth
 										id="name"
-										label="Nome da Empresa"
+										label={i18n.t("companies.form.name")}
 									/>
 								</Grid>
 
@@ -163,7 +163,7 @@ const SignUp = () => {
 											{...field}
 											variant="outlined"
 											fullWidth
-											label="DDD988888888"
+											label={i18n.t("companies.form.phone")}
 											inputProps={{ maxLength: 11 }} // Definindo o limite de caracteres
 										/>
 									)}
@@ -185,13 +185,13 @@ const SignUp = () => {
 									/>
 								</Grid>
 								<Grid item xs={12}>
-									<InputLabel htmlFor="plan-selection">Plano</InputLabel>
+									<InputLabel htmlFor="plan-selection">{i18n.t("companies.form.plan")}</InputLabel>
 									<Field
 										as={Select}
 										variant="outlined"
 										fullWidth
 										id="plan-selection"
-										label="Plano"
+										label={i18n.t("companies.form.plan")}
 										name="planId"
 										required
 									>

@@ -10,12 +10,12 @@ interface QueueOptionData {
 }
 
 const CreateService = async (queueOptionData: QueueOptionData): Promise<QueueOption> => {
-  console.log("🔍 CreateService - Datos recibidos:", queueOptionData);
-  console.log("🔍 CreateService - queueId:", queueOptionData.queueId);
-  console.log("🔍 CreateService - Tipo de queueId:", typeof queueOptionData.queueId);
+  // console.log("🔍 CreateService - Datos recibidos:", queueOptionData);
+  // console.log("🔍 CreateService - queueId:", queueOptionData.queueId);
+  // console.log("🔍 CreateService - Tipo de queueId:", typeof queueOptionData.queueId);
   
   const queueOption = await QueueOption.create(queueOptionData);
-  console.log("✅ CreateService - Opción creada:", queueOption.toJSON());
+  // console.log("✅ CreateService - Opción creada:", queueOption.toJSON());
   
   return queueOption;
 };
