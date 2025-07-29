@@ -782,45 +782,51 @@ configure_nginx() {
 
     sleep 2
 
-    # Crear configuración de Nginx para el backend con WebSocket optimizado
-    sudo tee /etc/nginx/sites-available/watoolx-backend << EOF
+    # Limpiar configuraciones anteriores
+    log_message "INFO" "Limpiando configuraciones anteriores de Nginx..."
+    rm -f /etc/nginx/sites-enabled/watoolx*
+    rm -f /etc/nginx/sites-available/watoolx*
+
+    # Crear configuración de Nginx
+    log_message "INFO" "Creando configuración de Nginx..."
+    cat > /etc/nginx/sites-available/watoolx << 'EOF'
 server {
-    server_name ${backend_url};
-    
+    server_name waticketapi.todosistemas.online;
+
     # Configuración para API REST
     location / {
-        proxy_pass http://127.0.0.1:${backend_port};
+        proxy_pass http://127.0.0.1:4142;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_cache_bypass \$http_upgrade;
-        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+
         # Timeouts para API
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
         proxy_connect_timeout 60s;
-        
+
         # Buffer sizes para API
         proxy_buffering on;
         proxy_buffer_size 4k;
         proxy_buffers 8 4k;
     }
-    
+
     # Configuración optimizada para WebSocket (CRÍTICA)
     location /socket.io/ {
-        proxy_pass http://127.0.0.1:${backend_port};
+        proxy_pass http://127.0.0.1:4142;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
         # Configuraciones críticas para WebSocket
         proxy_read_timeout 86400;
         proxy_send_timeout 86400;
@@ -828,17 +834,17 @@ server {
         proxy_buffering off;
         proxy_cache off;
         proxy_request_buffering off;
-        
+
         # Headers adicionales para WebSocket
-        proxy_set_header X-Forwarded-Host \$host;
-        proxy_set_header X-Forwarded-Server \$host;
-        
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Server $host;
+
         # Configuración de buffer para WebSocket
         proxy_buffer_size 128k;
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
     }
-    
+
     # Configuración para archivos estáticos
     location /public/ {
         alias /var/www/watoolx/backend/public/;
@@ -846,61 +852,72 @@ server {
         add_header Cache-Control "public, immutable";
     }
 }
-EOF
 
-    # Crear configuración de Nginx para el frontend
-    sudo tee /etc/nginx/sites-available/watoolx-frontend << EOF
 server {
-    server_name ${frontend_url};
-    
+    server_name waticketapp.todosistemas.online;
+
     location / {
-        proxy_pass http://127.0.0.1:${frontend_port};
+        proxy_pass http://127.0.0.1:3435;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_cache_bypass \$http_upgrade;
-        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+
         # Timeouts para frontend
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
         proxy_connect_timeout 60s;
-        
+
         # Buffer sizes para frontend
         proxy_buffering on;
         proxy_buffer_size 4k;
         proxy_buffers 8 4k;
     }
-    
+
     # Configuración para archivos estáticos
     location /static/ {
-        alias ${FRONTEND_DIR}/build/static/;
+        alias /home/watoolxoficial/frontend/build/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
 }
 EOF
 
-    # Habilitar sitios
-    sudo ln -sf /etc/nginx/sites-available/watoolx-backend /etc/nginx/sites-enabled/
-    sudo ln -sf /etc/nginx/sites-available/watoolx-frontend /etc/nginx/sites-enabled/
-
-    # Verificar configuración de Nginx
-    if ! sudo nginx -t; then
+    # Verificar sintaxis de Nginx
+    if nginx -t; then
+        log_message "SUCCESS" "✅ Sintaxis de Nginx verificada correctamente"
+    else
+        log_message "ERROR" "❌ Error en la sintaxis de Nginx"
         register_error "Error en la configuración de Nginx"
         return 1
     fi
 
-    # Recargar Nginx
-    if ! sudo systemctl reload nginx; then
-        register_error "No se pudo recargar Nginx"
+    # Habilitar el sitio
+    log_message "INFO" "Habilitando sitio en Nginx..."
+    ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/
+    
+    # Verificar que el enlace se creó correctamente
+    if [ -L "/etc/nginx/sites-enabled/watoolx" ]; then
+        log_message "SUCCESS" "✅ Enlace simbólico creado correctamente"
+    else
+        log_message "ERROR" "❌ No se pudo crear el enlace simbólico"
+        register_error "Error al crear enlace simbólico de Nginx"
         return 1
     fi
 
-    log_message "SUCCESS" "✅ Nginx configurado correctamente con optimizaciones WebSocket"
+    # Recargar Nginx
+    if systemctl reload nginx; then
+        log_message "SUCCESS" "✅ Nginx configurado correctamente con optimizaciones WebSocket"
+    else
+        log_message "ERROR" "❌ Error al recargar Nginx"
+        register_error "Error al recargar Nginx"
+        return 1
+    fi
+
     sleep 2
     return 0
 }
@@ -914,17 +931,18 @@ configure_ssl() {
 
     sleep 2
 
-    # Verificar que Nginx esté configurado
-    if [ ! -f "/etc/nginx/sites-available/watoolx" ]; then
-        log_message "WARNING" "Nginx no está configurado, configurando primero..."
-        configure_nginx
+    # Verificar que Nginx esté configurado y funcionando
+    if ! systemctl is-active --quiet nginx; then
+        log_message "ERROR" "❌ Nginx no está ejecutándose"
+        register_error "Nginx no está ejecutándose"
+        return 1
     fi
 
-    # Habilitar el sitio en Nginx
+    # Verificar que el sitio esté habilitado
     if [ ! -L "/etc/nginx/sites-enabled/watoolx" ]; then
-        log_message "INFO" "Habilitando sitio en Nginx..."
-        ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/
-        systemctl reload nginx
+        log_message "ERROR" "❌ Sitio de Nginx no está habilitado"
+        register_error "Sitio de Nginx no está habilitado"
+        return 1
     fi
 
     # Verificar si los certificados ya existen
@@ -936,26 +954,35 @@ configure_ssl() {
     # Solicitar certificados SSL
     log_message "INFO" "Solicitando certificados SSL para $frontend_url y $backend_url..."
     
+    SSL_SUCCESS=true
+    
     # Certificado para el frontend
     if certbot --nginx -d "$frontend_url" --non-interactive --agree-tos --email admin@$frontend_url; then
         log_message "SUCCESS" "✅ Certificado SSL obtenido para $frontend_url"
     else
-        log_message "WARNING" "No se pudo obtener certificado para $frontend_url"
+        log_message "ERROR" "❌ No se pudo obtener certificado para $frontend_url"
+        SSL_SUCCESS=false
     fi
 
     # Certificado para el backend
     if certbot --nginx -d "$backend_url" --non-interactive --agree-tos --email admin@$backend_url; then
         log_message "SUCCESS" "✅ Certificado SSL obtenido para $backend_url"
     else
-        log_message "WARNING" "No se pudo obtener certificado para $backend_url"
+        log_message "ERROR" "❌ No se pudo obtener certificado para $backend_url"
+        SSL_SUCCESS=false
     fi
 
     # Configurar renovación automática
     log_message "INFO" "Configurando renovación automática de certificados..."
     (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
 
-    log_message "SUCCESS" "✅ SSL configurado correctamente"
-    sleep 2
+    if [ "$SSL_SUCCESS" = true ]; then
+        log_message "SUCCESS" "✅ SSL configurado correctamente"
+        return 0
+    else
+        log_message "WARNING" "⚠️ SSL configurado parcialmente (algunos certificados fallaron)"
+        return 1
+    fi
 }
 
 # Función para diagnóstico completo del sistema
