@@ -1105,13 +1105,14 @@ show_configuration_summary() {
     echo -e "${GRAY_LIGHT}• Puerto Backend: 4142${NC}"
     echo -e "${GRAY_LIGHT}• Puerto Redis: 5050${NC}"
     echo -e "${GRAY_LIGHT}• Contraseña MySQL: mysql1122${NC}"
+    echo -e "${GRAY_LIGHT}• Base de datos MySQL: $instancia_add${NC}"
     
     echo -e "\n${YELLOW}¿Deseas continuar con esta configuración? (y/n):${NC} "
     read -r confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}Configuración cancelada. Reiniciando...${NC}"
         # Resetear variables
-        instancia_add=""; link_git=""; frontend_url=""; backend_url=""
+        link_git=""; frontend_url=""; backend_url=""
         get_urls_validated
     fi
 }
