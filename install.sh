@@ -921,6 +921,90 @@ install_certbot() {
     return 0
 }
 
+# Función para instalar backend
+install_backend() {
+    log_message "STEP" "=== INSTALANDO BACKEND ==="
+    
+    print_banner
+    printf "${WHITE} 💻 Instalando y configurando backend...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Navegar al directorio del backend
+    cd "$BACKEND_DIR" || {
+        register_error "No se pudo acceder al directorio del backend"
+        return 1
+    }
+
+    # Instalar dependencias del backend
+    log_message "INFO" "Instalando dependencias del backend..."
+    if npm install; then
+        log_message "SUCCESS" "✅ Dependencias del backend instaladas correctamente"
+    else
+        log_message "ERROR" "❌ Error al instalar dependencias del backend"
+        register_error "Error al instalar dependencias del backend"
+        return 1
+    fi
+
+    # Compilar backend
+    log_message "INFO" "Compilando backend..."
+    if npm run build; then
+        log_message "SUCCESS" "✅ Backend compilado correctamente"
+    else
+        log_message "ERROR" "❌ Error al compilar backend"
+        register_error "Error al compilar backend"
+        return 1
+    fi
+
+    # Configurar PM2 para el backend
+    log_message "INFO" "Configurando PM2 para el backend..."
+    pm2 start dist/server.js --name "beta-back"
+
+    # Guardar configuración de PM2
+    pm2 save
+
+    log_message "SUCCESS" "✅ Backend instalado y configurado correctamente"
+    sleep 2
+    return 0
+}
+
+# Función para verificar servicios
+verify_services_status() {
+    log_message "STEP" "=== VERIFICANDO ESTADO DE SERVICIOS ==="
+    
+    print_banner
+    printf "${WHITE} 🔍 Verificando estado de servicios...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Verificar PM2
+    if command -v pm2 &> /dev/null; then
+        echo -e "${WHITE}Verificando PM2:${NC}"
+        pm2 list | grep -E "(backend|frontend)" || echo "No hay procesos PM2 activos"
+    fi
+
+    # Verificar Nginx
+    if command -v nginx &> /dev/null; then
+        echo -e "\n${WHITE}Verificando Nginx:${NC}"
+        sudo systemctl status nginx --no-pager -l || echo "Nginx no está corriendo"
+    fi
+
+    # Verificar Docker
+    if command -v docker &> /dev/null; then
+        echo -e "\n${WHITE}Verificando Docker:${NC}"
+        docker ps || echo "No hay contenedores Docker activos"
+    fi
+
+    # Verificar MySQL
+    if command -v mysql &> /dev/null; then
+        echo -e "\n${WHITE}Verificando MySQL:${NC}"
+        sudo systemctl status mysql --no-pager -l || echo "MySQL no está corriendo"
+    fi
+
+    log_message "SUCCESS" "✅ Verificación de servicios completada"
+    sleep 2
+}
+
 # Función para configurar MySQL
 configure_mysql() {
     log_message "STEP" "=== CONFIGURANDO MYSQL ==="
