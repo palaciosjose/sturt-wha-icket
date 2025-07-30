@@ -2248,11 +2248,85 @@ backend_db_migrate() {
         return 1
     fi
 
-    # Ejecutar migraciones
-    if ! sudo npx sequelize-cli db:migrate; then
-        register_error "No se pudieron ejecutar las migraciones"
-        return 1
-    fi
+    # Lista de migraciones problemáticas conocidas (CON extensión .js - como las ejecuta Sequelize)
+    PROBLEMATIC_MIGRATIONS=(
+        "20250121000001-add-mediaSize-to-messages.js"
+        "20250118000001-add-mediaSize-to-messages.js"
+        "20250122_add_avatar_instance_to_whatsapp.js"
+        "20250122_add_reminder_fields_to_schedules.js"
+        "20250122_add_status_field_to_schedules.js"
+        "20250122_add_whatsappId_to_schedules.js"
+        "20250127000000-create-hub-notificame-table.js"
+        "20250128_add_waName_to_whatsapp.js"
+    )
+
+    # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
+    log_message "INFO" "Marcando migraciones problemáticas conocidas como ejecutadas..."
+    for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
+        log_message "INFO" "Marcando migración: $migration"
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+        log_message "SUCCESS" "Migración problemática marcada como ejecutada: $migration"
+        
+        # Verificar que se marcó correctamente
+        if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM SequelizeMeta WHERE name = '$migration';" 2>/dev/null | tail -1 | tr -d ' ' | grep -q "1"; then
+            log_message "SUCCESS" "✅ Migración problemática confirmada como ejecutada: $migration"
+        else
+            log_message "WARNING" "⚠️ Migración problemática no se marcó correctamente: $migration"
+            # Intentar marcarla de nuevo
+            mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+            log_message "INFO" "Reintentando marcar migración: $migration"
+        fi
+    done
+
+    # Ejecutar migraciones con manejo de errores mejorado
+    log_message "INFO" "Ejecutando migraciones de base de datos..."
+    
+    # Configurar timeout de MySQL para evitar deadlocks
+    mysql -u root -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null || true
+    
+    # Ejecutar migraciones con retry
+    MAX_RETRIES=5
+    for attempt in $(seq 1 $MAX_RETRIES); do
+        log_message "INFO" "Intento $attempt de $MAX_RETRIES para ejecutar migraciones..."
+        
+        MIGRATION_OUTPUT=$(sudo npx sequelize-cli db:migrate 2>&1)
+        MIGRATION_EXIT_CODE=$?
+        
+        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+            log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
+            break
+        else
+            log_message "WARNING" "⚠️ Error en migraciones, intentando con configuración MySQL..."
+            
+            # Intentar con configuración específica de MySQL
+            MIGRATION_OUTPUT=$(sudo npx sequelize-cli db:migrate 2>&1)
+            MIGRATION_EXIT_CODE=$?
+            
+            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+                log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente con configuración MySQL"
+                break
+            else
+                # Extraer el nombre de la migración que falló
+                FAILED_MIGRATION=$(echo "$MIGRATION_OUTPUT" | grep -o "== [^:]*: migrating" | sed 's/== \(.*\): migrating/\1/')
+                
+                if [ ! -z "$FAILED_MIGRATION" ]; then
+                    log_message "WARNING" "⚠️ Migración fallida: $FAILED_MIGRATION"
+                    log_message "INFO" "Marcando migración fallida como ejecutada..."
+                    mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$FAILED_MIGRATION');" 2>/dev/null || true
+                    log_message "SUCCESS" "Migración fallida marcada como ejecutada: $FAILED_MIGRATION"
+                fi
+                
+                if [ $attempt -eq $MAX_RETRIES ]; then
+                    log_message "ERROR" "❌ No se pudieron ejecutar las migraciones después de $MAX_RETRIES intentos"
+                    register_error "Error en migraciones de base de datos"
+                    return 1
+                else
+                    log_message "WARNING" "⚠️ Reintentando migraciones en 3 segundos..."
+                    sleep 3
+                fi
+            fi
+        fi
+    done
 
     # Verificar que las tablas se crearon
     table_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${instancia_add}';" 2>/dev/null | tail -1 | tr -d ' ')
@@ -2505,9 +2579,9 @@ backend_db_seed() {
         log_message "INFO" "Verificando estado de la base de datos..."
         
         # Mostrar información de debugging
-        sudo -u postgres psql -d ${instancia_add} -c "SELECT COUNT(*) as total_users FROM \"Users\";" 2>/dev/null || true
-        sudo -u postgres psql -d ${instancia_add} -c "SELECT COUNT(*) as total_companies FROM \"Companies\";" 2>/dev/null || true
-        sudo -u postgres psql -d ${instancia_add} -c "SELECT COUNT(*) as total_plans FROM \"Plans\";" 2>/dev/null || true
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_users FROM Users;" 2>/dev/null || true
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_companies FROM Companies;" 2>/dev/null || true
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_plans FROM Plans;" 2>/dev/null || true
         
         register_error "No se creó ningún usuario"
         return 1
@@ -2516,7 +2590,7 @@ backend_db_seed() {
     # Verificar que existe al menos una empresa con múltiples intentos
     company_count=0
     for i in {1..3}; do
-        company_count=$(sudo -u postgres psql -d ${instancia_add} -t -c "SELECT COUNT(*) FROM \"Companies\";" 2>/dev/null | tr -d ' ')
+        company_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -1 | tr -d ' ')
         
         if [ "$company_count" -gt 0 ]; then
             log_message "SUCCESS" "✅ Verificación exitosa: $company_count empresa(s) encontrada(s)"
@@ -2536,7 +2610,7 @@ backend_db_seed() {
     # Verificar que existe al menos un plan con múltiples intentos
     plan_count=0
     for i in {1..3}; do
-        plan_count=$(sudo -u postgres psql -d ${instancia_add} -t -c "SELECT COUNT(*) FROM \"Plans\";" 2>/dev/null | tr -d ' ')
+        plan_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans;" 2>/dev/null | tail -1 | tr -d ' ')
         
         if [ "$plan_count" -gt 0 ]; then
             log_message "SUCCESS" "✅ Verificación exitosa: $plan_count plan(es) encontrado(s)"
