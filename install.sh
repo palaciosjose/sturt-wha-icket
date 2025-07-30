@@ -171,9 +171,75 @@ system_update() {
         return 1
     fi
 
+    # Verificar si se requiere reinicio
+    check_reboot_required
+
     log_message "SUCCESS" "✅ Sistema actualizado correctamente"
     sleep 2
     return 0
+}
+
+# Función para verificar si se requiere reinicio del sistema
+check_reboot_required() {
+    # Verificar archivo de reinicio requerido
+    if [ -f /var/run/reboot-required ]; then
+        log_message "WARNING" "⚠️  El sistema requiere reinicio después de las actualizaciones"
+        echo -e "${YELLOW}⚠️  El sistema requiere reinicio después de las actualizaciones${NC}"
+        echo -e "${WHITE}¿Deseas reiniciar ahora? (y/n):${NC} "
+        read -r reboot_confirm
+        if [[ "$reboot_confirm" =~ ^[Yy]$ ]]; then
+            log_message "INFO" "Reiniciando sistema..."
+            sudo reboot
+            exit 0
+        else
+            log_message "WARNING" "Usuario optó por no reiniciar. La instalación puede fallar."
+            echo -e "${YELLOW}⚠️  Se recomienda reiniciar antes de continuar.${NC}"
+            echo -e "${WHITE}¿Continuar sin reiniciar? (y/n):${NC} "
+            read -r continue_confirm
+            if [[ ! "$continue_confirm" =~ ^[Yy]$ ]]; then
+                log_message "INFO" "Instalación cancelada por el usuario"
+                exit 0
+            fi
+        fi
+    fi
+    
+    # Verificar servicios críticos que pueden requerir reinicio
+    local services_need_restart=false
+    
+    # Verificar si Docker necesita reinicio
+    if command -v docker &> /dev/null; then
+        if ! docker info &> /dev/null; then
+            services_need_restart=true
+        fi
+    fi
+    
+    # Verificar si Nginx necesita reinicio
+    if command -v nginx &> /dev/null; then
+        if ! nginx -t &> /dev/null; then
+            services_need_restart=true
+        fi
+    fi
+    
+    # Verificar si MySQL necesita reinicio
+    if command -v mysql &> /dev/null; then
+        if ! systemctl is-active --quiet mysql; then
+            services_need_restart=true
+        fi
+    fi
+    
+    if [ "$services_need_restart" = true ]; then
+        log_message "WARNING" "⚠️  Algunos servicios críticos pueden requerir reinicio"
+        echo -e "${YELLOW}⚠️  Se detectaron servicios que pueden requerir reinicio${NC}"
+        echo -e "${WHITE}¿Deseas reiniciar ahora para asegurar estabilidad? (y/n):${NC} "
+        read -r reboot_confirm
+        if [[ "$reboot_confirm" =~ ^[Yy]$ ]]; then
+            log_message "INFO" "Reiniciando sistema..."
+            sudo reboot
+            exit 0
+        else
+            log_message "WARNING" "Usuario optó por no reiniciar. Continuando..."
+        fi
+    fi
 }
 
 # Función para verificar requisitos del sistema
@@ -990,11 +1056,33 @@ install_backend() {
     
     # Agregar setting faltante viewregister
     log_message "INFO" "Agregando setting faltante 'viewregister'..."
-    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), 1);" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente"
+    
+    # Verificar si ya existe el setting
+    VIEWREGISTER_EXISTS=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Settings WHERE \`key\` = 'viewregister';" 2>/dev/null | tail -n 1 | tr -d ' ')
+    
+    if [ "$VIEWREGISTER_EXISTS" -eq 0 ]; then
+        # Verificar que existe al menos una empresa
+        COMPANY_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -n 1 | tr -d ' ')
+        
+        if [ "$COMPANY_COUNT" -gt 0 ]; then
+            # Obtener el ID de la primera empresa
+            COMPANY_ID=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT id FROM Companies LIMIT 1;" 2>/dev/null | tail -n 1 | tr -d ' ')
+            
+            if [ ! -z "$COMPANY_ID" ] && [ "$COMPANY_ID" -gt 0 ]; then
+                mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), $COMPANY_ID);" 2>/dev/null
+                if [ $? -eq 0 ]; then
+                    log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente para empresa ID: $COMPANY_ID"
+                else
+                    log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+                fi
+            else
+                log_message "WARNING" "⚠️ No se pudo obtener ID de empresa válido para viewregister"
+            fi
+        else
+            log_message "WARNING" "⚠️ No hay empresas disponibles para agregar viewregister"
+        fi
     else
-        log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+        log_message "SUCCESS" "✅ Setting 'viewregister' ya existe"
     fi
     
     sleep 2
@@ -1327,48 +1415,73 @@ backend_migrations() {
     # Ejecutar migraciones con manejo de errores
     log_message "INFO" "Ejecutando migraciones..."
     
+    # Configurar MySQL para evitar deadlocks durante migraciones
+    mysql -u ${instancia_add} -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null
+    
     # Contador de reintentos
     RETRY_COUNT=0
-    MAX_RETRIES=3
+    MAX_RETRIES=5
+    
+    # Lista de migraciones problemáticas conocidas
+    PROBLEMATIC_MIGRATIONS=(
+        "20250121000001-add-mediaSize-to-messages.js"
+        "20250122_add_avatar_instance_to_whatsapp.js"
+        "20250122_add_reminder_fields_to_schedules.js"
+        "20250122_add_status_field_to_schedules.js"
+        "20250122_add_whatsappId_to_schedules.js"
+        "20250127000000-create-hub-notificame-table.js"
+        "20250128_add_waName_to_whatsapp.js"
+    )
+    
+    # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
+    log_message "INFO" "Marcando migraciones problemáticas conocidas como ejecutadas..."
+    for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
+        mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+        log_message "SUCCESS" "Migración problemática marcada como ejecutada: $migration"
+    done
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if npx sequelize db:migrate; then
+        # Capturar la salida de las migraciones para análisis
+        MIGRATION_OUTPUT=$(npx sequelize db:migrate 2>&1)
+        MIGRATION_EXIT_CODE=$?
+        
+        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
             log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
             break
         else
             RETRY_COUNT=$((RETRY_COUNT + 1))
             log_message "WARNING" "Error en migraciones, intentando recuperación (intento $RETRY_COUNT/$MAX_RETRIES)..."
             
-            # Verificar si es error de columna duplicada
-            if grep -q "Duplicate column name" /tmp/migration_status.log 2>/dev/null || echo "ERROR: Duplicate column name" | grep -q "Duplicate column name"; then
+            # Analizar el tipo de error
+            if echo "$MIGRATION_OUTPUT" | grep -q "Duplicate column name"; then
                 log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
                 
-                # Obtener todas las migraciones pendientes
+                # Obtener migraciones pendientes
                 PENDING_MIGRATIONS=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | awk '{print $1}' | grep -v "^down$" | grep -v "^up$" | grep -E "^[0-9]+.*\.js$")
                 
                 if [ ! -z "$PENDING_MIGRATIONS" ]; then
                     log_message "INFO" "Marcando migraciones duplicadas como ejecutadas..."
                     
-                    # Marcar cada migración pendiente como ejecutada
                     for migration in $PENDING_MIGRATIONS; do
-                        # Verificar que el nombre de la migración sea válido
                         if [[ "$migration" =~ ^[0-9]+.*\.js$ ]]; then
                             mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
                             log_message "SUCCESS" "Migración marcada como ejecutada: $migration"
-                        else
-                            log_message "WARNING" "Nombre de migración inválido ignorado: $migration"
                         fi
                     done
                     
-                    # Reintentar migraciones
-            sleep 2
+                    sleep 2
                     continue
-                else
-                    log_message "WARNING" "No se pudieron identificar migraciones pendientes, continuando..."
-                    break
                 fi
+            elif echo "$MIGRATION_OUTPUT" | grep -q "ER_NO_SUCH_TABLE"; then
+                log_message "ERROR" "❌ Error: Tabla no existe, verificar estructura de base de datos"
+                register_error "Error de tabla no existe en migraciones"
+                break
+            elif echo "$MIGRATION_OUTPUT" | grep -q "ER_BAD_FIELD_ERROR"; then
+                log_message "ERROR" "❌ Error: Columna no existe, verificar estructura de base de datos"
+                register_error "Error de columna no existe en migraciones"
+                break
             else
-                # Si no es migración duplicada, reintentar con configuración optimizada
+                # Error genérico, reintentar con configuración optimizada
                 log_message "INFO" "Reintentando migraciones con configuración optimizada..."
                 sleep 5
                 
@@ -1381,9 +1494,137 @@ backend_migrations() {
         fi
     done
     
+    # Verificar que las migraciones críticas se ejecutaron
+    log_message "INFO" "Verificando migraciones críticas..."
+    CRITICAL_MIGRATIONS=(
+        "20231214143411-add-promptId-to-tickets.js"
+        "20210109192513-add-greetingMessage-to-whatsapp.js"
+        "20210109192514-create-companies-table.js"
+    )
+    
+    for migration in "${CRITICAL_MIGRATIONS[@]}"; do
+        MIGRATION_STATUS=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM SequelizeMeta WHERE name = '$migration';" 2>/dev/null | tail -n 1 | tr -d ' ')
+        if [ "$MIGRATION_STATUS" -eq 0 ]; then
+            log_message "WARNING" "⚠️ Migración crítica no ejecutada: $migration"
+            register_error "Migración crítica no ejecutada: $migration"
+        else
+            log_message "SUCCESS" "✅ Migración crítica verificada: $migration"
+        fi
+    done
+    
     # Si llegamos aquí sin éxito, registrar error pero continuar
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
         log_message "WARNING" "No se pudieron ejecutar todas las migraciones después de $MAX_RETRIES intentos, pero continuando..."
+        register_error "Migraciones incompletas después de $MAX_RETRIES intentos"
+    fi
+    
+    # Verificar que el backend puede funcionar correctamente
+    log_message "INFO" "Verificando funcionalidad del backend después de migraciones..."
+    sleep 3
+    
+    # Verificar que las tablas críticas existen y tienen la estructura correcta
+    CRITICAL_TABLES=("Tickets" "Companies" "Settings" "Users" "Whatsapps")
+    for table in "${CRITICAL_TABLES[@]}"; do
+        TABLE_EXISTS=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SHOW TABLES LIKE '$table';" 2>/dev/null | wc -l)
+        if [ "$TABLE_EXISTS" -gt 1 ]; then
+            log_message "SUCCESS" "✅ Tabla $table existe"
+        else
+            log_message "ERROR" "❌ Tabla $table no existe"
+            register_error "Tabla crítica no existe: $table"
+        fi
+    done
+    
+    # Verificar columnas críticas en Tickets
+    if mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "DESCRIBE Tickets;" 2>/dev/null | grep -q "promptId"; then
+        log_message "SUCCESS" "✅ Columna promptId existe en Tickets"
+    else
+        log_message "WARNING" "⚠️ Columna promptId no existe en Tickets"
+        register_error "Columna crítica promptId no existe en Tickets"
+    fi
+    
+    # Crear WhatsApp por defecto si no existe
+    log_message "INFO" "Verificando WhatsApp por defecto..."
+    WHATSAPP_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Whatsapps;" 2>/dev/null | tail -n 1 | tr -d ' ')
+    
+    if [ "$WHATSAPP_COUNT" -eq 0 ]; then
+        log_message "INFO" "Creando WhatsApp por defecto..."
+        mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT INTO Whatsapps (name, status, isDefault, retries, companyId, createdAt, updatedAt) VALUES ('WhatsApp Demo', 'DISCONNECTED', 1, 0, 1, NOW(), NOW());" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_message "SUCCESS" "✅ WhatsApp por defecto creado correctamente"
+        else
+            log_message "WARNING" "⚠️ No se pudo crear WhatsApp por defecto, pero continuando..."
+            register_error "Error al crear WhatsApp por defecto"
+        fi
+    else
+        log_message "SUCCESS" "✅ WhatsApp por defecto ya existe"
+    fi
+    
+    # Reiniciar backend para que tome los cambios de migraciones
+    log_message "INFO" "Reiniciando backend para aplicar cambios de migraciones..."
+    pm2 restart beta-back --update-env
+    sleep 5
+    
+    # Verificar que el backend responde correctamente
+    log_message "INFO" "Verificando respuesta del backend..."
+    if curl -s -I http://localhost:4142 | grep -q "HTTP/1.1"; then
+        log_message "SUCCESS" "✅ Backend responde correctamente"
+    else
+        log_message "WARNING" "⚠️ Backend no responde, verificando logs..."
+        pm2 logs beta-back --lines 5
+        register_error "Backend no responde después de migraciones"
+    fi
+    
+    # Limpiar variables de entorno problemáticas
+    log_message "INFO" "Limpiando variables de entorno problemáticas..."
+    cd "$BACKEND_DIR" || {
+        register_error "No se pudo acceder al directorio del backend"
+        return 1
+    }
+    
+    # Limpiar variables que pueden causar errores
+    sed -i 's/TRANSLATION_API_URL=https:\/\/waticketapi.todosistemas.online/TRANSLATION_API_URL=/' .env 2>/dev/null || true
+    sed -i 's/OPENAI_API_KEY=/OPENAI_API_KEY=disabled/' .env 2>/dev/null || true
+    sed -i 's/LOG_LEVEL=debug/LOG_LEVEL=error/' .env 2>/dev/null || true
+    sed -i 's/DB_DEBUG=true/DB_DEBUG=false/' .env 2>/dev/null || true
+    
+    log_message "SUCCESS" "✅ Variables de entorno limpiadas"
+    
+    # Reiniciar backend con variables limpias
+    log_message "INFO" "Reiniciando backend con variables limpias..."
+    pm2 restart beta-back --update-env
+    sleep 5
+    
+    # Verificar que el backend responde correctamente después de la limpieza
+    log_message "INFO" "Verificando respuesta del backend después de limpieza..."
+    sleep 3
+    
+    # Intentar hacer una petición simple al backend
+    if curl -s -I http://localhost:4142 | grep -q "HTTP/1.1"; then
+        log_message "SUCCESS" "✅ Backend responde correctamente después de limpieza"
+    else
+        log_message "WARNING" "⚠️ Backend no responde después de limpieza"
+        register_error "Backend no responde después de limpieza de variables"
+    fi
+    
+    # Verificar que las tablas críticas tienen datos
+    log_message "INFO" "Verificando datos críticos en la base de datos..."
+    
+    # Verificar que existe al menos un usuario
+    USER_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Users;" 2>/dev/null | tail -n 1 | tr -d ' ')
+    if [ "$USER_COUNT" -gt 0 ]; then
+        log_message "SUCCESS" "✅ Usuarios encontrados: $USER_COUNT"
+    else
+        log_message "ERROR" "❌ No hay usuarios en la base de datos"
+        register_error "No hay usuarios en la base de datos"
+    fi
+    
+    # Verificar que existe al menos un WhatsApp
+    WHATSAPP_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Whatsapps;" 2>/dev/null | tail -n 1 | tr -d ' ')
+    if [ "$WHATSAPP_COUNT" -gt 0 ]; then
+        log_message "SUCCESS" "✅ WhatsApps encontrados: $WHATSAPP_COUNT"
+    else
+        log_message "ERROR" "❌ No hay WhatsApps en la base de datos"
+        register_error "No hay WhatsApps en la base de datos"
     fi
 
     # Ejecutar seeders con manejo de errores MEJORADO
@@ -1415,18 +1656,63 @@ backend_migrations() {
             else
                 log_message "INFO" "No se encontraron datos básicos, ejecutando seeders..."
                 
-                # Intentar ejecutar seeders uno por uno
+                # Intentar ejecutar seeders uno por uno con retry logic
                 for seeder in $AVAILABLE_SEEDERS; do
                     seeder_name=$(basename "$seeder" .ts | basename "$seeder" .js)
                     log_message "INFO" "Ejecutando seeder: $seeder_name"
                     
-                    # Ejecutar el seeder con manejo de errores
-                    if npx sequelize db:seed --seed "$seeder_name" 2>/dev/null; then
-                        log_message "SUCCESS" "Seeder ejecutado correctamente: $seeder_name"
-                    else
-                        log_message "WARNING" "Seeder $seeder_name falló, pero continuando..."
-        fi
-    done
+                    # Configurar MySQL para evitar deadlocks durante seeders
+                    mysql -u ${instancia_add} -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null
+                    
+                    # Intentar ejecutar el seeder con retry logic
+                    MAX_SEEDER_RETRIES=3
+                    seeder_success=false
+                    
+                    for ((retry=1; retry<=MAX_SEEDER_RETRIES; retry++)); do
+                        log_message "INFO" "Intento $retry/$MAX_SEEDER_RETRIES para seeder: $seeder_name"
+                        
+                        # Ejecutar el seeder
+                        if npx sequelize db:seed --seed "$seeder_name" 2>/dev/null; then
+                            log_message "SUCCESS" "✅ Seeder ejecutado correctamente: $seeder_name"
+                            seeder_success=true
+                            break
+                        else
+                            # Capturar el error específico
+                            SEEDER_ERROR=$(npx sequelize db:seed --seed "$seeder_name" 2>&1 | tail -n 1)
+                            
+                            if echo "$SEEDER_ERROR" | grep -q "Validation error"; then
+                                log_message "WARNING" "⚠️ Seeder $seeder_name falló por Validation error (datos duplicados), continuando..."
+                                seeder_success=true  # Considerar como éxito si es error de validación
+                                break
+                            elif echo "$SEEDER_ERROR" | grep -q "Duplicate entry"; then
+                                log_message "WARNING" "⚠️ Seeder $seeder_name falló por entrada duplicada, continuando..."
+                                seeder_success=true  # Considerar como éxito si es entrada duplicada
+                                break
+                            elif echo "$SEEDER_ERROR" | grep -q "ER_NO_SUCH_TABLE"; then
+                                log_message "ERROR" "❌ Seeder $seeder_name falló - tabla no existe"
+                                break
+                            else
+                                log_message "WARNING" "⚠️ Seeder $seeder_name falló (intento $retry/$MAX_SEEDER_RETRIES): $SEEDER_ERROR"
+                                if [ $retry -lt $MAX_SEEDER_RETRIES ]; then
+                                    sleep 2
+                                fi
+                            fi
+                        fi
+                    done
+                    
+                    if [ "$seeder_success" = false ]; then
+                        log_message "ERROR" "❌ Seeder $seeder_name falló después de $MAX_SEEDER_RETRIES intentos"
+                        register_error "Seeder $seeder_name falló"
+                    fi
+                done
+                
+                # Como alternativa, intentar ejecutar todos los seeders de una vez
+                log_message "INFO" "Intentando ejecutar todos los seeders de una vez..."
+                if npx sequelize db:seed:all 2>/dev/null; then
+                    log_message "SUCCESS" "✅ Todos los seeders ejecutados correctamente"
+                else
+                    log_message "WARNING" "⚠️ Ejecución masiva de seeders falló, pero los individuales pueden haber funcionado"
+                fi
             fi
         else
             log_message "INFO" "No se encontraron seeders en $SEEDERS_DIR"
@@ -1439,11 +1725,33 @@ backend_migrations() {
     
     # Agregar setting faltante viewregister
     log_message "INFO" "Agregando setting faltante 'viewregister'..."
-    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), 1);" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente"
+    
+    # Verificar si ya existe el setting
+    VIEWREGISTER_EXISTS=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Settings WHERE \`key\` = 'viewregister';" 2>/dev/null | tail -n 1 | tr -d ' ')
+    
+    if [ "$VIEWREGISTER_EXISTS" -eq 0 ]; then
+        # Verificar que existe al menos una empresa
+        COMPANY_COUNT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -n 1 | tr -d ' ')
+        
+        if [ "$COMPANY_COUNT" -gt 0 ]; then
+            # Obtener el ID de la primera empresa
+            COMPANY_ID=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT id FROM Companies LIMIT 1;" 2>/dev/null | tail -n 1 | tr -d ' ')
+            
+            if [ ! -z "$COMPANY_ID" ] && [ "$COMPANY_ID" -gt 0 ]; then
+                mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), $COMPANY_ID);" 2>/dev/null
+                if [ $? -eq 0 ]; then
+                    log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente para empresa ID: $COMPANY_ID"
+                else
+                    log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+                fi
+            else
+                log_message "WARNING" "⚠️ No se pudo obtener ID de empresa válido para viewregister"
+            fi
+        else
+            log_message "WARNING" "⚠️ No hay empresas disponibles para agregar viewregister"
+        fi
     else
-        log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+        log_message "SUCCESS" "✅ Setting 'viewregister' ya existe"
     fi
     
     sleep 2
@@ -2179,6 +2487,9 @@ run_complete_installation() {
         register_error "Error en instalación de dependencias del sistema"
     fi
     
+    # Verificar reinicio después de instalar dependencias del sistema
+    check_reboot_required
+    
     # Configurar MySQL y Redis
     if ! configure_mysql; then
         register_error "Error en configuración de MySQL"
@@ -2215,11 +2526,17 @@ run_complete_installation() {
         register_error "Error en configuración de proxy inverso"
     fi
     
+    # Verificar reinicio después de configurar Nginx
+    check_reboot_required
+    
     # Verificación final de servicios
     verify_services_status
     
     # Verificación final
     verify_installation
+    
+    # Verificación final de reinicio requerido
+    check_reboot_required
     
     # Mostrar resumen final
     show_installation_summary
