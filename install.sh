@@ -9,6 +9,12 @@
 # Versión: 1.1.0 | 2025-07-15
 # =============================================================================
 
+# Configurar variable TERM para evitar warnings
+export TERM=xterm-256color
+
+# Configurar permisos de npm para evitar problemas (versión mejorada)
+export npm_config_unsafe_perm=true
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -94,6 +100,26 @@ show_installation_summary() {
         done
         echo -e "\n${YELLOW}Por favor, resuelve estos errores manualmente antes de continuar.${NC}"
     fi
+}
+
+# Función para configurar npm de manera segura
+configure_npm_safely() {
+    log_message "INFO" "Configurando npm para instalación segura..."
+    
+    # Configurar npm para evitar problemas de permisos
+    npm config set unsafe-perm true
+    
+    # Configurar el directorio global de npm para el usuario actual
+    mkdir -p ~/.npm-global
+    npm config set prefix '~/.npm-global'
+    
+    # Agregar al PATH si no está
+    if ! grep -q "~/.npm-global/bin" ~/.bashrc; then
+        echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+        export PATH=~/.npm-global/bin:$PATH
+    fi
+    
+    log_message "SUCCESS" "✅ Npm configurado de manera segura"
 }
 
 # Función para mostrar banner
@@ -1801,8 +1827,11 @@ system_pm2_install() {
         fi
     fi
 
+    # Configurar npm de manera segura
+    configure_npm_safely
+    
     # Instalar PM2 globalmente
-    if ! sudo npm install -g pm2; then
+    if ! npm install -g pm2; then
         register_error "No se pudo instalar PM2"
         return 1
     fi
@@ -2189,12 +2218,12 @@ backend_node_dependencies() {
     fi
 
     # Limpiar cache de npm
-    if ! sudo npm cache clean -f; then
+    if ! npm cache clean -f; then
         log_message "WARNING" "No se pudo limpiar el cache de npm"
     fi
 
     # Instalar dependencias usando --legacy-peer-deps
-    if ! sudo npm install --legacy-peer-deps --loglevel=error; then
+    if ! npm install --legacy-peer-deps --loglevel=error; then
         register_error "No se pudieron instalar las dependencias del backend"
         return 1
     fi
@@ -2246,7 +2275,7 @@ backend_node_build() {
     fi
 
     # Compilar el backend
-    if ! sudo npm run build; then
+    if ! npm run build; then
         register_error "No se pudo compilar el backend"
         return 1
     fi
@@ -2869,12 +2898,12 @@ frontend_node_dependencies() {
     fi
 
     # Limpiar cache de npm
-    if ! sudo npm cache clean -f; then
+    if ! npm cache clean -f; then
         log_message "WARNING" "No se pudo limpiar el cache de npm"
     fi
 
     # Instalar dependencias usando --legacy-peer-deps
-    if ! sudo npm install --legacy-peer-deps --loglevel=error; then
+    if ! npm install --legacy-peer-deps --loglevel=error; then
         register_error "No se pudieron instalar las dependencias del frontend"
         return 1
     fi
@@ -2942,10 +2971,10 @@ frontend_node_build() {
     fi
 
     echo "🧹 Limpiando build anterior..."
-    sudo rm -rf build
+    rm -rf build
 
     echo "🏗️  Construyendo nueva versión del frontend..."
-    if ! sudo npm run build; then
+    if ! npm run build; then
         register_error "No se pudo compilar el frontend"
         return 1
     fi
