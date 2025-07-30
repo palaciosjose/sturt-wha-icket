@@ -823,7 +823,7 @@ verify_mysql_permissions() {
         # Verificar que el servicio MySQL esté ejecutándose
         if ! sudo systemctl is-active --quiet mysql; then
             log_message "ERROR" "❌ Servicio MySQL no está ejecutándose"
-        return 1
+                return 1
     fi
 
         # Intentar configurar acceso sin contraseña para root
@@ -900,13 +900,13 @@ install_system_dependencies() {
 # Función para instalar Node.js (ya está instalado en install_system_dependencies)
 install_nodejs() {
     log_message "INFO" "Node.js ya instalado en dependencias del sistema"
-    return 0
+        return 0
 }
 
 # Función para instalar PM2 (ya está instalado en install_system_dependencies)
 install_pm2() {
     log_message "INFO" "PM2 ya instalado en dependencias del sistema"
-    return 0
+            return 0
 }
 
 # Función para instalar Nginx (ya está instalado en install_system_dependencies)
@@ -1653,7 +1653,39 @@ EOF
         register_error "Error al instalar dependencias del frontend"
         return 1
     fi
-    
+
+    # Corregir permisos de ejecución en binarios npm
+    log_message "INFO" "Corrigiendo permisos de ejecución..."
+    chmod +x node_modules/.bin/* 2>/dev/null || true
+
+    # Crear archivo isExpired.js si no existe
+    log_message "INFO" "Verificando archivos faltantes..."
+    if [ ! -f "src/utils/isExpired.js" ]; then
+        cat > src/utils/isExpired.js << 'EOF'
+// Función para verificar si un token JWT ha expirado
+export const isExpired = (token) => {
+  if (!token) return true;
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Date.now() / 1000;
+    return payload.exp < currentTime;
+  } catch (error) {
+    return true;
+  }
+};
+EOF
+        log_message "SUCCESS" "✅ Archivo isExpired.js creado"
+    fi
+
+    # Corregir import de socket.io-client
+    log_message "INFO" "Corrigiendo imports de socket.io-client..."
+    if grep -q "openSocket" src/context/Socket/SocketContext.js; then
+        sed -i 's/import { openSocket } from "socket.io-client";/import { io } from "socket.io-client";/g' src/context/Socket/SocketContext.js
+        sed -i 's/openSocket/io/g' src/context/Socket/SocketContext.js
+        log_message "SUCCESS" "✅ Imports de socket.io-client corregidos"
+    fi
+
     # Compilar frontend para producción
     log_message "INFO" "Compilando frontend para producción..."
     if npm run build; then
