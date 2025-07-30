@@ -1424,6 +1424,59 @@ EOF
     echo -e "${CYAN}Backend API:${NC} https://$backend_url → localhost:$backend_port"
     echo -e "${CYAN}Frontend App:${NC} https://$frontend_url → localhost:$frontend_port"
     echo -e "${GRAY_LIGHT}Los cambios pueden tardar unos minutos en propagarse.${NC}"
+    
+    # Corrección automática de Nginx si falla la configuración SSL
+    if ! nginx -t >/dev/null 2>&1; then
+        log_message "WARNING" "⚠️ Configuración SSL falló, creando configuración simple sin SSL..."
+        
+        # Crear configuración simple sin SSL
+        sudo tee /etc/nginx/sites-available/watoolx > /dev/null << EOF
+server {
+    listen 80;
+    server_name $backend_domain;
+    location / {
+        proxy_pass http://127.0.0.1:4142;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name $frontend_domain;
+    location / {
+        proxy_pass http://127.0.0.1:3435;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+EOF
+
+        # Habilitar configuración simple
+        sudo ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/
+        
+        if nginx -t; then
+            log_message "SUCCESS" "✅ Configuración simple de Nginx válida"
+        else
+            log_message "ERROR" "❌ No se pudo crear configuración válida de Nginx"
+            return 1
+        fi
+        
+        # Iniciar Nginx si no está corriendo
+        if ! systemctl is-active --quiet nginx; then
+            log_message "INFO" "Iniciando Nginx..."
+            systemctl start nginx
+            sleep 3
+        fi
+        
+        # Verificar que Nginx esté corriendo
+        if systemctl is-active --quiet nginx; then
+            log_message "SUCCESS" "✅ Nginx iniciado correctamente"
+        else
+            log_message "ERROR" "❌ No se pudo iniciar Nginx"
+            return 1
+        fi
+    fi
 }
 
 # Función para obtener certificados SSL mejorada
@@ -2833,6 +2886,15 @@ frontend_node_dependencies() {
     fi
 
     log_message "SUCCESS" "✅ Dependencias del frontend instaladas"
+    
+    # Corregir imports de socket.io-client
+    log_message "INFO" "Corrigiendo imports de socket.io-client..."
+    if [ -f "src/context/Socket/SocketContext.js" ]; then
+        sed -i 's/import { openSocket } from "socket.io-client";/import { io } from "socket.io-client";/g' src/context/Socket/SocketContext.js
+        sed -i 's/openSocket/io/g' src/context/Socket/SocketContext.js
+        log_message "SUCCESS" "✅ Imports de socket.io-client corregidos"
+    fi
+    
     sleep 2
     return 0
 }
