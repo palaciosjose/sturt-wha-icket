@@ -129,9 +129,61 @@ fix_npm_binaries_permissions() {
     
     if [ -d "$dir/node_modules/.bin" ]; then
         cd "$dir"
+        
+        # Corregir permisos de todos los binarios
         find node_modules/.bin -type f -exec chmod +x {} \;
-        log_message "SUCCESS" "✅ Permisos de binarios corregidos en $dir"
+        
+        # Verificar permisos específicos de cross-env
+        if [ -f "node_modules/.bin/cross-env" ]; then
+            chmod +x node_modules/.bin/cross-env
+            log_message "SUCCESS" "✅ Permisos de cross-env corregidos específicamente"
+        fi
+        
+        # Verificar que los permisos se aplicaron correctamente
+        local executable_count=$(find node_modules/.bin -type f -executable | wc -l)
+        local total_count=$(find node_modules/.bin -type f | wc -l)
+        
+        log_message "SUCCESS" "✅ Permisos corregidos: $executable_count/$total_count binarios ejecutables en $dir"
+    else
+        log_message "WARNING" "No se encontró directorio node_modules/.bin en $dir"
     fi
+}
+
+# Función para diagnosticar problemas de permisos
+diagnose_permission_issues() {
+    local dir="$1"
+    log_message "INFO" "Diagnosticando problemas de permisos en $dir..."
+    
+    cd "$dir"
+    
+    # Verificar si node_modules existe
+    if [ ! -d "node_modules" ]; then
+        log_message "ERROR" "node_modules no existe en $dir"
+        return 1
+    fi
+    
+    # Verificar si .bin existe
+    if [ ! -d "node_modules/.bin" ]; then
+        log_message "ERROR" "node_modules/.bin no existe en $dir"
+        return 1
+    fi
+    
+    # Verificar cross-env específicamente
+    if [ -f "node_modules/.bin/cross-env" ]; then
+        local perms=$(ls -la node_modules/.bin/cross-env | awk '{print $1}')
+        log_message "INFO" "Permisos de cross-env: $perms"
+        
+        if [ ! -x "node_modules/.bin/cross-env" ]; then
+            log_message "ERROR" "cross-env no es ejecutable"
+            return 1
+        fi
+    else
+        log_message "ERROR" "cross-env no existe en node_modules/.bin"
+        return 1
+    fi
+    
+    log_message "SUCCESS" "✅ Diagnóstico de permisos completado"
+    return 0
 }
 
 # Función para mostrar banner
@@ -2991,17 +3043,28 @@ frontend_node_build() {
     echo "🧹 Limpiando build anterior..."
     rm -rf build
 
-    # Verificar que cross-env esté disponible y tenga permisos
-    log_message "INFO" "Verificando cross-env antes de compilar..."
-    if [ ! -f "node_modules/.bin/cross-env" ]; then
-        log_message "WARNING" "cross-env no encontrado, instalando..."
+    # SOLUCIÓN GARANTIZADA: Evitar usar cross-env directamente
+    log_message "INFO" "Configurando compilación sin dependencia de cross-env..."
+    
+    # Verificar si cross-env existe y funciona
+    if [ -f "node_modules/.bin/cross-env" ] && [ -x "node_modules/.bin/cross-env" ]; then
+        log_message "SUCCESS" "✅ cross-env disponible y ejecutable"
+    else
+        log_message "WARNING" "cross-env no disponible, instalando..."
         npm install cross-env --save-dev
+        chmod +x node_modules/.bin/cross-env 2>/dev/null || true
     fi
-    chmod +x node_modules/.bin/cross-env
-    log_message "SUCCESS" "✅ Permisos de cross-env verificados"
+    
+    # Configurar variables de entorno directamente para evitar el problema
+    export NODE_OPTIONS="--max-old-space-size=8192 --openssl-legacy-provider"
+    export GENERATE_SOURCEMAP=false
+    
+    log_message "SUCCESS" "✅ Variables de entorno configuradas directamente"
 
     echo "🏗️  Construyendo nueva versión del frontend..."
-    if ! npm run build; then
+    
+    # Método garantizado: usar react-app-rewired directamente sin cross-env
+    if ! npx react-app-rewired build; then
         register_error "No se pudo compilar el frontend"
         return 1
     fi
