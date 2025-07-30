@@ -1468,6 +1468,7 @@ configure_nginx() {
     log_message "INFO" "Limpiando configuraciones anteriores de Nginx..."
     rm -f /etc/nginx/sites-enabled/watoolx*
     rm -f /etc/nginx/sites-available/watoolx*
+    rm -f /etc/nginx/sites-enabled/default
 
     # Crear configuración de Nginx
     log_message "INFO" "Creando configuración de Nginx..."
@@ -1598,6 +1599,16 @@ EOF
         log_message "ERROR" "❌ Error al recargar Nginx"
         register_error "Error al recargar Nginx"
         return 1
+    fi
+
+    # Verificar que el sitio esté habilitado correctamente
+    log_message "INFO" "Verificando configuración de Nginx..."
+    if [ ! -L "/etc/nginx/sites-enabled/watoolx" ]; then
+        log_message "WARNING" "⚠️ Sitio de Nginx no está habilitado, habilitando..."
+        ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/watoolx
+        rm -f /etc/nginx/sites-enabled/default
+        systemctl reload nginx
+        log_message "SUCCESS" "✅ Sitio de Nginx habilitado correctamente"
     fi
 
     sleep 2
@@ -2121,9 +2132,19 @@ run_complete_installation() {
         echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
         echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
         echo -e "${CYAN}API disponible en:${NC} $backend_url"
+        echo -e "\n${WHITE}Presiona 'm' para regresar al menú principal:${NC} "
+        read -r return_to_menu
+        if [[ "$return_to_menu" =~ ^[Mm]$ ]]; then
+            main
+        fi
     else
         echo -e "\n${RED}❌ Instalación completada con errores.${NC}"
         echo -e "${YELLOW}Revisa los errores arriba y corrige manualmente.${NC}"
+        echo -e "\n${WHITE}Presiona 'm' para regresar al menú principal:${NC} "
+        read -r return_to_menu
+        if [[ "$return_to_menu" =~ ^[Mm]$ ]]; then
+            main
+        fi
     fi
 }
 
@@ -2150,19 +2171,14 @@ main() {
             # Ejecutar instalación principal
             if run_complete_installation; then
                 show_installation_summary
-                echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
-                echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
-                echo -e "${CYAN}API disponible en:${NC} $backend_url"
-                
-                # Preguntar si desea ejecutar diagnóstico
-                echo -e "\n${WHITE}¿Deseas ejecutar un diagnóstico del sistema? (y/n):${NC} "
-                read -r run_diagnosis
-                if [[ "$run_diagnosis" =~ ^[Yy]$ ]]; then
-                    diagnose_system
-                fi
+                # El mensaje de éxito/error se maneja dentro de run_complete_installation
             else
                 echo -e "\n${RED}❌ La instalación falló. Revisa los logs en: $LOG_FILE${NC}"
-                exit 1
+                echo -e "\n${WHITE}Presiona 'm' para regresar al menú principal:${NC} "
+                read -r return_to_menu
+                if [[ "$return_to_menu" =~ ^[Mm]$ ]]; then
+                    main
+                fi
             fi
             ;;
         2)
