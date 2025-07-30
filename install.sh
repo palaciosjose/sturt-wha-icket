@@ -1949,13 +1949,26 @@ EOF
         return 1
     fi
 
-    # Recargar Nginx
-    if systemctl reload nginx; then
-        log_message "SUCCESS" "✅ Nginx configurado correctamente con optimizaciones WebSocket"
+    # Iniciar o recargar Nginx
+    if systemctl is-active --quiet nginx; then
+        # Nginx está ejecutándose, recargar
+        if systemctl reload nginx; then
+            log_message "SUCCESS" "✅ Nginx recargado correctamente"
+        else
+            log_message "ERROR" "❌ Error al recargar Nginx"
+            register_error "Error al recargar Nginx"
+            return 1
+        fi
     else
-        log_message "ERROR" "❌ Error al recargar Nginx"
-        register_error "Error al recargar Nginx"
-        return 1
+        # Nginx no está ejecutándose, iniciarlo
+        log_message "INFO" "Iniciando Nginx..."
+        if systemctl start nginx; then
+            log_message "SUCCESS" "✅ Nginx iniciado correctamente"
+        else
+            log_message "ERROR" "❌ Error al iniciar Nginx"
+            register_error "Error al iniciar Nginx"
+            return 1
+        fi
     fi
 
     # Verificar que el sitio esté habilitado correctamente
@@ -1964,8 +1977,14 @@ EOF
         log_message "WARNING" "⚠️ Sitio de Nginx no está habilitado, habilitando..."
         ln -sf /etc/nginx/sites-available/watoolx /etc/nginx/sites-enabled/watoolx
         rm -f /etc/nginx/sites-enabled/default
-        systemctl reload nginx
-        log_message "SUCCESS" "✅ Sitio de Nginx habilitado correctamente"
+        
+        # Recargar Nginx solo si está ejecutándose
+        if systemctl is-active --quiet nginx; then
+            systemctl reload nginx
+            log_message "SUCCESS" "✅ Sitio de Nginx habilitado correctamente"
+        else
+            log_message "SUCCESS" "✅ Sitio de Nginx habilitado (Nginx se iniciará más tarde)"
+        fi
     fi
     
     # Verificar que los archivos estáticos sean accesibles
@@ -2008,9 +2027,16 @@ configure_ssl() {
 
     # Verificar que Nginx esté configurado y funcionando
     if ! systemctl is-active --quiet nginx; then
-        log_message "ERROR" "❌ Nginx no está ejecutándose"
-        register_error "Nginx no está ejecutándose"
-        return 1
+        log_message "WARNING" "⚠️ Nginx no está ejecutándose, intentando iniciarlo..."
+        systemctl start nginx
+        sleep 3
+        if ! systemctl is-active --quiet nginx; then
+            log_message "ERROR" "❌ No se pudo iniciar Nginx"
+            register_error "No se pudo iniciar Nginx"
+            return 1
+        else
+            log_message "SUCCESS" "✅ Nginx iniciado correctamente"
+        fi
     fi
 
     # Verificar que el sitio esté habilitado
