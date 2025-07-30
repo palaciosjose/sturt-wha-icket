@@ -1400,14 +1400,14 @@ backend_migrations() {
 
     # Lista de migraciones problemáticas conocidas
     PROBLEMATIC_MIGRATIONS=(
-        "20250121000001-add-mediaSize-to-messages.js"
-        "20250118000001-add-mediaSize-to-messages.js"
-        "20250122_add_avatar_instance_to_whatsapp.js"
-        "20250122_add_reminder_fields_to_schedules.js"
-        "20250122_add_status_field_to_schedules.js"
-        "20250122_add_whatsappId_to_schedules.js"
-        "20250127000000-create-hub-notificame-table.js"
-        "20250128_add_waName_to_whatsapp.js"
+        "20250121000001-add-mediaSize-to-messages"
+        "20250118000001-add-mediaSize-to-messages"
+        "20250122_add_avatar_instance_to_whatsapp"
+        "20250122_add_reminder_fields_to_schedules"
+        "20250122_add_status_field_to_schedules"
+        "20250122_add_whatsappId_to_schedules"
+        "20250127000000-create-hub-notificame-table"
+        "20250128_add_waName_to_whatsapp"
     )
 
     # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
@@ -1415,6 +1415,17 @@ backend_migrations() {
     for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
         mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
         log_message "SUCCESS" "Migración problemática marcada como ejecutada: $migration"
+    done
+    
+    # Verificar que las migraciones problemáticas se marcaron correctamente
+    log_message "INFO" "Verificando que las migraciones problemáticas se marcaron correctamente..."
+    for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
+        CHECK_RESULT=$(mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "SELECT COUNT(*) FROM SequelizeMeta WHERE name = '$migration';" 2>/dev/null | tail -1)
+        if [ "$CHECK_RESULT" = "1" ]; then
+            log_message "SUCCESS" "✅ Migración problemática confirmada como ejecutada: $migration"
+        else
+            log_message "WARNING" "⚠️ Migración problemática no se marcó correctamente: $migration"
+        fi
     done
 
     # Ejecutar migraciones con manejo de errores
