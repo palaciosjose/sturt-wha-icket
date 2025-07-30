@@ -3046,13 +3046,11 @@ frontend_node_build() {
     # SOLUCIÓN GARANTIZADA: Evitar usar cross-env directamente
     log_message "INFO" "Configurando compilación sin dependencia de cross-env..."
     
-    # Verificar si cross-env existe y funciona
-    if [ -f "node_modules/.bin/cross-env" ] && [ -x "node_modules/.bin/cross-env" ]; then
-        log_message "SUCCESS" "✅ cross-env disponible y ejecutable"
-    else
-        log_message "WARNING" "cross-env no disponible, instalando..."
-        npm install cross-env --save-dev
-        chmod +x node_modules/.bin/cross-env 2>/dev/null || true
+    # Verificar que react-app-rewired esté disponible
+    if [ ! -f "node_modules/.bin/react-app-rewired" ]; then
+        log_message "WARNING" "react-app-rewired no disponible, instalando..."
+        npm install react-app-rewired --save-dev
+        chmod +x node_modules/.bin/react-app-rewired 2>/dev/null || true
     fi
     
     # Configurar variables de entorno directamente para evitar el problema
