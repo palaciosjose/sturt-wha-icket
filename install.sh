@@ -1403,6 +1403,16 @@ backend_migrations() {
     fi
 
     log_message "SUCCESS" "✅ Migraciones y seeders procesados"
+    
+    # Agregar setting faltante viewregister
+    log_message "INFO" "Agregando setting faltante 'viewregister'..."
+    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), 1);" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente"
+    else
+        log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+    fi
+    
     sleep 2
     return 0
 }
