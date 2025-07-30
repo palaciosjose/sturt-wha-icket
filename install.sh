@@ -531,13 +531,18 @@ verify_and_fix_dns() {
     
     # Permitir corrección manual de la IP si es necesario
     if [[ "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_message "INFO" "IP detectada: $current_ip"
+        log_message "INFO" "DNS actual:"
+        log_message "INFO" "  $backend_domain -> $current_ip"
+        log_message "INFO" "  $frontend_domain -> $current_ip"
+        log_message "INFO" "IP actual del servidor (IPv4): $current_ip"
         echo -e "${YELLOW}¿La IP detectada es correcta? (y/n):${NC} "
         read -r ip_correct
         if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
             echo -e "${INPUT}Ingresa la IP correcta del servidor:${NC} "
             read -r current_ip
             log_message "INFO" "IP corregida manualmente: $current_ip"
+        else
+            log_message "SUCCESS" "✅ IP confirmada: $current_ip"
         fi
     fi
     
@@ -918,7 +923,7 @@ install_nginx() {
 # Función para instalar Certbot (ya está instalado en install_system_dependencies)
 install_certbot() {
     log_message "INFO" "Certbot ya instalado en dependencias del sistema"
-    return 0
+            return 0
 }
 
 # Función para instalar backend
@@ -945,7 +950,7 @@ install_backend() {
         register_error "Error al instalar dependencias del backend"
         return 1
     fi
-
+    
     # Compilar backend
     log_message "INFO" "Compilando backend..."
     if npm run build; then
@@ -955,7 +960,7 @@ install_backend() {
         register_error "Error al compilar backend"
         return 1
     fi
-
+    
     # Configurar PM2 para el backend
     log_message "INFO" "Configurando PM2 para el backend..."
     pm2 start dist/server.js --name "beta-back"
@@ -974,7 +979,7 @@ install_backend() {
         log_message "WARNING" "⚠️ Error en migraciones, intentando con configuración MySQL..."
         # Configurar MySQL para evitar deadlocks
         mysql -u ${instancia_add} -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null
-        sleep 2
+    sleep 2
         if npx sequelize db:migrate; then
             log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
         else
@@ -1051,7 +1056,7 @@ configure_mysql() {
     # Habilitar MySQL para iniciar con el sistema
     if ! sudo systemctl enable mysql; then
         register_error "No se pudo habilitar MySQL para inicio automático"
-            return 1
+        return 1
     fi
 
     # Configurar MySQL para acceso sin contraseña (para desarrollo)
@@ -1068,7 +1073,7 @@ configure_mysql() {
         register_error "No se pudo crear el usuario MySQL ${instancia_add}"
         return 1
     fi
-
+    
     # Otorgar permisos al usuario
     if ! sudo mysql -u root -e "GRANT ALL PRIVILEGES ON ${instancia_add}.* TO '${instancia_add}'@'localhost'; FLUSH PRIVILEGES;"; then
         register_error "No se pudieron otorgar permisos al usuario MySQL"
@@ -1100,7 +1105,7 @@ configure_redis() {
         register_error "No se pudo iniciar el servicio Redis"
         return 1
     fi
-    
+
     # Habilitar Redis para iniciar con el sistema
     if ! sudo systemctl enable redis-server; then
         register_error "No se pudo habilitar Redis para inicio automático"
@@ -1558,7 +1563,7 @@ server {
     
     # Configuración para archivos estáticos
     location /public/ {
-        alias /var/www/watoolx/backend/public/;
+        alias ${BACKEND_DIR}/public/;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
@@ -1591,7 +1596,7 @@ server {
     
     # Configuración para archivos estáticos
     location /static/ {
-        alias /home/watoolxoficial/frontend/build/static/;
+        alias ${FRONTEND_DIR}/build/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
@@ -1637,6 +1642,31 @@ EOF
         rm -f /etc/nginx/sites-enabled/default
         systemctl reload nginx
         log_message "SUCCESS" "✅ Sitio de Nginx habilitado correctamente"
+    fi
+    
+    # Verificar que los archivos estáticos sean accesibles
+    log_message "INFO" "Verificando acceso a archivos estáticos..."
+    sleep 3
+    
+    # Verificar que el directorio de archivos estáticos existe
+    if [ ! -d "${BACKEND_DIR}/public" ]; then
+        log_message "ERROR" "❌ Directorio de archivos estáticos no encontrado: ${BACKEND_DIR}/public"
+        register_error "Directorio de archivos estáticos no encontrado"
+        return 1
+    fi
+    
+    # Verificar que al menos un archivo de imagen existe
+    if [ ! -f "${BACKEND_DIR}/public/logotipos/login.png" ]; then
+        log_message "WARNING" "⚠️ Archivo login.png no encontrado, verificando otros archivos..."
+        if ls ${BACKEND_DIR}/public/logotipos/*.png >/dev/null 2>&1; then
+            log_message "SUCCESS" "✅ Archivos de logotipos encontrados"
+        else
+            log_message "ERROR" "❌ No se encontraron archivos de logotipos"
+            register_error "Archivos de logotipos no encontrados"
+            return 1
+        fi
+    else
+        log_message "SUCCESS" "✅ Archivo login.png encontrado"
     fi
 
     sleep 2
@@ -1718,6 +1748,24 @@ configure_ssl() {
     else
         log_message "ERROR" "❌ Backend no está respondiendo"
         SSL_SUCCESS=false
+    fi
+    
+    # Verificar que las imágenes sean accesibles después de SSL
+    log_message "INFO" "Verificando acceso a imágenes después de SSL..."
+    sleep 3
+    if curl -s -I https://waticketapi.todosistemas.online/public/logotipos/login.png | grep -q "200 OK"; then
+        log_message "SUCCESS" "✅ Imágenes accesibles correctamente"
+    else
+        log_message "WARNING" "⚠️ Las imágenes no son accesibles, verificando configuración..."
+        # Intentar recargar Nginx
+        systemctl reload nginx
+        sleep 2
+        if curl -s -I https://waticketapi.todosistemas.online/public/logotipos/login.png | grep -q "200 OK"; then
+            log_message "SUCCESS" "✅ Imágenes accesibles después de recargar Nginx"
+        else
+            log_message "ERROR" "❌ Las imágenes no son accesibles"
+            SSL_SUCCESS=false
+        fi
     fi
         
         return 0
@@ -2178,17 +2226,12 @@ run_complete_installation() {
     
     # Solo mostrar éxito si no hay errores
     if [ ${#INSTALLATION_ERRORS[@]} -eq 0 ]; then
-        echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
-        echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
-        echo -e "${CYAN}API disponible en:${NC} $backend_url"
         echo -e "\n${WHITE}Presiona 'm' para regresar al menú principal:${NC} "
         read -r return_to_menu
         if [[ "$return_to_menu" =~ ^[Mm]$ ]]; then
             main
         fi
     else
-        echo -e "\n${RED}❌ Instalación completada con errores.${NC}"
-        echo -e "${YELLOW}Revisa los errores arriba y corrige manualmente.${NC}"
         echo -e "\n${WHITE}Presiona 'm' para regresar al menú principal:${NC} "
         read -r return_to_menu
         if [[ "$return_to_menu" =~ ^[Mm]$ ]]; then
