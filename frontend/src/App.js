@@ -1,0 +1,136 @@
+import React, { useState, useEffect } from "react";
+
+import "react-toastify/dist/ReactToastify.css";
+import { QueryClient, QueryClientProvider } from "react-query";
+
+import { esES } from "@material-ui/core/locale";
+import { createTheme, ThemeProvider } from "@material-ui/core/styles";
+import { useMediaQuery } from "@material-ui/core";
+import ColorModeContext from "./layout/themeContext";
+import { SocketContext, SocketManager } from './context/Socket/SocketContext';
+import logger from "./utils/logger";
+import { getAppFullName } from "./config/version";
+
+import Routes from "./routes";
+// import DragDropTest from "./components/DragDropTest";
+
+const queryClient = new QueryClient();
+
+const App = () => {
+    const [locale, setLocale] = useState();
+
+    const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+    const preferredTheme = window.localStorage.getItem("preferredTheme");
+    const [mode, setMode] = useState(preferredTheme ? preferredTheme : prefersDarkMode ? "dark" : "light");
+
+    // Log de prueba al cargar la aplicación
+    useEffect(() => {
+        logger.debug("🎯 App.js cargado - Aplicación iniciada");
+        logger.whatsapp.debug("🧪 LOG DE PRUEBA - WhatsApp desde App.js");
+        logger.socket.debug("🧪 LOG DE PRUEBA - Socket desde App.js");
+        
+        // Actualizar el título de la página dinámicamente
+        document.title = getAppFullName();
+    }, []);
+
+    const colorMode = React.useMemo(
+        () => ({
+            toggleColorMode: () => {
+                setMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
+            },
+        }),
+        []
+    );
+
+    const theme = createTheme(
+        {
+            scrollbarStyles: {
+                "&::-webkit-scrollbar": {
+                    width: '8px',
+                    height: '8px',
+					borderRadius: "8px",
+                },
+                "&::-webkit-scrollbar-thumb": {
+                    boxShadow: 'inset 0 0 6px rgba(0, 0, 0, 0.3)',
+                    backgroundColor: "#1e3a8a",
+					borderRadius: "8px",
+                },
+            },
+            scrollbarStylesSoft: {
+                "&::-webkit-scrollbar": {
+                    width: "8px",
+					borderRadius: "8px",
+                },
+                "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: mode === "light" ? "#F3F4F6" : "#374151",
+					borderRadius: "8px",
+                },
+            },
+            palette: {
+                type: mode,
+                primary: { main: mode === "light" ? "#1e3a8a" : "#3b82f6" },
+				sair: { main: mode === "light" ? "#1e3a8a" : "#374151" },
+				vcard: { main: mode === "light" ? "#1e3a8a" : "#6b7280" },
+                textPrimary: mode === "light" ? "#1f2937" : "#f9fafb",
+                borderPrimary: mode === "light" ? "#1e3a8a" : "#3b82f6",
+                dark: { main: mode === "light" ? "#374151" : "#f3f4f6" },
+                light: { main: mode === "light" ? "#f9fafb" : "#374151" },
+                tabHeaderBackground: mode === "light" ? "#f3f4f6" : "#374151",
+                optionsBackground: mode === "light" ? "#ffffff" : "#1f2937",
+				options: mode === "light" ? "#ffffff" : "#374151",
+				fontecor: mode === "light" ? "#1e3a8a" : "#3b82f6",
+                fancyBackground: mode === "light" ? "#f9fafb" : "#111827",
+				bordabox: mode === "light" ? "#e5e7eb" : "#374151",
+				newmessagebox: mode === "light" ? "#f3f4f6" : "#374151",
+				inputdigita: mode === "light" ? "#ffffff" : "#374151",
+				contactdrawer: mode === "light" ? "#ffffff" : "#374151",
+				announcements: mode === "light" ? "#f3f4f6" : "#374151",
+				login: mode === "light" ? "#ffffff" : "#111827",
+				announcementspopover: mode === "light" ? "#ffffff" : "#374151",
+				chatlist: mode === "light" ? "#f3f4f6" : "#374151",
+				boxlist: mode === "light" ? "#f3f4f6" : "#374151",
+				boxchatlist: mode === "light" ? "#f3f4f6" : "#1f2937",
+                total: mode === "light" ? "#ffffff" : "#111827",
+                messageIcons: mode === "light" ? "#6b7280" : "#d1d5db",
+                inputBackground: mode === "light" ? "#ffffff" : "#374151",
+                barraSuperior: mode === "light" ? "linear-gradient(to right, #1e3a8a, #3b82f6, #1e3a8a)" : "#1f2937",
+				boxticket: mode === "light" ? "#f3f4f6" : "#374151",
+				campaigntab: mode === "light" ? "#f3f4f6" : "#374151",
+				mediainput: mode === "light" ? "#f3f4f6" : "#111827",
+            },
+            mode,
+        },
+        locale
+    );
+
+    useEffect(() => {
+        const i18nlocale = localStorage.getItem("i18nextLng");
+        const browserLocale =
+            i18nlocale.substring(0, 2) + i18nlocale.substring(3, 5);
+
+        if (browserLocale === "esES") {
+            setLocale(esES);
+        }
+    }, []);
+
+    useEffect(() => {
+        window.localStorage.setItem("preferredTheme", mode);
+    }, [mode]);
+
+
+
+    return (
+        <ColorModeContext.Provider value={{ colorMode }}>
+            <ThemeProvider theme={theme}>
+                <QueryClientProvider client={queryClient}>
+                  <SocketContext.Provider value={SocketManager}>
+                      <Routes />
+                      {/* <DragDropTest /> */}
+                  </SocketContext.Provider>
+                </QueryClientProvider>
+            </ThemeProvider>
+        </ColorModeContext.Provider>
+    );
+};
+
+export default App;
