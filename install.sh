@@ -2021,6 +2021,16 @@ run_complete_installation() {
     
     # Mostrar resumen final
     show_installation_summary
+    
+    # Solo mostrar éxito si no hay errores
+    if [ ${#INSTALLATION_ERRORS[@]} -eq 0 ]; then
+        echo -e "\n${GREEN}🎉 ¡Instalación completada exitosamente!${NC}"
+        echo -e "${CYAN}Accede a tu aplicación en:${NC} $frontend_url"
+        echo -e "${CYAN}API disponible en:${NC} $backend_url"
+    else
+        echo -e "\n${RED}❌ Instalación completada con errores.${NC}"
+        echo -e "${YELLOW}Revisa los errores arriba y corrige manualmente.${NC}"
+    fi
 }
 
 # Función principal
