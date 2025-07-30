@@ -964,6 +964,34 @@ install_backend() {
     pm2 save
 
     log_message "SUCCESS" "✅ Backend instalado y configurado correctamente"
+    
+    # Ejecutar migraciones automáticamente
+    log_message "INFO" "Ejecutando migraciones de base de datos..."
+    sleep 3
+    if npx sequelize db:migrate; then
+        log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
+    else
+        log_message "WARNING" "⚠️ Error en migraciones, intentando con configuración MySQL..."
+        # Configurar MySQL para evitar deadlocks
+        mysql -u ${instancia_add} -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null
+        sleep 2
+        if npx sequelize db:migrate; then
+            log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
+        else
+            log_message "ERROR" "❌ No se pudieron ejecutar las migraciones"
+            register_error "Error en migraciones de base de datos"
+        fi
+    fi
+    
+    # Agregar setting faltante viewregister
+    log_message "INFO" "Agregando setting faltante 'viewregister'..."
+    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO Settings (\`key\`, \`value\`, createdAt, updatedAt, companyId) VALUES ('viewregister', 'enabled', NOW(), NOW(), 1);" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        log_message "SUCCESS" "✅ Setting 'viewregister' agregado correctamente"
+    else
+        log_message "WARNING" "⚠️ No se pudo agregar el setting 'viewregister', pero continuando..."
+    fi
+    
     sleep 2
     return 0
 }
@@ -1665,22 +1693,32 @@ configure_ssl() {
     if [ "$SSL_SUCCESS" = true ]; then
         log_message "SUCCESS" "✅ SSL configurado correctamente"
         
-        # Verificar que Nginx esté escuchando en puerto 443
-        log_message "INFO" "Verificando que Nginx esté escuchando en puerto 443..."
-        sleep 3
+            # Verificar que Nginx esté escuchando en puerto 443
+    log_message "INFO" "Verificando que Nginx esté escuchando en puerto 443..."
+    sleep 3
+    if netstat -tlnp | grep -q ":443.*nginx"; then
+        log_message "SUCCESS" "✅ Nginx escuchando correctamente en puerto 443"
+    else
+        log_message "WARNING" "⚠️ Nginx no está escuchando en puerto 443, recargando..."
+        systemctl reload nginx
+        sleep 2
         if netstat -tlnp | grep -q ":443.*nginx"; then
             log_message "SUCCESS" "✅ Nginx escuchando correctamente en puerto 443"
         else
-            log_message "WARNING" "⚠️ Nginx no está escuchando en puerto 443, recargando..."
-            systemctl reload nginx
-            sleep 2
-            if netstat -tlnp | grep -q ":443.*nginx"; then
-                log_message "SUCCESS" "✅ Nginx escuchando correctamente en puerto 443"
-            else
-                log_message "ERROR" "❌ Nginx no está escuchando en puerto 443"
-                SSL_SUCCESS=false
-            fi
+            log_message "ERROR" "❌ Nginx no está escuchando en puerto 443"
+            SSL_SUCCESS=false
         fi
+    fi
+    
+    # Verificar que el backend esté funcionando después de SSL
+    log_message "INFO" "Verificando que el backend esté funcionando..."
+    sleep 5
+    if curl -s -I http://localhost:4142 > /dev/null 2>&1; then
+        log_message "SUCCESS" "✅ Backend respondiendo correctamente"
+    else
+        log_message "ERROR" "❌ Backend no está respondiendo"
+        SSL_SUCCESS=false
+    fi
         
         return 0
     else
