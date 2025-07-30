@@ -202,7 +202,7 @@ check_reboot_required() {
             fi
         fi
     fi
-    
+
     # Verificar servicios críticos que pueden requerir reinicio
     local services_need_restart=false
     
@@ -1077,8 +1077,8 @@ install_backend() {
                 fi
             else
                 log_message "WARNING" "⚠️ No se pudo obtener ID de empresa válido para viewregister"
-            fi
-        else
+        fi
+    else
             log_message "WARNING" "⚠️ No hay empresas disponibles para agregar viewregister"
         fi
     else
@@ -1144,7 +1144,7 @@ configure_mysql() {
     # Habilitar MySQL para iniciar con el sistema
     if ! sudo systemctl enable mysql; then
         register_error "No se pudo habilitar MySQL para inicio automático"
-        return 1
+            return 1
     fi
 
     # Configurar MySQL para acceso sin contraseña (para desarrollo)
@@ -1161,7 +1161,7 @@ configure_mysql() {
         register_error "No se pudo crear el usuario MySQL ${instancia_add}"
         return 1
     fi
-    
+
     # Otorgar permisos al usuario
     if ! sudo mysql -u root -e "GRANT ALL PRIVILEGES ON ${instancia_add}.* TO '${instancia_add}'@'localhost'; FLUSH PRIVILEGES;"; then
         register_error "No se pudieron otorgar permisos al usuario MySQL"
@@ -1193,7 +1193,7 @@ configure_redis() {
         register_error "No se pudo iniciar el servicio Redis"
         return 1
     fi
-
+    
     # Habilitar Redis para iniciar con el sistema
     if ! sudo systemctl enable redis-server; then
         register_error "No se pudo habilitar Redis para inicio automático"
@@ -1465,7 +1465,7 @@ backend_migrations() {
                     log_message "INFO" "Marcando migración fallida como ejecutada: $FAILED_MIGRATION"
                     mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$FAILED_MIGRATION');" 2>/dev/null || true
                     log_message "SUCCESS" "Migración duplicada marcada como ejecutada: $FAILED_MIGRATION"
-                    sleep 2
+            sleep 2
                     continue
                 else
                     # Obtener migraciones pendientes como fallback
@@ -1481,7 +1481,7 @@ backend_migrations() {
                             fi
                         done
                         
-                        sleep 2
+            sleep 2
                         continue
                     fi
                 fi
@@ -1712,7 +1712,7 @@ backend_migrations() {
                             else
                                 log_message "WARNING" "⚠️ Seeder $seeder_name falló (intento $retry/$MAX_SEEDER_RETRIES): $SEEDER_ERROR"
                                 if [ $retry -lt $MAX_SEEDER_RETRIES ]; then
-                                    sleep 2
+    sleep 2
                                 fi
                             fi
                         fi
@@ -1808,7 +1808,7 @@ configure_pm2() {
         register_error "No se pudo configurar PM2 para inicio automático"
         return 1
     fi
-
+    
     log_message "SUCCESS" "✅ PM2 configurado correctamente"
     sleep 2
     return 0
@@ -1851,7 +1851,7 @@ server {
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
         proxy_connect_timeout 60s;
-
+        
         # Buffer sizes para API
         proxy_buffering on;
         proxy_buffer_size 4k;
@@ -1980,7 +1980,7 @@ EOF
         register_error "Directorio de archivos estáticos no encontrado"
         return 1
     fi
-    
+
     # Verificar que al menos un archivo de imagen existe
     if [ ! -f "${BACKEND_DIR}/public/logotipos/login.png" ]; then
         log_message "WARNING" "⚠️ Archivo login.png no encontrado, verificando otros archivos..."
@@ -1989,8 +1989,8 @@ EOF
         else
             log_message "ERROR" "❌ No se encontraron archivos de logotipos"
             register_error "Archivos de logotipos no encontrados"
-            return 1
-        fi
+        return 1
+    fi
     else
         log_message "SUCCESS" "✅ Archivo login.png encontrado"
     fi
@@ -2223,7 +2223,7 @@ EOF
         register_error "Error al compilar frontend"
         return 1
     fi
-    
+
     # Instalar serve para servir el frontend
     log_message "INFO" "Instalando serve para servir el frontend..."
     npm install -g serve
