@@ -1402,8 +1402,12 @@ backend_migrations() {
     PROBLEMATIC_MIGRATIONS=(
         "20250121000001-add-mediaSize-to-messages.js"
         "20250118000001-add-mediaSize-to-messages.js"
+        "20250122_add_avatar_instance_to_whatsapp.js"
+        "20250122_add_reminder_fields_to_schedules.js"
         "20250122_add_status_field_to_schedules.js"
         "20250122_add_whatsappId_to_schedules.js"
+        "20250127000000-create-hub-notificame-table.js"
+        "20250128_add_waName_to_whatsapp.js"
     )
 
     # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
@@ -1423,24 +1427,7 @@ backend_migrations() {
     RETRY_COUNT=0
     MAX_RETRIES=5
     
-    # Lista de migraciones problemáticas conocidas
-    PROBLEMATIC_MIGRATIONS=(
-        "20250121000001-add-mediaSize-to-messages.js"
-        "20250118000001-add-mediaSize-to-messages.js"
-        "20250122_add_avatar_instance_to_whatsapp.js"
-        "20250122_add_reminder_fields_to_schedules.js"
-        "20250122_add_status_field_to_schedules.js"
-        "20250122_add_whatsappId_to_schedules.js"
-        "20250127000000-create-hub-notificame-table.js"
-        "20250128_add_waName_to_whatsapp.js"
-    )
-    
-    # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
-    log_message "INFO" "Marcando migraciones problemáticas conocidas como ejecutadas..."
-    for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
-        mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
-        log_message "SUCCESS" "Migración problemática marcada como ejecutada: $migration"
-    done
+
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         # Capturar la salida de las migraciones para análisis
@@ -1458,8 +1445,8 @@ backend_migrations() {
             if echo "$MIGRATION_OUTPUT" | grep -q "Duplicate column name"; then
                 log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
                 
-                # Extraer el nombre de la migración que falló
-                FAILED_MIGRATION=$(echo "$MIGRATION_OUTPUT" | grep "Duplicate column name" | head -1 | sed -n 's/.*migrating =======//p' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+                # Extraer el nombre de la migración que falló de manera más robusta
+                FAILED_MIGRATION=$(echo "$MIGRATION_OUTPUT" | grep -A1 "migrating =======" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | sed 's/^== //' | sed 's/: migrating =======$//')
                 
                 if [ ! -z "$FAILED_MIGRATION" ]; then
                     log_message "INFO" "Marcando migración fallida como ejecutada: $FAILED_MIGRATION"
