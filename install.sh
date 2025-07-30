@@ -122,6 +122,18 @@ configure_npm_safely() {
     log_message "SUCCESS" "✅ Npm configurado de manera segura"
 }
 
+# Función para verificar y corregir permisos de binarios npm
+fix_npm_binaries_permissions() {
+    local dir="$1"
+    log_message "INFO" "Verificando permisos de binarios en $dir..."
+    
+    if [ -d "$dir/node_modules/.bin" ]; then
+        cd "$dir"
+        find node_modules/.bin -type f -exec chmod +x {} \;
+        log_message "SUCCESS" "✅ Permisos de binarios corregidos en $dir"
+    fi
+}
+
 # Función para mostrar banner
 print_banner() {
     clear
@@ -2234,6 +2246,9 @@ backend_node_dependencies() {
         return 1
     fi
 
+    # Verificar y corregir permisos de binarios importantes
+    fix_npm_binaries_permissions "$BACKEND_DIR"
+
     log_message "SUCCESS" "✅ Dependencias del backend instaladas"
     sleep 2
     return 0
@@ -2914,6 +2929,9 @@ frontend_node_dependencies() {
         return 1
     fi
 
+    # Verificar y corregir permisos de binarios importantes
+    fix_npm_binaries_permissions "$FRONTEND_DIR"
+
     log_message "SUCCESS" "✅ Dependencias del frontend instaladas"
     
     # Corregir imports de socket.io-client
@@ -2972,6 +2990,15 @@ frontend_node_build() {
 
     echo "🧹 Limpiando build anterior..."
     rm -rf build
+
+    # Verificar que cross-env esté disponible y tenga permisos
+    log_message "INFO" "Verificando cross-env antes de compilar..."
+    if [ ! -f "node_modules/.bin/cross-env" ]; then
+        log_message "WARNING" "cross-env no encontrado, instalando..."
+        npm install cross-env --save-dev
+    fi
+    chmod +x node_modules/.bin/cross-env
+    log_message "SUCCESS" "✅ Permisos de cross-env verificados"
 
     echo "🏗️  Construyendo nueva versión del frontend..."
     if ! npm run build; then
