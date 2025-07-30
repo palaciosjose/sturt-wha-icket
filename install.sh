@@ -1649,19 +1649,12 @@ configure_ssl() {
     
     SSL_SUCCESS=true
     
-    # Certificado para el frontend
-    if certbot --nginx -d "$frontend_url" --non-interactive --agree-tos --email admin@$frontend_url; then
-        log_message "SUCCESS" "✅ Certificado SSL obtenido para $frontend_url"
+    # Obtener certificados para ambos dominios en una sola operación
+    if certbot --nginx -d "$frontend_url" -d "$backend_url" --non-interactive --agree-tos --email admin@$frontend_url; then
+        log_message "SUCCESS" "✅ Certificados SSL obtenidos para $frontend_url y $backend_url"
+        SSL_SUCCESS=true
     else
-        log_message "ERROR" "❌ No se pudo obtener certificado para $frontend_url"
-        SSL_SUCCESS=false
-    fi
-
-    # Certificado para el backend
-    if certbot --nginx -d "$backend_url" --non-interactive --agree-tos --email admin@$backend_url; then
-        log_message "SUCCESS" "✅ Certificado SSL obtenido para $backend_url"
-    else
-        log_message "ERROR" "❌ No se pudo obtener certificado para $backend_url"
+        log_message "ERROR" "❌ No se pudieron obtener certificados SSL"
         SSL_SUCCESS=false
     fi
 
@@ -1671,6 +1664,24 @@ configure_ssl() {
 
     if [ "$SSL_SUCCESS" = true ]; then
         log_message "SUCCESS" "✅ SSL configurado correctamente"
+        
+        # Verificar que Nginx esté escuchando en puerto 443
+        log_message "INFO" "Verificando que Nginx esté escuchando en puerto 443..."
+        sleep 3
+        if netstat -tlnp | grep -q ":443.*nginx"; then
+            log_message "SUCCESS" "✅ Nginx escuchando correctamente en puerto 443"
+        else
+            log_message "WARNING" "⚠️ Nginx no está escuchando en puerto 443, recargando..."
+            systemctl reload nginx
+            sleep 2
+            if netstat -tlnp | grep -q ":443.*nginx"; then
+                log_message "SUCCESS" "✅ Nginx escuchando correctamente en puerto 443"
+            else
+                log_message "ERROR" "❌ Nginx no está escuchando en puerto 443"
+                SSL_SUCCESS=false
+            fi
+        fi
+        
         return 0
     else
         log_message "WARNING" "⚠️ SSL configurado parcialmente (algunos certificados fallaron)"
