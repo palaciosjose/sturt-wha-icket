@@ -1401,6 +1401,7 @@ backend_migrations() {
     # Lista de migraciones problemáticas conocidas
     PROBLEMATIC_MIGRATIONS=(
         "20250121000001-add-mediaSize-to-messages.js"
+        "20250118000001-add-mediaSize-to-messages.js"
         "20250122_add_status_field_to_schedules.js"
         "20250122_add_whatsappId_to_schedules.js"
     )
@@ -1425,6 +1426,7 @@ backend_migrations() {
     # Lista de migraciones problemáticas conocidas
     PROBLEMATIC_MIGRATIONS=(
         "20250121000001-add-mediaSize-to-messages.js"
+        "20250118000001-add-mediaSize-to-messages.js"
         "20250122_add_avatar_instance_to_whatsapp.js"
         "20250122_add_reminder_fields_to_schedules.js"
         "20250122_add_status_field_to_schedules.js"
@@ -1456,21 +1458,32 @@ backend_migrations() {
             if echo "$MIGRATION_OUTPUT" | grep -q "Duplicate column name"; then
                 log_message "INFO" "Detectada migración duplicada, marcando como ejecutada..."
                 
-                # Obtener migraciones pendientes
-                PENDING_MIGRATIONS=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | awk '{print $1}' | grep -v "^down$" | grep -v "^up$" | grep -E "^[0-9]+.*\.js$")
+                # Extraer el nombre de la migración que falló
+                FAILED_MIGRATION=$(echo "$MIGRATION_OUTPUT" | grep "Duplicate column name" | head -1 | sed -n 's/.*migrating =======//p' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
                 
-                if [ ! -z "$PENDING_MIGRATIONS" ]; then
-                    log_message "INFO" "Marcando migraciones duplicadas como ejecutadas..."
-                    
-                    for migration in $PENDING_MIGRATIONS; do
-                        if [[ "$migration" =~ ^[0-9]+.*\.js$ ]]; then
-                            mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
-                            log_message "SUCCESS" "Migración marcada como ejecutada: $migration"
-                        fi
-                    done
-                    
+                if [ ! -z "$FAILED_MIGRATION" ]; then
+                    log_message "INFO" "Marcando migración fallida como ejecutada: $FAILED_MIGRATION"
+                    mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$FAILED_MIGRATION');" 2>/dev/null || true
+                    log_message "SUCCESS" "Migración duplicada marcada como ejecutada: $FAILED_MIGRATION"
                     sleep 2
                     continue
+                else
+                    # Obtener migraciones pendientes como fallback
+                    PENDING_MIGRATIONS=$(npx sequelize db:migrate:status 2>/dev/null | grep "down" | awk '{print $1}' | grep -v "^down$" | grep -v "^up$" | grep -E "^[0-9]+.*\.js$")
+                    
+                    if [ ! -z "$PENDING_MIGRATIONS" ]; then
+                        log_message "INFO" "Marcando migraciones duplicadas como ejecutadas..."
+                        
+                        for migration in $PENDING_MIGRATIONS; do
+                            if [[ "$migration" =~ ^[0-9]+.*\.js$ ]]; then
+                                mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+                                log_message "SUCCESS" "Migración marcada como ejecutada: $migration"
+                            fi
+                        done
+                        
+                        sleep 2
+                        continue
+                    fi
                 fi
             elif echo "$MIGRATION_OUTPUT" | grep -q "ER_NO_SUCH_TABLE"; then
                 log_message "ERROR" "❌ Error: Tabla no existe, verificar estructura de base de datos"
@@ -1493,6 +1506,11 @@ backend_migrations() {
             fi
         fi
     done
+    
+    # Verificación final de migraciones
+    log_message "INFO" "Verificando estado final de migraciones..."
+    FINAL_MIGRATION_STATUS=$(npx sequelize db:migrate:status 2>/dev/null | grep -c "up" || echo "0")
+    log_message "SUCCESS" "✅ Migraciones ejecutadas: $FINAL_MIGRATION_STATUS"
     
     # Verificar que las migraciones críticas se ejecutaron
     log_message "INFO" "Verificando migraciones críticas..."
