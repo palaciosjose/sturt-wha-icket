@@ -1398,21 +1398,22 @@ backend_migrations() {
     log_message "INFO" "Verificando estado de migraciones..."
     npx sequelize db:migrate:status > /tmp/migration_status.log 2>&1
 
-    # Lista de migraciones problemáticas conocidas
+    # Lista de migraciones problemáticas conocidas (con extensión .ts)
     PROBLEMATIC_MIGRATIONS=(
-        "20250121000001-add-mediaSize-to-messages"
-        "20250118000001-add-mediaSize-to-messages"
-        "20250122_add_avatar_instance_to_whatsapp"
-        "20250122_add_reminder_fields_to_schedules"
-        "20250122_add_status_field_to_schedules"
-        "20250122_add_whatsappId_to_schedules"
-        "20250127000000-create-hub-notificame-table"
-        "20250128_add_waName_to_whatsapp"
+        "20250121000001-add-mediaSize-to-messages.ts"
+        "20250118000001-add-mediaSize-to-messages.ts"
+        "20250122_add_avatar_instance_to_whatsapp.ts"
+        "20250122_add_reminder_fields_to_schedules.ts"
+        "20250122_add_status_field_to_schedules.ts"
+        "20250122_add_whatsappId_to_schedules.ts"
+        "20250127000000-create-hub-notificame-table.ts"
+        "20250128_add_waName_to_whatsapp.ts"
     )
 
     # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
     log_message "INFO" "Marcando migraciones problemáticas conocidas como ejecutadas..."
     for migration in "${PROBLEMATIC_MIGRATIONS[@]}"; do
+        log_message "INFO" "Marcando migración: $migration"
         mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
         log_message "SUCCESS" "Migración problemática marcada como ejecutada: $migration"
     done
@@ -1425,6 +1426,9 @@ backend_migrations() {
             log_message "SUCCESS" "✅ Migración problemática confirmada como ejecutada: $migration"
         else
             log_message "WARNING" "⚠️ Migración problemática no se marcó correctamente: $migration"
+            # Intentar marcarla de nuevo
+            mysql -u ${instancia_add} -p${mysql_password} ${instancia_add} -e "INSERT INTO SequelizeMeta (name) VALUES ('$migration');" 2>/dev/null || true
+            log_message "INFO" "Reintentando marcar migración: $migration"
         fi
     done
 
