@@ -139,6 +139,16 @@ system_update() {
     fi
 
     # Verificar si se requiere reinicio
+    check_reboot_required
+
+    log_message "SUCCESS" "✅ Sistema actualizado correctamente"
+    sleep 2
+    return 0
+}
+
+# Función para verificar si se requiere reinicio del sistema
+check_reboot_required() {
+    # Verificar archivo de reinicio requerido
     if [ -f /var/run/reboot-required ]; then
         log_message "WARNING" "⚠️  El sistema requiere reinicio después de las actualizaciones"
         echo -e "${YELLOW}⚠️  El sistema requiere reinicio después de las actualizaciones${NC}"
@@ -159,10 +169,44 @@ system_update() {
             fi
         fi
     fi
-
-    log_message "SUCCESS" "✅ Sistema actualizado correctamente"
-    sleep 2
-    return 0
+    
+    # Verificar servicios críticos que pueden requerir reinicio
+    local services_need_restart=false
+    
+    # Verificar si Docker necesita reinicio
+    if command -v docker &> /dev/null; then
+        if ! docker info &> /dev/null; then
+            services_need_restart=true
+        fi
+    fi
+    
+    # Verificar si Nginx necesita reinicio
+    if command -v nginx &> /dev/null; then
+        if ! nginx -t &> /dev/null; then
+            services_need_restart=true
+        fi
+    fi
+    
+    # Verificar si MySQL necesita reinicio
+    if command -v mysql &> /dev/null; then
+        if ! systemctl is-active --quiet mysql; then
+            services_need_restart=true
+        fi
+    fi
+    
+    if [ "$services_need_restart" = true ]; then
+        log_message "WARNING" "⚠️  Algunos servicios críticos pueden requerir reinicio"
+        echo -e "${YELLOW}⚠️  Se detectaron servicios que pueden requerir reinicio${NC}"
+        echo -e "${WHITE}¿Deseas reiniciar ahora para asegurar estabilidad? (y/n):${NC} "
+        read -r reboot_confirm
+        if [[ "$reboot_confirm" =~ ^[Yy]$ ]]; then
+            log_message "INFO" "Reiniciando sistema..."
+            sudo reboot
+            exit 0
+        else
+            log_message "WARNING" "Usuario optó por no reiniciar. Continuando..."
+        fi
+    fi
 }
 
 # Función para verificar requisitos del sistema
@@ -3746,6 +3790,9 @@ run_complete_installation() {
         register_error "Error en instalación de Docker"
     fi
     
+    # Verificar reinicio después de Docker
+    check_reboot_required
+    
     if ! system_nodejs_install; then
         register_error "Error en instalación de Node.js"
     fi
@@ -3757,6 +3804,9 @@ run_complete_installation() {
     if ! system_nginx_install; then
         register_error "Error en instalación de Nginx"
     fi
+    
+    # Verificar reinicio después de Nginx
+    check_reboot_required
     
     if ! system_certbot_install; then
         register_error "Error en instalación de Certbot"
@@ -3845,6 +3895,9 @@ run_complete_installation() {
     
     # Verificación final
     verify_installation
+    
+    # Verificación final de reinicio requerido
+    check_reboot_required
     
     # Crear script de recuperación rápida
     create_recovery_script
