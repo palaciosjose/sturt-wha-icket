@@ -1398,16 +1398,16 @@ backend_migrations() {
     log_message "INFO" "Verificando estado de migraciones..."
     npx sequelize db:migrate:status > /tmp/migration_status.log 2>&1
 
-    # Lista de migraciones problemáticas conocidas (con extensión .ts)
+    # Lista de migraciones problemáticas conocidas (SIN extensión - como las ejecuta Sequelize)
     PROBLEMATIC_MIGRATIONS=(
-        "20250121000001-add-mediaSize-to-messages.ts"
-        "20250118000001-add-mediaSize-to-messages.ts"
-        "20250122_add_avatar_instance_to_whatsapp.ts"
-        "20250122_add_reminder_fields_to_schedules.ts"
-        "20250122_add_status_field_to_schedules.ts"
-        "20250122_add_whatsappId_to_schedules.ts"
-        "20250127000000-create-hub-notificame-table.ts"
-        "20250128_add_waName_to_whatsapp.ts"
+        "20250121000001-add-mediaSize-to-messages"
+        "20250118000001-add-mediaSize-to-messages"
+        "20250122_add_avatar_instance_to_whatsapp"
+        "20250122_add_reminder_fields_to_schedules"
+        "20250122_add_status_field_to_schedules"
+        "20250122_add_whatsappId_to_schedules"
+        "20250127000000-create-hub-notificame-table"
+        "20250128_add_waName_to_whatsapp"
     )
 
     # Marcar migraciones problemáticas como ejecutadas ANTES de ejecutar migraciones
