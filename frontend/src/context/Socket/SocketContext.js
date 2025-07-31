@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { openSocket } from "socket.io-client";
+import { io } from "socket.io-client";
 import { isExpired } from "../../utils/isExpired";
 
 class ManagedSocket {
@@ -119,7 +119,7 @@ const SocketManager = {
         query: { token },
       };
 
-      this.currentSocket = openSocket(process.env.REACT_APP_BACKEND_URL, socketConfig);
+      this.currentSocket = io(process.env.REACT_APP_BACKEND_URL, socketConfig);
 
       this.currentSocket.io.on("reconnect_attempt", () => {
         this.currentSocket.io.opts.query.r = 1;

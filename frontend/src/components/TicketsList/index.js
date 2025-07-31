@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer, useContext } from "react";
-import openSocket from "../../services/socket-io";
+import { io } from "socket.io-client";
 
 import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
@@ -250,7 +250,7 @@ const TicketsList = (props) => {
 	}, [tickets, status, searchParam, queues, profile, user.allTicket, settings]);
 
 	useEffect(() => {
-		const socket = openSocket();
+		    const socket = io();
     if (!socket) {
       return () => {}; 
     }
