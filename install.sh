@@ -229,11 +229,58 @@ system_update() {
 
     sleep 2
 
-    # Actualizar repositorios
-    if ! sudo apt-get update; then
-        register_error "No se pudo actualizar los repositorios del sistema"
-        return 1
+    # Verificar si hay procesos de apt ejecutándose
+    if pgrep -f "apt|dpkg" > /dev/null; then
+        log_message "WARNING" "⚠️ Procesos de apt ejecutándose, esperando..."
+        echo -e "${YELLOW}⚠️ Otro proceso de instalación está ejecutándose${NC}"
+        echo -e "${CYAN}Esperando que termine...${NC}"
+        
+        # Esperar hasta 5 minutos
+        for i in {1..30}; do
+            if ! pgrep -f "apt|dpkg" > /dev/null; then
+                log_message "SUCCESS" "✅ Procesos de apt terminados"
+                break
+            fi
+            sleep 10
+            echo -e "${CYAN}Esperando... ($i/30)${NC}"
+        done
+        
+        # Si aún hay procesos, intentar solucionar
+        if pgrep -f "apt|dpkg" > /dev/null; then
+            log_message "WARNING" "⚠️ Procesos de apt aún ejecutándose, intentando solucionar..."
+            echo -e "${YELLOW}Intentando solucionar bloqueos...${NC}"
+            
+            # Matar procesos de apt si están colgados
+            sudo pkill -f "apt-get" 2>/dev/null || true
+            sudo pkill -f "dpkg" 2>/dev/null || true
+            
+            # Limpiar locks
+            sudo rm -f /var/lib/apt/lists/lock 2>/dev/null || true
+            sudo rm -f /var/cache/apt/archives/lock 2>/dev/null || true
+            sudo rm -f /var/lib/dpkg/lock* 2>/dev/null || true
+            
+            # Reconfigurar dpkg
+            sudo dpkg --configure -a 2>/dev/null || true
+            
+            sleep 5
+        fi
     fi
+    
+    # Actualizar repositorios con reintentos
+    log_message "INFO" "Actualizando repositorios..."
+    for attempt in 1 2 3; do
+        if sudo apt-get update; then
+            log_message "SUCCESS" "✅ Repositorios actualizados correctamente"
+            break
+        else
+            log_message "WARNING" "⚠️ Intento $attempt de actualización falló"
+            if [ $attempt -eq 3 ]; then
+                register_error "No se pudo actualizar los repositorios del sistema"
+                return 1
+            fi
+            sleep 10
+        fi
+    done
 
     # Instalar herramientas necesarias
     if ! sudo apt-get install -y net-tools curl wget; then
