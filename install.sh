@@ -93,6 +93,10 @@ show_installation_summary() {
         echo -e "${GREEN}🎉 ¡Instalación completa finalizada sin fallos!${NC}"
         echo -e "${CYAN}Accede a la aplicación en:${NC} $frontend_url"
         echo -e "${CYAN}API disponible en:${NC} $backend_url"
+        echo ""
+        echo -e "${WHITE}Credenciales de acceso web:${NC}"
+        echo -e "${CYAN}Email:${NC} admin@admin.com"
+        echo -e "${CYAN}Contraseña:${NC} 123456"
     else
         echo -e "${YELLOW}⚠️  Instalación terminada pero con $ERROR_COUNT fallo(s):${NC}"
         for error in "${INSTALLATION_ERRORS[@]}"; do
@@ -686,13 +690,12 @@ cleanup_processes_and_ports() {
 
 # Función para verificar y corregir DNS
 verify_and_fix_dns() {
-    log_message "STEP" "=== VERIFICANDO Y CORRIGIENDO DNS ==="
+    log_message "STEP" "=== VERIFICANDO CONFIGURACIÓN DE DOMINIOS ==="
     
     print_banner
-    printf "${WHITE} 🌐 Verificando configuración DNS...${GRAY_LIGHT}\n\n"
+    printf "${WHITE} 🌐 Verificando configuración de Dominios...${GRAY_LIGHT}\n\n"
     
     # Obtener IP actual del servidor (IPv4 específicamente)
-    # NOTA: Si hay problemas de detección, puedes forzar una IP específica aquí
     local current_ip=$(curl -4 -s ifconfig.me 2>/dev/null)
     if [[ ! "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         # Método alternativo si el primero falla
@@ -702,24 +705,8 @@ verify_and_fix_dns() {
         fi
     fi
     
-    # SOLUCIÓN TEMPORAL: Si necesitas usar una IP específica, descomenta la línea siguiente
-    # current_ip="45.65.136.226"  # IP configurada en DNS
-    
-    # Permitir corrección manual de la IP si es necesario
-    if [[ "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_message "INFO" "IP detectada: $current_ip"
-        echo -e "${YELLOW}¿La IP detectada es correcta? (y/n):${NC} "
-        read -r ip_correct
-        if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
-            echo -e "${INPUT}Ingresa la IP correcta del servidor:${NC} "
-            read -r current_ip
-            log_message "INFO" "IP corregida manualmente: $current_ip"
-        fi
-    fi
-    
-    if [[ "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_message "INFO" "IP actual del servidor (IPv4): $current_ip"
-    else
+    # Verificar que se obtuvo una IP válida
+    if [[ ! "$current_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         log_message "ERROR" "No se pudo obtener IPv4 válida"
         echo -e "${RED}❌ No se pudo obtener la IP IPv4 del servidor${NC}"
         echo -e "${YELLOW}Verifica la conectividad a internet y ejecuta:${NC}"
@@ -757,91 +744,55 @@ verify_and_fix_dns() {
         fi
     fi
     
-    log_message "INFO" "DNS actual:"
+    # Mostrar información de DNS de forma clara
+    log_message "INFO" "Dominios actuales apuntan al DNS:"
     log_message "INFO" "  $backend_domain -> $api_ip"
     log_message "INFO" "  $frontend_domain -> $app_ip"
+    log_message "INFO" "IP detectada: $current_ip"
+    
+    # Validar DNS: verificar si está vacío o tiene caracteres extraños
+    if [ -z "$api_ip" ] || [ -z "$app_ip" ] || [[ "$api_ip" =~ [^0-9.] ]] || [[ "$app_ip" =~ [^0-9.] ]]; then
+        log_message "ERROR" "❌ DNS mal configurado - Los dominios están vacíos o tienen caracteres extraños"
+        echo -e "${RED}❌ DNS mal configurado detectado${NC}"
+        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
+        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
+        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
+        echo -e "${YELLOW}Por favor, corrige el DNS en tu proveedor de dominios y ejecuta el script nuevamente.${NC}"
+        return 1
+    fi
     
     # Verificar si los dominios apuntan a la IP correcta
     if [ "$api_ip" = "$current_ip" ] && [ "$app_ip" = "$current_ip" ]; then
         log_message "SUCCESS" "✅ DNS configurado correctamente"
-        return 0
-    elif [ -z "$api_ip" ] || [ -z "$app_ip" ]; then
-        log_message "WARNING" "⚠️ No se pudo verificar DNS - Verificación manual requerida"
-        echo -e "${YELLOW}⚠️  No se pudo verificar DNS automáticamente${NC}"
-        echo -e "${WHITE}Verifica manualmente que los dominios apunten a:${NC} $current_ip"
-        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
-        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
-        echo ""
-        echo -e "${WHITE}¿Quieres continuar sin verificar DNS? (y/n):${NC} "
-        read -r continue_without_dns
-        if [[ ! "$continue_without_dns" =~ ^[Yy]$ ]]; then
-            log_message "INFO" "Usuario optó por verificar DNS manualmente"
-            echo -e "${YELLOW}Por favor, verifica el DNS y ejecuta el script nuevamente.${NC}"
-            exit 0
-        fi
-    else
-        log_message "WARNING" "⚠️ DNS incorrecto - Los dominios deben apuntar a $current_ip"
-        echo -e "${YELLOW}⚠️  DNS incorrecto detectado${NC}"
-        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
-        echo -e "${WHITE}Configura en tu proveedor de DNS:${NC}"
-        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
-        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
-        echo ""
-        echo -e "${WHITE}¿Quieres continuar sin corregir DNS? (y/n):${NC} "
-        read -r continue_without_dns
-        if [[ ! "$continue_without_dns" =~ ^[Yy]$ ]]; then
-            echo -e "\n${CYAN}¿Quieres ingresar la IP correcta manualmente? (y/n):${NC} "
-            read -r manual_ip
-            if [[ "$manual_ip" =~ ^[Yy]$ ]]; then
-                echo -e "${WHITE}Ingresa la IP correcta del servidor:${NC} "
-                read -r manual_ip_address
-                
-                # Validar formato de IP
-                if [[ "$manual_ip_address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                    log_message "INFO" "IP corregida manualmente: $manual_ip_address"
-                    current_ip="$manual_ip_address"
-                    echo -e "${GREEN}✅ IP actualizada a: $current_ip${NC}"
-                    
-                    # Verificar DNS con la nueva IP
-                    echo -e "\n${CYAN}Verificando DNS con la nueva IP...${NC}"
-                    local api_ip_new=""
-                    local app_ip_new=""
-                    
-                    if command -v dig &> /dev/null; then
-                        api_ip_new=$(dig +short "$backend_domain" 2>/dev/null | head -1)
-                        app_ip_new=$(dig +short "$frontend_domain" 2>/dev/null | head -1)
-                    fi
-                    
-                    if [ "$api_ip_new" = "$current_ip" ] && [ "$app_ip_new" = "$current_ip" ]; then
-                        log_message "SUCCESS" "✅ DNS verificado correctamente con la nueva IP"
-                        return 0
-                    else
-                        echo -e "${YELLOW}⚠️  DNS aún no apunta a la IP correcta${NC}"
-                        echo -e "${WHITE}Configura en tu proveedor de DNS:${NC}"
-                        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
-                        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
-                        echo -e "${WHITE}¿Continuar de todas formas? (y/n):${NC} "
-                        read -r continue_anyway
-                        if [[ ! "$continue_anyway" =~ ^[Yy]$ ]]; then
-                            log_message "INFO" "Usuario optó por corregir DNS manualmente"
-                            echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
-                            exit 0
-                        fi
-                    fi
-                else
-                    echo -e "${RED}❌ Formato de IP inválido: $manual_ip_address${NC}"
-                    echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
-                    exit 0
-                fi
+        
+        # Confirmar si la IP detectada es correcta
+        echo -e "${YELLOW}¿La IP DNS detectada es correcta? (y/n):${NC} "
+        read -r ip_correct
+        if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
+            echo -e "${WHITE}Ingresa la IP correcta del servidor:${NC} "
+            read -r new_ip
+            
+            # Validar formato de IP
+            if [[ "$new_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                log_message "INFO" "IP corregida manualmente: $new_ip"
+                current_ip="$new_ip"
+                echo -e "${GREEN}✅ IP actualizada a: $current_ip${NC}"
             else
-                log_message "INFO" "Usuario optó por corregir DNS manualmente"
-                echo -e "${YELLOW}Por favor, corrige el DNS y ejecuta el script nuevamente.${NC}"
-                exit 0
+                echo -e "${RED}❌ Formato de IP inválido: $new_ip${NC}"
+                echo -e "${YELLOW}Manteniendo IP detectada: $current_ip${NC}"
             fi
         fi
+        
+        return 0
+    else
+        log_message "ERROR" "❌ DNS incorrecto - Los dominios no apuntan a la IP correcta"
+        echo -e "${RED}❌ DNS incorrecto detectado${NC}"
+        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
+        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
+        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
+        echo -e "${YELLOW}Por favor, corrige el DNS en tu proveedor de dominios y ejecuta el script nuevamente.${NC}"
+        return 1
     fi
-    
-    return 0
 }
 
 # =============================================================================
