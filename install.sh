@@ -111,7 +111,16 @@ configure_npm_safely() {
     log_message "INFO" "Configurando npm para instalación segura..."
     
     # Configurar npm para evitar problemas de permisos
-    npm config set unsafe-perm true
+    if ! npm config set unsafe-perm true; then
+        log_message "ERROR" "❌ No se pudo configurar npm unsafe-perm"
+        echo -e "${RED}❌ Error al configurar npm${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Ejecuta: npm config set unsafe-perm true${NC}"
+        echo -e "${CYAN}2. Si falla: npm config set unsafe-perm true --global${NC}"
+        echo -e "${CYAN}3. Verifica: npm config get unsafe-perm${NC}"
+        register_error "Error en configuración de npm"
+        return 1
+    fi
     
     # Configurar el directorio global de npm para el usuario actual
     mkdir -p ~/.npm-global
@@ -2361,49 +2370,40 @@ backend_db_migrate() {
     # Configurar timeout de MySQL para evitar deadlocks
     mysql -u root -p${mysql_password} -e "SET GLOBAL innodb_lock_wait_timeout = 120; SET GLOBAL innodb_deadlock_detect = ON;" 2>/dev/null || true
     
-    # Ejecutar migraciones con retry
-    MAX_RETRIES=5
-    for attempt in $(seq 1 $MAX_RETRIES); do
-        log_message "INFO" "Intento $attempt de $MAX_RETRIES para ejecutar migraciones..."
-        
-        MIGRATION_OUTPUT=$(sudo npx sequelize-cli db:migrate 2>&1)
-        MIGRATION_EXIT_CODE=$?
-        
-        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-            log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
-            break
-        else
-            log_message "WARNING" "⚠️ Error en migraciones, intentando con configuración MySQL..."
-            
-            # Intentar con configuración específica de MySQL
-            MIGRATION_OUTPUT=$(sudo npx sequelize-cli db:migrate 2>&1)
-            MIGRATION_EXIT_CODE=$?
-            
-            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-                log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente con configuración MySQL"
-                break
-            else
-                # Extraer el nombre de la migración que falló
-                FAILED_MIGRATION=$(echo "$MIGRATION_OUTPUT" | grep -o "== [^:]*: migrating" | sed 's/== \(.*\): migrating/\1/')
-                
-                if [ ! -z "$FAILED_MIGRATION" ]; then
-                    log_message "WARNING" "⚠️ Migración fallida: $FAILED_MIGRATION"
-                    log_message "INFO" "Marcando migración fallida como ejecutada..."
-                    mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT IGNORE INTO SequelizeMeta (name) VALUES ('$FAILED_MIGRATION');" 2>/dev/null || true
-                    log_message "SUCCESS" "Migración fallida marcada como ejecutada: $FAILED_MIGRATION"
-                fi
-                
-                if [ $attempt -eq $MAX_RETRIES ]; then
-                    log_message "ERROR" "❌ No se pudieron ejecutar las migraciones después de $MAX_RETRIES intentos"
-                    register_error "Error en migraciones de base de datos"
-                    return 1
-                else
-                    log_message "WARNING" "⚠️ Reintentando migraciones en 3 segundos..."
-                    sleep 3
-                fi
-            fi
-        fi
-    done
+    # Ejecutar migraciones - CRÍTICO: Si fallan, detener instalación
+    log_message "INFO" "Ejecutando migraciones de base de datos..."
+    
+    # Verificar que la base de datos esté disponible
+    if ! mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT 1;" > /dev/null 2>&1; then
+        log_message "ERROR" "❌ No se puede conectar a la base de datos"
+        echo -e "${RED}❌ Error de conexión a la base de datos${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Verifica que MySQL esté ejecutándose${NC}"
+        echo -e "${CYAN}2. Verifica la contraseña: $mysql_password${NC}"
+        echo -e "${CYAN}3. Verifica la base de datos: $instancia_add${NC}"
+        register_error "Error de conexión a la base de datos"
+        return 1
+    fi
+    
+    # Ejecutar migraciones sin sudo para evitar problemas de permisos
+    MIGRATION_OUTPUT=$(npx sequelize-cli db:migrate 2>&1)
+    MIGRATION_EXIT_CODE=$?
+    
+    if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+        log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente"
+    else
+        log_message "ERROR" "❌ Error crítico en migraciones"
+        echo -e "${RED}❌ Las migraciones fallaron${NC}"
+        echo -e "${YELLOW}Error detallado:${NC}"
+        echo -e "${CYAN}$MIGRATION_OUTPUT${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Verifica la conexión a la base de datos${NC}"
+        echo -e "${CYAN}2. Verifica que las tablas no existan ya${NC}"
+        echo -e "${CYAN}3. Ejecuta manualmente: npx sequelize-cli db:migrate${NC}"
+        echo -e "${CYAN}4. Si persiste el error, revisa los logs de MySQL${NC}"
+        register_error "Error crítico en migraciones de base de datos"
+        return 1
+    fi
 
     # Verificar que las tablas se crearon
     table_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${instancia_add}';" 2>/dev/null | tail -1 | tr -d ' ')
@@ -2485,9 +2485,13 @@ backend_db_seed() {
         return 0
     fi
 
-    # Intentar ejecutar seeds automáticos primero
-    log_message "INFO" "Intentando ejecutar seeds automáticos..."
-    if npm run db:seed > /dev/null 2>&1; then
+    # Ejecutar seeds automáticos - CRÍTICO: Si fallan, detener instalación
+    log_message "INFO" "Ejecutando seeds automáticos..."
+    
+    SEED_OUTPUT=$(npm run db:seed 2>&1)
+    SEED_EXIT_CODE=$?
+    
+    if [ $SEED_EXIT_CODE -eq 0 ]; then
         log_message "SUCCESS" "✅ Seeds automáticos ejecutados correctamente"
         
         # Verificar que los seeds automáticos crearon los datos
@@ -2505,216 +2509,34 @@ backend_db_seed() {
             log_message "INFO" "  Email: admin@admin.com"
             log_message "INFO" "  Contraseña: 123456"
             return 0
+        else
+            log_message "ERROR" "❌ Seeds automáticos no crearon los datos necesarios"
+            echo -e "${RED}❌ Los seeds automáticos fallaron${NC}"
+            echo -e "${YELLOW}Error detallado:${NC}"
+            echo -e "${CYAN}$SEED_OUTPUT${NC}"
+            echo -e "${YELLOW}Solución manual:${NC}"
+            echo -e "${CYAN}1. Verifica la conexión a la base de datos${NC}"
+            echo -e "${CYAN}2. Verifica que las tablas existan${NC}"
+            echo -e "${CYAN}3. Ejecuta manualmente: npm run db:seed${NC}"
+            register_error "Error crítico en seeds automáticos"
+            return 1
         fi
     else
-        log_message "WARNING" "⚠️ Los seeds automáticos fallaron, creando datos manualmente..."
-    fi
-
-    # Si los seeds automáticos fallaron, crear datos manualmente
-    log_message "INFO" "Creando datos básicos manualmente..."
-    
-    # Crear plan manualmente con mejor manejo de errores
-    log_message "INFO" "Creando plan..."
-    
-    # Verificar si el plan ya existe
-    existing_plan=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans WHERE name = 'Plano 1';" 2>/dev/null | tail -1 | tr -d ' ')
-    
-    if [ "$existing_plan" -gt 0 ]; then
-        log_message "SUCCESS" "✅ Plan ya existe"
-    else
-        # Intentar crear el plan con transacción
-        if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; START TRANSACTION; INSERT INTO Plans (name, users, connections, queues, value, createdAt, updatedAt) VALUES ('Plano 1', 10, 10, 10, 30, NOW(), NOW()); COMMIT;" 2>/dev/null; then
-            log_message "SUCCESS" "✅ Plan creado correctamente"
-        else
-            log_message "WARNING" "⚠️ Error al crear plan, verificando si se creó de todas formas..."
-            sleep 2
-            plan_check=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans WHERE name = 'Plano 1';" 2>/dev/null | tail -1 | tr -d ' ')
-            
-            if [ "$plan_check" -gt 0 ]; then
-                log_message "SUCCESS" "✅ Plan existe (creado por otro proceso)"
-            else
-                log_message "ERROR" "❌ No se pudo crear el plan"
-                register_error "No se pudo crear el plan"
-                return 1
-            fi
-        fi
-    fi
-
-    # Obtener el ID del plan con mejor manejo
-    plan_id=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Plans WHERE name = 'Plano 1' ORDER BY id DESC LIMIT 1;" 2>/dev/null | tail -1 | tr -d ' ')
-    
-    if [ -z "$plan_id" ] || [ "$plan_id" = "" ]; then
-        # Intentar obtener cualquier plan existente
-        plan_id=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Plans ORDER BY id ASC LIMIT 1;" 2>/dev/null | tail -1 | tr -d ' ')
-        if [ -z "$plan_id" ] || [ "$plan_id" = "" ]; then
-            plan_id=1
-            log_message "WARNING" "⚠️ No se pudo obtener el ID del plan, usando plan_id=1"
-        else
-            log_message "SUCCESS" "✅ Usando plan existente con ID: $plan_id"
-        fi
-    else
-        log_message "SUCCESS" "✅ Plan obtenido con ID: $plan_id"
-    fi
-
-    # Crear empresa manualmente con mejor manejo de errores
-    log_message "INFO" "Creando empresa..."
-    
-    # Verificar si la empresa ya existe (buscar tanto por nombre de instancia como por 'Empresa 1')
-    existing_company=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies WHERE name IN ('${instancia_add}', 'Empresa 1');" 2>/dev/null | tail -1 | tr -d ' ')
-    
-    if [ "$existing_company" -gt 0 ]; then
-        log_message "SUCCESS" "✅ Empresa ya existe"
-    else
-        # Intentar crear la empresa con transacción (usar 'Empresa 1' como nombre por defecto)
-        if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; START TRANSACTION; INSERT INTO Companies (name, phone, email, status, planId, dueDate, recurrence, createdAt, updatedAt) VALUES ('Empresa 1', '5511999999999', 'admin@admin.com', true, $plan_id, DATE_ADD(NOW(), INTERVAL 30 DAY), 'MONTHLY', NOW(), NOW()); COMMIT;" 2>/dev/null; then
-            log_message "SUCCESS" "✅ Empresa creada correctamente"
-        else
-            log_message "WARNING" "⚠️ Error al crear empresa, verificando si se creó de todas formas..."
-            sleep 2
-            company_check=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies WHERE name IN ('${instancia_add}', 'Empresa 1');" 2>/dev/null | tail -1 | tr -d ' ')
-            
-            if [ "$company_check" -gt 0 ]; then
-                log_message "SUCCESS" "✅ Empresa existe (creada por otro proceso)"
-            else
-                log_message "ERROR" "❌ No se pudo crear la empresa"
-                register_error "No se pudo crear la empresa"
-                return 1
-            fi
-        fi
-    fi
-
-    # Obtener el ID de la empresa con mejor manejo (buscar tanto por nombre de instancia como por 'Empresa 1')
-    company_id=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Companies WHERE name IN ('${instancia_add}', 'Empresa 1') ORDER BY id DESC LIMIT 1;" 2>/dev/null | tail -1 | tr -d ' ')
-    
-    if [ -z "$company_id" ] || [ "$company_id" = "" ]; then
-        # Intentar obtener cualquier empresa existente
-        company_id=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Companies ORDER BY id ASC LIMIT 1;" 2>/dev/null | tail -1 | tr -d ' ')
-        if [ -z "$company_id" ] || [ "$company_id" = "" ]; then
-            company_id=1
-            log_message "WARNING" "⚠️ No se pudo obtener el ID de la empresa, usando company_id=1"
-        else
-            log_message "SUCCESS" "✅ Usando empresa existente con ID: $company_id"
-        fi
-    else
-        log_message "SUCCESS" "✅ Empresa obtenida con ID: $company_id"
-    fi
-
-    # Crear usuario admin manualmente con mejor manejo de errores
-    log_message "INFO" "Creando usuario admin..."
-    
-    # Verificar si el usuario ya existe
-    existing_admin=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Users WHERE email = 'admin@admin.com';" 2>/dev/null | tail -1 | tr -d ' ')
-    
-    if [ "$existing_admin" -gt 0 ]; then
-        log_message "SUCCESS" "✅ Usuario admin ya existe"
-    else
-        # Intentar crear el usuario con mejor manejo de errores
-        log_message "INFO" "Insertando usuario admin..."
-        
-        # Usar una transacción para mejor control (usar 'Admin' como nombre para coincidir con los seeds)
-        if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; START TRANSACTION; INSERT INTO Users (name, email, passwordHash, profile, companyId, createdAt, updatedAt, super, allTicket) VALUES ('Admin', 'admin@admin.com', '\$2a\$08\$08TgjZAGBqkI9Uk.T8lKvO4vyE2JQoG8XeJdmY9pIqR2SR3aJqKq', 'admin', $company_id, NOW(), NOW(), true, 'enabled'); COMMIT;" 2>/dev/null; then
-            log_message "SUCCESS" "✅ Usuario admin creado correctamente"
-        else
-            log_message "WARNING" "⚠️ Error al crear usuario admin, intentando método alternativo..."
-            
-            # Método alternativo: verificar si el usuario se creó de todas formas
-            sleep 2
-            admin_check=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Users WHERE email = 'admin@admin.com';" 2>/dev/null | tail -1 | tr -d ' ')
-            
-            if [ "$admin_check" -gt 0 ]; then
-                log_message "SUCCESS" "✅ Usuario admin existe (creado por otro proceso)"
-            else
-                log_message "ERROR" "❌ No se pudo crear el usuario admin"
-                register_error "No se pudo crear el usuario admin"
-                return 1
-            fi
-        fi
-    fi
-
-    # Verificación final más robusta con múltiples intentos
-    log_message "INFO" "Verificando datos creados..."
-    
-    # Esperar un momento para que la base de datos se estabilice
-    sleep 3
-    
-    # Verificar que existe al menos un usuario con múltiples intentos
-    user_count=0
-    for i in {1..3}; do
-        user_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Users;" 2>/dev/null | tail -1 | tr -d ' ')
-        
-        if [ "$user_count" -gt 0 ]; then
-            log_message "SUCCESS" "✅ Verificación exitosa: $user_count usuario(s) encontrado(s)"
-            break
-        else
-            log_message "WARNING" "⚠️ Intento $i: No se encontraron usuarios, esperando..."
-            sleep 2
-        fi
-    done
-    
-    if [ "$user_count" -eq 0 ]; then
-        log_message "ERROR" "❌ No se creó ningún usuario después de múltiples intentos"
-        log_message "INFO" "Verificando estado de la base de datos..."
-        
-        # Mostrar información de debugging
-        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_users FROM Users;" 2>/dev/null || true
-        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_companies FROM Companies;" 2>/dev/null || true
-        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) as total_plans FROM Plans;" 2>/dev/null || true
-        
-        register_error "No se creó ningún usuario"
+        log_message "ERROR" "❌ Error crítico en seeds automáticos"
+        echo -e "${RED}❌ Los seeds automáticos fallaron${NC}"
+        echo -e "${YELLOW}Error detallado:${NC}"
+        echo -e "${CYAN}$SEED_OUTPUT${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Verifica la conexión a la base de datos${NC}"
+        echo -e "${CYAN}2. Verifica que las tablas existan${NC}"
+        echo -e "${CYAN}3. Ejecuta manualmente: npm run db:seed${NC}"
+        register_error "Error crítico en seeds automáticos"
         return 1
     fi
 
-    # Verificar que existe al menos una empresa con múltiples intentos
-    company_count=0
-    for i in {1..3}; do
-        company_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -1 | tr -d ' ')
-        
-        if [ "$company_count" -gt 0 ]; then
-            log_message "SUCCESS" "✅ Verificación exitosa: $company_count empresa(s) encontrada(s)"
-            break
-        else
-            log_message "WARNING" "⚠️ Intento $i: No se encontraron empresas, esperando..."
-            sleep 2
-        fi
-    done
-    
-    if [ "$company_count" -eq 0 ]; then
-        log_message "ERROR" "❌ No se creó ninguna empresa después de múltiples intentos"
-        register_error "No se creó ninguna empresa"
-        return 1
-    fi
-
-    # Verificar que existe al menos un plan con múltiples intentos
-    plan_count=0
-    for i in {1..3}; do
-        plan_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans;" 2>/dev/null | tail -1 | tr -d ' ')
-        
-        if [ "$plan_count" -gt 0 ]; then
-            log_message "SUCCESS" "✅ Verificación exitosa: $plan_count plan(es) encontrado(s)"
-            break
-        else
-            log_message "WARNING" "⚠️ Intento $i: No se encontraron planes, esperando..."
-            sleep 2
-        fi
-    done
-    
-    if [ "$plan_count" -eq 0 ]; then
-        log_message "ERROR" "❌ No se creó ningún plan después de múltiples intentos"
-        register_error "No se creó ningún plan"
-        return 1
-    fi
-
-    log_message "SUCCESS" "✅ Base de datos configurada correctamente"
-    log_message "INFO" "Resumen de datos creados:"
-    log_message "INFO" "  - Usuarios: $user_count"
-    log_message "INFO" "  - Empresas: $company_count"
-    log_message "INFO" "  - Planes: $plan_count"
-    log_message "INFO" "Credenciales de acceso:"
-    log_message "INFO" "  Email: admin@admin.com"
-    log_message "INFO" "  Contraseña: 123456"
-
-    sleep 2
-    return 0
+    # Los seeds automáticos son obligatorios - no hay creación manual
+    # Si llegamos aquí, significa que los seeds fallaron y ya se detuvo la instalación
+    return 1
 }
 
 backend_start_pm2() {
