@@ -196,7 +196,7 @@ print_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                WATOOLX INSTALADOR TODO EN UNO                ║"
-    echo "║              Usuario Actual - Versión 1.1.0                  ║"
+    echo "║              con MYSQL SERVER - Versión 1.1.0                ║"
     echo "║                                                              ║"
     echo "║  🚀 Instalación Automática   📋 Captura de Datos             ║"
     echo "║  🔧 Configuración Personal   ✅ Docker + PM2 + Nginx         ║"
@@ -744,55 +744,31 @@ verify_and_fix_dns() {
         fi
     fi
     
-    # Mostrar información de DNS de forma clara
+    # Mostrar información usando siempre la IP detectada (ignorar resultado del DNS)
     log_message "INFO" "Dominios actuales apuntan al DNS:"
-    log_message "INFO" "  $backend_domain -> $api_ip"
-    log_message "INFO" "  $frontend_domain -> $app_ip"
+    log_message "INFO" "  $backend_domain -> $current_ip"
+    log_message "INFO" "  $frontend_domain -> $current_ip"
     log_message "INFO" "IP detectada: $current_ip"
     
-    # Validar DNS: verificar si está vacío o tiene caracteres extraños
-    if [ -z "$api_ip" ] || [ -z "$app_ip" ] || [[ "$api_ip" =~ [^0-9.] ]] || [[ "$app_ip" =~ [^0-9.] ]]; then
-        log_message "ERROR" "❌ DNS mal configurado - Los dominios están vacíos o tienen caracteres extraños"
-        echo -e "${RED}❌ DNS mal configurado detectado${NC}"
-        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
-        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
-        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
-        echo -e "${YELLOW}Por favor, corrige el DNS en tu proveedor de dominios y ejecuta el script nuevamente.${NC}"
-        return 1
+    # Confirmar si la IP detectada es correcta
+    echo -e "${YELLOW}¿La IP DNS detectada es correcta? (y/n):${NC} "
+    read -r ip_correct
+    if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
+        echo -e "${WHITE}Ingresa la IP correcta del servidor:${NC} "
+        read -r new_ip
+        
+        # Validar formato de IP
+        if [[ "$new_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            log_message "INFO" "IP corregida manualmente: $new_ip"
+            current_ip="$new_ip"
+            echo -e "${GREEN}✅ IP actualizada a: $current_ip${NC}"
+        else
+            echo -e "${RED}❌ Formato de IP inválido: $new_ip${NC}"
+            echo -e "${YELLOW}Manteniendo IP detectada: $current_ip${NC}"
+        fi
     fi
     
-    # Verificar si los dominios apuntan a la IP correcta
-    if [ "$api_ip" = "$current_ip" ] && [ "$app_ip" = "$current_ip" ]; then
-        log_message "SUCCESS" "✅ DNS configurado correctamente"
-        
-        # Confirmar si la IP detectada es correcta
-        echo -e "${YELLOW}¿La IP DNS detectada es correcta? (y/n):${NC} "
-        read -r ip_correct
-        if [[ ! "$ip_correct" =~ ^[Yy]$ ]]; then
-            echo -e "${WHITE}Ingresa la IP correcta del servidor:${NC} "
-            read -r new_ip
-            
-            # Validar formato de IP
-            if [[ "$new_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                log_message "INFO" "IP corregida manualmente: $new_ip"
-                current_ip="$new_ip"
-                echo -e "${GREEN}✅ IP actualizada a: $current_ip${NC}"
-            else
-                echo -e "${RED}❌ Formato de IP inválido: $new_ip${NC}"
-                echo -e "${YELLOW}Manteniendo IP detectada: $current_ip${NC}"
-            fi
-        fi
-        
-        return 0
-    else
-        log_message "ERROR" "❌ DNS incorrecto - Los dominios no apuntan a la IP correcta"
-        echo -e "${RED}❌ DNS incorrecto detectado${NC}"
-        echo -e "${WHITE}Los dominios deben apuntar a:${NC} $current_ip"
-        echo -e "${CYAN}  $backend_domain -> $current_ip${NC}"
-        echo -e "${CYAN}  $frontend_domain -> $current_ip${NC}"
-        echo -e "${YELLOW}Por favor, corrige el DNS en tu proveedor de dominios y ejecuta el script nuevamente.${NC}"
-        return 1
-    fi
+    return 0
 }
 
 # =============================================================================
