@@ -110,26 +110,32 @@ show_installation_summary() {
 configure_npm_safely() {
     log_message "INFO" "Configurando npm para instalación segura..."
     
-    # Configurar npm para evitar problemas de permisos
-    if ! npm config set unsafe-perm true; then
-        log_message "ERROR" "❌ No se pudo configurar npm unsafe-perm"
-        echo -e "${RED}❌ Error al configurar npm${NC}"
-        echo -e "${YELLOW}Solución manual:${NC}"
-        echo -e "${CYAN}1. Ejecuta: npm config set unsafe-perm true${NC}"
-        echo -e "${CYAN}2. Si falla: npm config set unsafe-perm true --global${NC}"
-        echo -e "${CYAN}3. Verifica: npm config get unsafe-perm${NC}"
-        register_error "Error en configuración de npm"
-        return 1
-    fi
+    # Configurar npm para evitar problemas de permisos (método moderno)
+    log_message "INFO" "Configurando npm para instalación segura..."
     
-    # Configurar el directorio global de npm para el usuario actual
+    # Configurar directorio global de npm para el usuario actual
     mkdir -p ~/.npm-global
-    npm config set prefix '~/.npm-global'
+    npm config set prefix '~/.npm-global' 2>/dev/null || true
     
     # Agregar al PATH si no está
     if ! grep -q "~/.npm-global/bin" ~/.bashrc; then
         echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
         export PATH=~/.npm-global/bin:$PATH
+    fi
+    
+    # Configurar npm para evitar problemas de permisos (método alternativo)
+    npm config set script-shell /bin/bash 2>/dev/null || true
+    npm config set ignore-scripts false 2>/dev/null || true
+    
+    # Verificar que npm esté configurado correctamente
+    if ! npm --version > /dev/null 2>&1; then
+        log_message "ERROR" "❌ npm no está disponible"
+        echo -e "${RED}❌ Error: npm no está instalado o no es accesible${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Instala Node.js: curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs${NC}"
+        echo -e "${CYAN}2. Verifica: node --version && npm --version${NC}"
+        register_error "npm no está disponible"
+        return 1
     fi
     
     log_message "SUCCESS" "✅ Npm configurado de manera segura"
@@ -1830,17 +1836,41 @@ system_pm2_install() {
     # Configurar npm de manera segura
     configure_npm_safely
     
-    # Instalar PM2 globalmente
-    if ! npm install -g pm2; then
-        register_error "No se pudo instalar PM2"
+    # Instalar PM2 globalmente con mejor manejo de errores
+    log_message "INFO" "Instalando PM2 globalmente..."
+    
+    PM2_OUTPUT=$(npm install -g pm2 2>&1)
+    PM2_EXIT_CODE=$?
+    
+    if [ $PM2_EXIT_CODE -eq 0 ]; then
+        log_message "SUCCESS" "✅ PM2 instalado correctamente"
+    else
+        log_message "ERROR" "❌ Error al instalar PM2"
+        echo -e "${RED}❌ No se pudo instalar PM2${NC}"
+        echo -e "${YELLOW}Error detallado:${NC}"
+        echo -e "${CYAN}$PM2_OUTPUT${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Verifica que npm esté funcionando: npm --version${NC}"
+        echo -e "${CYAN}2. Intenta instalar PM2 manualmente: npm install -g pm2${NC}"
+        echo -e "${CYAN}3. Si falla, usa: sudo npm install -g pm2${NC}"
+        echo -e "${CYAN}4. Verifica permisos: ls -la ~/.npm-global/bin/ || ls -la /usr/local/bin/pm2${NC}"
+        register_error "Error al instalar PM2"
         return 1
     fi
     
     # Configurar PATH para PM2
-    export PATH=$PATH:/usr/local/bin
+    export PATH=$PATH:/usr/local/bin:~/.npm-global/bin
     
     # Verificar que PM2 se instaló correctamente
+    sleep 2
     if ! command -v pm2 &> /dev/null; then
+        log_message "ERROR" "❌ PM2 no está disponible después de la instalación"
+        echo -e "${RED}❌ PM2 no se instaló correctamente${NC}"
+        echo -e "${YELLOW}Solución manual:${NC}"
+        echo -e "${CYAN}1. Verifica la instalación: npm list -g pm2${NC}"
+        echo -e "${CYAN}2. Busca PM2: find /usr/local -name pm2 2>/dev/null${NC}"
+        echo -e "${CYAN}3. Busca PM2 en npm global: find ~/.npm-global -name pm2 2>/dev/null${NC}"
+        echo -e "${CYAN}4. Reinstala: npm uninstall -g pm2 && npm install -g pm2${NC}"
         register_error "PM2 no se instaló correctamente"
         return 1
     fi
