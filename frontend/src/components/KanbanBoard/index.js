@@ -324,7 +324,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
 
   const getContactAvatar = (contact) => {
     // ✅ LOG SILENCIOSO - Solo en modo debug y cuando el logger esté habilitado
-    if (process.env.NODE_ENV === 'development' && logger.config.get().enableDashboard) {
+    if ((process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) && logger.config.get().enableDashboard) {
       logger.dashboard.debug('🔍 Contact Avatar Debug:', {
         name: contact?.name,
         profilePicUrl: contact?.profilePicUrl,

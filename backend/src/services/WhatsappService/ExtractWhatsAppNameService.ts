@@ -68,7 +68,11 @@ const ExtractWhatsAppNameService = async ({
           } catch (avatarError) {
             console.log(`❌ Error obteniendo avatar:`, avatarError.message);
             // Usar placeholder si no hay avatar
-            avatar = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/nopicture.png`;
+            const frontendUrl = process.env.FRONTEND_URL;
+            if (!frontendUrl) {
+              throw new Error('FRONTEND_URL no está configurado');
+            }
+            avatar = `${frontendUrl}/nopicture.png`;
             console.log(`🖼️ Usando placeholder:`, avatar);
           }
         }

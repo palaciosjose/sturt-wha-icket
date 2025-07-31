@@ -119,7 +119,11 @@ const SocketManager = {
         query: { token },
       };
 
-      this.currentSocket = io(process.env.REACT_APP_BACKEND_URL, socketConfig);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('REACT_APP_BACKEND_URL no está configurado');
+      }
+      this.currentSocket = io(backendUrl, socketConfig);
 
       this.currentSocket.io.on("reconnect_attempt", () => {
         this.currentSocket.io.opts.query.r = 1;
@@ -134,7 +138,11 @@ const SocketManager = {
       });
       
       this.currentSocket.on("disconnect", (reason) => {
-        console.warn(`socket disconnected because: ${reason}`);
+        // Solo mostrar en desarrollo para evitar spam en producción
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
+          console.debug(`Socket desconectado: ${reason}`);
+        }
+        
         if (reason.startsWith("io server disconnect")) {
           console.warn("Socket desconectado por el servidor");
           token = localStorage.getItem("token");

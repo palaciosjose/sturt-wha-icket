@@ -74,8 +74,12 @@ const useModalFocus = (open) => {
     // Liberar foco inmediatamente
     releaseFocus();
     
-    // Llamar al handleClose después de un pequeño delay
+    // Asegurar que el foco no quede en elementos con aria-hidden
     setTimeout(() => {
+      const focusedElement = document.activeElement;
+      if (focusedElement && focusedElement.closest('[aria-hidden="true"]')) {
+        releaseFocus();
+      }
       handleClose();
     }, 0);
   }, [handleClose, releaseFocus]);

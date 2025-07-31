@@ -70,7 +70,7 @@ const QueueSelect = ({ selectedQueueIds, onChange, multiple = true, title = i18n
 					label={title}
 					multiple={multiple}
 					labelWidth={60}
-					value={selectedQueueIds}
+					value={selectedQueueIds === null || selectedQueueIds === undefined ? (multiple ? [] : '') : selectedQueueIds}
 					onChange={handleChange}
 					MenuProps={{
 						anchorOrigin: {
@@ -85,7 +85,7 @@ const QueueSelect = ({ selectedQueueIds, onChange, multiple = true, title = i18n
 					}}
 
 					renderValue={selected => {
-						if (!selected || selected === null) {
+						if (!selected || selected === null || selected === undefined) {
 							return <span style={{ color: '#999' }}>Seleccionar...</span>;
 						}
 						

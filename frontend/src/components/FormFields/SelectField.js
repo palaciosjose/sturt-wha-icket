@@ -25,7 +25,7 @@ function SelectField(props) {
   return (
     <FormControl {...rest} error={isError}>
       <InputLabel>{label}</InputLabel>
-      <Select {...field} value={selectedValue || ''}>
+      <Select {...field} value={selectedValue === null || selectedValue === undefined ? '' : selectedValue}>
         {data.map((item, index) => (
           <MenuItem key={index} value={item.value}>
             {item.label}

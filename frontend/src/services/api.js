@@ -2,7 +2,7 @@ import axios from "axios";
 import { clearAuthData, validateAndCleanAuth } from "../utils/clearAuthData";
 
 const api = axios.create({
-	baseURL: process.env.REACT_APP_BACKEND_URL,
+	baseURL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080',
 	withCredentials: true,
 });
 
@@ -40,7 +40,7 @@ api.interceptors.response.use(
 );
 
 export const openApi = axios.create({
-	baseURL: process.env.REACT_APP_BACKEND_URL
+	baseURL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'
 });
 
 export default api;

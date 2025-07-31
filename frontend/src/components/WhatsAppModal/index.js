@@ -58,31 +58,31 @@ const SessionSchema = Yup.object().shape({
     .required("Required"),
 });
 
+const initialState = {
+  name: "",
+  greetingMessage: "",
+  complationMessage: "",
+  outOfHoursMessage: "",
+  ratingMessage: "",
+  isDefault: false,
+  token: "",
+  status: "OPENING",
+  provider: "beta",
+  //timeSendQueue: 0,
+  //sendIdQueue: 0,
+  expiresInactiveMessage: "",
+  expiresTicket: 0,
+  timeUseBotQueues: 0,
+  maxUseBotQueues: 3
+};
+
 const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const classes = useStyles();
-
-  const initialState = {
-    name: "",
-    greetingMessage: "",
-    complationMessage: "",
-    outOfHoursMessage: "",
-    ratingMessage: "",
-    isDefault: false,
-    token: "",
-    status: "OPENING",
-    provider: "beta",
-    //timeSendQueue: 0,
-    //sendIdQueue: 0,
-    expiresInactiveMessage: "",
-    expiresTicket: 0,
-    timeUseBotQueues: 0,
-    maxUseBotQueues: 3
-  };
   const [whatsApp, setWhatsApp] = useState(initialState);
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 
-  const [selectedQueueId, setSelectedQueueId] = useState(null)
-  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [selectedQueueId, setSelectedQueueId] = useState('')
+  	const [selectedPrompt, setSelectedPrompt] = useState('');
   const [prompts, setPrompts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -95,21 +95,39 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
         setIsLoading(true);
         		const { data } = await api.get(`whatsapp/${whatsAppId}?session=0`);
         
-        setWhatsApp(data);
+        // ✅ Asegurar que no haya valores null en los campos
+        const sanitizedData = {
+          ...initialState,
+          ...data,
+          name: data.name || '',
+          greetingMessage: data.greetingMessage || '',
+          complationMessage: data.complationMessage || '',
+          outOfHoursMessage: data.outOfHoursMessage || '',
+          ratingMessage: data.ratingMessage || '',
+          token: data.token || '',
+          status: data.status || 'OPENING',
+          provider: data.provider || 'beta',
+          expiresInactiveMessage: data.expiresInactiveMessage || '',
+          expiresTicket: data.expiresTicket || 0,
+          timeUseBotQueues: data.timeUseBotQueues || 0,
+          maxUseBotQueues: data.maxUseBotQueues || 3,
+          isDefault: data.isDefault || false
+        };
+        setWhatsApp(sanitizedData);
 
         // ✅ CARGAR DEPARTAMENTOS CORRECTAMENTE PARA SELECCIÓN ÚNICA
         const whatsQueueIds = data.queues?.map((queue) => queue.id) || [];
         
         // ✅ PARA SELECCIÓN ÚNICA, TOMAR SOLO EL PRIMER DEPARTAMENTO
         const singleQueueId = whatsQueueIds.length > 0 ? whatsQueueIds[0] : null;
-        setSelectedQueueIds(singleQueueId);
-		setSelectedQueueId(data.transferQueueId);
+        setSelectedQueueIds(singleQueueId || '');
+		setSelectedQueueId(data.transferQueueId || '');
         
         // ✅ CARGAR CORRECTAMENTE EL PROMPT ID
         if (data.promptId) {
           setSelectedPrompt(data.promptId);
         } else {
-          setSelectedPrompt(null);
+          setSelectedPrompt('');
         }
       } catch (err) {
         console.error("❌ ERROR AL CARGAR DATOS:", err);
@@ -191,7 +209,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const handleChangeQueue = (e) => {
     // ✅ VALIDACIÓN: Si se selecciona un departamento, limpiar prompt
     if (e && e !== null) {
-      setSelectedPrompt(null);
+      setSelectedPrompt('');
     }
     
     // ✅ PARA SELECCIÓN ÚNICA, GUARDAR EL VALOR DIRECTO
@@ -201,7 +219,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const handleChangePrompt = (e) => {
     // ✅ VALIDACIÓN: Si se selecciona un prompt, limpiar departamento
     if (e.target.value && e.target.value !== null) {
-      setSelectedQueueIds(null);
+      setSelectedQueueIds([]);
     }
     
     setSelectedPrompt(e.target.value);
@@ -210,9 +228,9 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const handleClose = () => {
     onClose();
     setWhatsApp(initialState);
-	  setSelectedQueueId(null);
+	  setSelectedQueueId('');
     setSelectedQueueIds([]);
-    setSelectedPrompt(null);
+    setSelectedPrompt('');
     setIsLoading(false);
   };
 
@@ -226,6 +244,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
         maxWidth="md"
         fullWidth
         scroll="paper"
+        disableEnforceFocus
+        disableAutoFocus
       >
         <DialogTitle>
           {whatsAppId
@@ -233,7 +253,22 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
             : i18n.t("whatsappModal.title.add")}
         </DialogTitle>
         <Formik
-          initialValues={whatsApp}
+          initialValues={{
+            ...whatsApp,
+            name: whatsApp.name || '',
+            greetingMessage: whatsApp.greetingMessage || '',
+            complationMessage: whatsApp.complationMessage || '',
+            outOfHoursMessage: whatsApp.outOfHoursMessage || '',
+            ratingMessage: whatsApp.ratingMessage || '',
+            token: whatsApp.token || '',
+            status: whatsApp.status || 'OPENING',
+            provider: whatsApp.provider || 'beta',
+            expiresInactiveMessage: whatsApp.expiresInactiveMessage || '',
+            expiresTicket: whatsApp.expiresTicket || 0,
+            timeUseBotQueues: whatsApp.timeUseBotQueues || 0,
+            maxUseBotQueues: whatsApp.maxUseBotQueues || 3,
+            isDefault: whatsApp.isDefault || false
+          }}
           enableReinitialize={true}
           validationSchema={SessionSchema}
           onSubmit={(values, actions) => {
@@ -254,6 +289,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                         label={i18n.t("whatsappModal.form.name")}
                         autoFocus
                         name="name"
+                        value={values.name || ''}
                         error={touched.name && Boolean(errors.name)}
                         helperText={touched.name && errors.name}
                         variant="outlined"
@@ -266,6 +302,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                         as={TextField}
                         label="Token (Opcional)"
                         name="token"
+                        value={values.token || ''}
                         variant="outlined"
                         margin="dense"
                         className={classes.textField}
@@ -277,6 +314,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                         <Field
                           as={Select}
                           name="status"
+                          value={values.status || 'OPENING'}
                           label="Status"
                         >
                           <MenuItem value="OPENING">Abriendo</MenuItem>
@@ -309,6 +347,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     rows={4}
                     fullWidth
                     name="greetingMessage"
+                    value={values.greetingMessage || ''}
                     error={
                       touched.greetingMessage && Boolean(errors.greetingMessage)
                     }
@@ -328,6 +367,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     rows={4}
                     fullWidth
                     name="complationMessage"
+                    value={values.complationMessage || ''}
                     error={
                       touched.complationMessage &&
                       Boolean(errors.complationMessage)
@@ -348,6 +388,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     rows={4}
                     fullWidth
                     name="outOfHoursMessage"
+                    value={values.outOfHoursMessage || ''}
                     error={
                       touched.outOfHoursMessage &&
                       Boolean(errors.outOfHoursMessage)
@@ -368,6 +409,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     rows={4}
                     fullWidth
                     name="ratingMessage"
+                    value={values.ratingMessage || ''}
                     error={
                       touched.ratingMessage && Boolean(errors.ratingMessage)
                     }
@@ -383,6 +425,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                     type="token"
                     fullWidth
                     name="token"
+                    value={values.token || ''}
                     variant="outlined"
                     margin="dense"
                   />
@@ -465,6 +508,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                           as={TextField}
                           label={<span><span role="img" aria-label="cronómetro">⏱️</span> Minutos para transferir</span>}
                           name="timeToTransfer"
+                          value={values.timeToTransfer || ''}
                           error={touched.timeToTransfer && Boolean(errors.timeToTransfer)}
                           helperText={(touched.timeToTransfer && errors.timeToTransfer) || "Ej: 30 = transferir después de 30 minutos"}
                           variant="outlined"
@@ -518,6 +562,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                         label={i18n.t("whatsappModal.form.expiresTicket")}
                         fullWidth
                         name="expiresTicket"
+                        value={values.expiresTicket || ''}
                         variant="outlined"
                         margin="dense"
                         error={touched.expiresTicket && Boolean(errors.expiresTicket)}
@@ -534,6 +579,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
                       rows={4}
                       fullWidth
                       name="expiresInactiveMessage"
+                      value={values.expiresInactiveMessage || ''}
                       error={touched.expiresInactiveMessage && Boolean(errors.expiresInactiveMessage)}
                       helperText={touched.expiresInactiveMessage && errors.expiresInactiveMessage}
                       variant="outlined"

@@ -152,7 +152,7 @@ const CustomLink = ({ children, ...props }) => (
 const MarkdownWrapper = ({ children, message }) => {
 	let type = message?.mediaType;
 	// ✅ LOG SILENCIOSO - Solo en modo debug
-	if (process.env.NODE_ENV === 'development') {
+	if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
 		console.debug('type', type);
 	}
 	const boldRegex = /\*(.*?)\*/g;

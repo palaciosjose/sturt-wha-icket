@@ -127,7 +127,11 @@ const Login = () => {
 		handleLogin(user);
 	};
 	
-	const logo = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8080'}/public/logotipos/login.png`;
+	const backendUrl = process.env.REACT_APP_BACKEND_URL;
+	if (!backendUrl) {
+		throw new Error('REACT_APP_BACKEND_URL no está configurado');
+	}
+	const logo = `${backendUrl}/public/logotipos/login.png`;
     const randomValue = Math.random(); // Generate a random number
   
     const logoWithRandom = `${logo}?r=${randomValue}`;

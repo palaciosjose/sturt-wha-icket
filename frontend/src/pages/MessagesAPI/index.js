@@ -62,7 +62,11 @@ const MessagesAPI = () => {
   }, []);
 
   const getEndpoint = () => {
-    return (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080') + '/api/messages/send'
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (!backendUrl) {
+      throw new Error('REACT_APP_BACKEND_URL no está configurado');
+    }
+    return backendUrl + '/api/messages/send'
   }
 
   const handleSendTextMessage = async (values) => {

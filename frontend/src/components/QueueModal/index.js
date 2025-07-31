@@ -114,7 +114,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
     { weekday: "Sábado", weekdayEn: "saturday", startTime: "08:00", endTime: "12:00", },
     { weekday: "Domingo", weekdayEn: "sunday", startTime: "00:00", endTime: "00:00", },
   ]);
-  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  	const [selectedPrompt, setSelectedPrompt] = useState('');
   const [prompts, setPrompts] = useState([]);
 
   useEffect(() => {
@@ -159,7 +159,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
         setQueue((prevState) => {
           return { ...prevState, ...data };
         });
-        data.promptId ? setSelectedPrompt(data.promptId) : setSelectedPrompt(null);
+        data.promptId ? setSelectedPrompt(data.promptId) : setSelectedPrompt('');
 
         setSchedules(data.schedules);
       } catch (err) {
@@ -251,7 +251,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
   const handleChangePrompt = (e) => {
     const value = e.target.value;
     // Si el valor es vacío, establecer como null para deseleccionar
-    setSelectedPrompt(value === "" ? null : value);
+    		setSelectedPrompt(value === "" ? '' : value);
   };
 
   return (

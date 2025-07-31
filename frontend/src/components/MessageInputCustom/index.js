@@ -863,7 +863,11 @@ const MessageInputCustom = (props) => {
           
           // Construir URL del archivo
           const publicFolder = "public/fileList";
-          const fileUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080'}/${publicFolder}/${value.value.id}/${fileOption.path}`;
+          const backendUrl = process.env.REACT_APP_BACKEND_URL;
+          if (!backendUrl) {
+            throw new Error('REACT_APP_BACKEND_URL no está configurado');
+          }
+          const fileUrl = `${backendUrl}/${publicFolder}/${value.value.id}/${fileOption.path}`;
           
           if (logger && logger.media) {
             logger.media.debug("URL del archivo:", fileUrl);

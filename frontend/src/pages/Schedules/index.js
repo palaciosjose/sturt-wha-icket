@@ -437,7 +437,7 @@ const Schedules = () => {
                     <TableCell align="center">
                       <IconButton
                         onClick={() => handleEditSchedule(schedule)}
-                        disabled={scheduleDate < new Date() || schedule.status === "CANCELADO"}
+                        disabled={Boolean(scheduleDate < new Date() || schedule.status === "CANCELADO")}
                         size="small"
                       >
                         <EditIcon />
@@ -447,7 +447,7 @@ const Schedules = () => {
                           setDeletingSchedule(schedule);
                           setConfirmModalOpen(true);
                         }}
-                        disabled={schedule.sentAt || scheduleDate < new Date() || schedule.status === "CANCELADO"}
+                        disabled={Boolean(schedule.sentAt || scheduleDate < new Date() || schedule.status === "CANCELADO")}
                         size="small"
                         title={schedule.status === "CANCELADO" ? "Ya cancelado" : "Cancelar agendamiento"}
                       >
