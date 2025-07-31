@@ -1839,29 +1839,40 @@ system_pm2_install() {
     # Instalar PM2 globalmente con mejor manejo de errores
     log_message "INFO" "Instalando PM2 globalmente..."
     
+    # Intentar instalar PM2 con npm normal
     PM2_OUTPUT=$(npm install -g pm2 2>&1)
     PM2_EXIT_CODE=$?
     
     if [ $PM2_EXIT_CODE -eq 0 ]; then
-        log_message "SUCCESS" "✅ PM2 instalado correctamente"
+        log_message "SUCCESS" "✅ PM2 instalado correctamente con npm"
     else
-        log_message "ERROR" "❌ Error al instalar PM2"
-        echo -e "${RED}❌ No se pudo instalar PM2${NC}"
-        echo -e "${YELLOW}Error detallado:${NC}"
-        echo -e "${CYAN}$PM2_OUTPUT${NC}"
-        echo -e "${YELLOW}Solución manual:${NC}"
-        echo -e "${CYAN}1. Verifica que npm esté funcionando: npm --version${NC}"
-        echo -e "${CYAN}2. Intenta instalar PM2 manualmente: npm install -g pm2${NC}"
-        echo -e "${CYAN}3. Si falla, usa: sudo npm install -g pm2${NC}"
-        echo -e "${CYAN}4. Verifica permisos: ls -la ~/.npm-global/bin/ || ls -la /usr/local/bin/pm2${NC}"
-        register_error "Error al instalar PM2"
-        return 1
+        log_message "WARNING" "⚠️ Instalación con npm falló, intentando con sudo..."
+        
+        # Intentar con sudo si falló con npm normal
+        PM2_OUTPUT=$(sudo npm install -g pm2 2>&1)
+        PM2_EXIT_CODE=$?
+        
+        if [ $PM2_EXIT_CODE -eq 0 ]; then
+            log_message "SUCCESS" "✅ PM2 instalado correctamente con sudo"
+        else
+            log_message "ERROR" "❌ Error al instalar PM2"
+            echo -e "${RED}❌ No se pudo instalar PM2${NC}"
+            echo -e "${YELLOW}Error detallado:${NC}"
+            echo -e "${CYAN}$PM2_OUTPUT${NC}"
+            echo -e "${YELLOW}Solución manual:${NC}"
+            echo -e "${CYAN}1. Verifica que npm esté funcionando: npm --version${NC}"
+            echo -e "${CYAN}2. Intenta instalar PM2 manualmente: sudo npm install -g pm2${NC}"
+            echo -e "${CYAN}3. Si falla, usa: sudo npm install -g pm2 --unsafe-perm=true${NC}"
+            echo -e "${CYAN}4. Verifica permisos: ls -la /usr/local/bin/pm2${NC}"
+            register_error "Error al instalar PM2"
+            return 1
+        fi
     fi
     
-    # Configurar PATH para PM2
-    export PATH=$PATH:/usr/local/bin:~/.npm-global/bin
+    # Configurar PATH para PM2 (múltiples ubicaciones posibles)
+    export PATH=$PATH:/usr/local/bin:~/.npm-global/bin:/usr/bin
     
-    # Verificar que PM2 se instaló correctamente
+    # Verificar que PM2 se instaló correctamente y está disponible para sudo
     sleep 2
     if ! command -v pm2 &> /dev/null; then
         log_message "ERROR" "❌ PM2 no está disponible después de la instalación"
@@ -1870,9 +1881,25 @@ system_pm2_install() {
         echo -e "${CYAN}1. Verifica la instalación: npm list -g pm2${NC}"
         echo -e "${CYAN}2. Busca PM2: find /usr/local -name pm2 2>/dev/null${NC}"
         echo -e "${CYAN}3. Busca PM2 en npm global: find ~/.npm-global -name pm2 2>/dev/null${NC}"
-        echo -e "${CYAN}4. Reinstala: npm uninstall -g pm2 && npm install -g pm2${NC}"
+        echo -e "${CYAN}4. Reinstala: sudo npm uninstall -g pm2 && sudo npm install -g pm2${NC}"
         register_error "PM2 no se instaló correctamente"
         return 1
+    fi
+    
+    # Verificar que PM2 está disponible para sudo
+    if ! sudo pm2 --version &> /dev/null; then
+        log_message "WARNING" "⚠️ PM2 no está disponible para sudo, configurando..."
+        
+        # Crear enlace simbólico para que sudo pueda encontrar PM2
+        PM2_PATH=$(which pm2)
+        if [ ! -z "$PM2_PATH" ]; then
+            sudo ln -sf "$PM2_PATH" /usr/local/bin/pm2 2>/dev/null || true
+            log_message "SUCCESS" "✅ Enlace simbólico creado para PM2"
+        else
+            log_message "ERROR" "❌ No se pudo encontrar PM2 para crear enlace"
+            register_error "PM2 no disponible para sudo"
+            return 1
+        fi
     fi
     
     log_message "SUCCESS" "✅ PM2 instalado correctamente"
@@ -2518,6 +2545,20 @@ backend_db_seed() {
     # Ejecutar seeds automáticos - CRÍTICO: Si fallan, detener instalación
     log_message "INFO" "Ejecutando seeds automáticos..."
     
+    # Verificar si ya existen datos básicos antes de ejecutar seeds
+    existing_user=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Users WHERE email = 'admin@admin.com';" 2>/dev/null | tail -1 | tr -d ' ')
+    existing_company=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -1 | tr -d ' ')
+    existing_plan=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans;" 2>/dev/null | tail -1 | tr -d ' ')
+    
+    if [ "$existing_user" -gt 0 ] && [ "$existing_company" -gt 0 ] && [ "$existing_plan" -gt 0 ]; then
+        log_message "SUCCESS" "✅ Datos básicos ya existen en la base de datos"
+        log_message "INFO" "Credenciales de acceso:"
+        log_message "INFO" "  Email: admin@admin.com"
+        log_message "INFO" "  Contraseña: 123456"
+        return 0
+    fi
+    
+    # Ejecutar seeds con manejo específico de errores de validación
     SEED_OUTPUT=$(npm run db:seed 2>&1)
     SEED_EXIT_CODE=$?
     
@@ -2552,16 +2593,45 @@ backend_db_seed() {
             return 1
         fi
     else
-        log_message "ERROR" "❌ Error crítico en seeds automáticos"
-        echo -e "${RED}❌ Los seeds automáticos fallaron${NC}"
-        echo -e "${YELLOW}Error detallado:${NC}"
-        echo -e "${CYAN}$SEED_OUTPUT${NC}"
-        echo -e "${YELLOW}Solución manual:${NC}"
-        echo -e "${CYAN}1. Verifica la conexión a la base de datos${NC}"
-        echo -e "${CYAN}2. Verifica que las tablas existan${NC}"
-        echo -e "${CYAN}3. Ejecuta manualmente: npm run db:seed${NC}"
-        register_error "Error crítico en seeds automáticos"
-        return 1
+        # Manejar específicamente errores de validación
+        if echo "$SEED_OUTPUT" | grep -q "Validation error"; then
+            log_message "WARNING" "⚠️ Error de validación detectado - datos ya existen"
+            echo -e "${YELLOW}⚠️ Error de validación: Los datos ya existen en la base de datos${NC}"
+            echo -e "${CYAN}Verificando datos existentes...${NC}"
+            
+            # Verificar si realmente existen los datos necesarios
+            user_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Users;" 2>/dev/null | tail -1 | tr -d ' ')
+            company_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Companies;" 2>/dev/null | tail -1 | tr -d ' ')
+            plan_count=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Plans;" 2>/dev/null | tail -1 | tr -d ' ')
+            
+            if [ "$user_count" -gt 0 ] && [ "$company_count" -gt 0 ] && [ "$plan_count" -gt 0 ]; then
+                log_message "SUCCESS" "✅ Datos verificados correctamente (ya existían)"
+                log_message "INFO" "Credenciales de acceso:"
+                log_message "INFO" "  Email: admin@admin.com"
+                log_message "INFO" "  Contraseña: 123456"
+                return 0
+            else
+                log_message "ERROR" "❌ Error de validación pero datos incompletos"
+                echo -e "${RED}❌ Error de validación pero faltan datos necesarios${NC}"
+                echo -e "${YELLOW}Solución manual:${NC}"
+                echo -e "${CYAN}1. Limpia la base de datos: DROP DATABASE ${instancia_add}; CREATE DATABASE ${instancia_add};${NC}"
+                echo -e "${CYAN}2. Ejecuta migraciones: npx sequelize-cli db:migrate${NC}"
+                echo -e "${CYAN}3. Ejecuta seeds: npm run db:seed${NC}"
+                register_error "Error de validación con datos incompletos"
+                return 1
+            fi
+        else
+            log_message "ERROR" "❌ Error crítico en seeds automáticos"
+            echo -e "${RED}❌ Los seeds automáticos fallaron${NC}"
+            echo -e "${YELLOW}Error detallado:${NC}"
+            echo -e "${CYAN}$SEED_OUTPUT${NC}"
+            echo -e "${YELLOW}Solución manual:${NC}"
+            echo -e "${CYAN}1. Verifica la conexión a la base de datos${NC}"
+            echo -e "${CYAN}2. Verifica que las tablas existan${NC}"
+            echo -e "${CYAN}3. Ejecuta manualmente: npm run db:seed${NC}"
+            register_error "Error crítico en seeds automáticos"
+            return 1
+        fi
     fi
 
     # Los seeds automáticos son obligatorios - no hay creación manual
