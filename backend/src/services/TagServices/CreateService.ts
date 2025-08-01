@@ -2,6 +2,7 @@ import * as Yup from "yup";
 
 import AppError from "../../errors/AppError";
 import Tag from "../../models/Tag";
+import { getIO } from "../../libs/socket";
 
 interface Request {
   name: string;
@@ -32,6 +33,13 @@ const CreateService = async ({
   });
 
   await tag.reload();
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA CREACIÓN DE ETIQUETA
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-tag`, {
+    action: "create",
+    tag
+  });
 
   return tag;
 };

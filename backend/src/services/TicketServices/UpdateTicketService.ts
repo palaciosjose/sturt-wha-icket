@@ -271,6 +271,14 @@ const UpdateTicketService = async ({
       });
     }
 
+    if (status !== undefined && ["closed"].indexOf(status) > -1) {
+      ticketTraking.update({
+        finishedAt: moment().toDate(),
+        whatsappId,
+        userId: ticket.userId
+      });
+    }
+
     await ticketTraking.save();
 
     if (ticket.status !== oldStatus || ticket.user?.id !== oldUserId) {
@@ -284,6 +292,30 @@ const UpdateTicketService = async ({
         });
     }
 
+    // ✅ EMITIR EVENTO ESPECÍFICO PARA TICKETS CERRADOS
+    if (status !== undefined && ["closed"].indexOf(status) > -1) {
+      console.log("📡 EMITIENDO EVENTO TICKET DELETE:", {
+        channels: [`company-${companyId}-${oldStatus}`, `queue-${ticket.queueId}-${oldStatus}`, `user-${oldUserId}`],
+        event: `company-${companyId}-ticket`,
+        action: "delete",
+        ticketId: ticket.id
+      });
+      io.to(`company-${companyId}-${oldStatus}`)
+        .to(`queue-${ticket.queueId}-${oldStatus}`)
+        .to(`user-${oldUserId}`)
+        .emit(`company-${companyId}-ticket`, {
+          action: "delete",
+          ticketId: ticket.id
+        });
+    }
+
+    console.log("📡 EMITIENDO EVENTO TICKET UPDATE:", {
+      channels: [`company-${companyId}-${ticket.status}`, `company-${companyId}-notification`, `queue-${ticket.queueId}-${ticket.status}`, `queue-${ticket.queueId}-notification`, ticketId.toString(), `user-${ticket?.userId}`, `user-${oldUserId}`],
+      event: `company-${companyId}-ticket`,
+      action: "update",
+      ticketId: ticket.id,
+      status: ticket.status
+    });
     io.to(`company-${companyId}-${ticket.status}`)
       .to(`company-${companyId}-notification`)
       .to(`queue-${ticket.queueId}-${ticket.status}`)

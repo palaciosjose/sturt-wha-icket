@@ -1,6 +1,7 @@
 import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import QuickMessage from "../../models/QuickMessage";
+import { getIO } from "../../libs/socket";
 
 interface Data {
   shortcode: string;
@@ -29,6 +30,13 @@ const CreateService = async (data: Data): Promise<QuickMessage> => {
   }
 
   const record = await QuickMessage.create(data);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA CREACIÓN DE RESPUESTA RÁPIDA
+  const io = getIO();
+  io.to(`company-${data.companyId}-mainchannel`).emit(`company-${data.companyId}-quickMessage`, {
+    action: "create",
+    quickMessage: record
+  });
 
   return record;
 };

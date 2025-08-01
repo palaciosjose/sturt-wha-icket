@@ -165,7 +165,13 @@ const Users = () => {
     });
 
     return () => {
-      socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-user`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
     };
   }, [socketManager]);
 

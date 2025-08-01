@@ -1,5 +1,6 @@
 import AppError from "../../errors/AppError";
 import QuickMessage from "../../models/QuickMessage";
+import { getIO } from "../../libs/socket";
 
 interface Data {
   shortcode: string;
@@ -23,6 +24,13 @@ const UpdateService = async (data: Data): Promise<QuickMessage> => {
     message,
     userId,
 	geral
+  });
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ACTUALIZACIÓN DE RESPUESTA RÁPIDA
+  const io = getIO();
+  io.to(`company-${record.companyId}-mainchannel`).emit(`company-${record.companyId}-quickMessage`, {
+    action: "update",
+    quickMessage: record
   });
 
   return record;

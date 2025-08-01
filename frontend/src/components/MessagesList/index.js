@@ -338,6 +338,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const messageOptionsMenuOpen = Boolean(anchorEl);
   const currentTicketId = useRef(ticketId);
+  const isMounted = useRef(true);
   const socketManager = useContext(SocketContext);
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const { showSelectMessageCheckbox } = useContext(ForwardMessageContext);
@@ -384,23 +385,47 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.getSocket(companyId);
 
-    socket.on("ready", () => socket.emit("joinChatBox", `${ticket.id}`));
+    socket.on("ready", () => {
+      console.log("🔌 SOCKET READY - Uniéndose a chatBox:", ticket.id);
+      socket.emit("joinChatBox", `${ticket.id}`);
+    });
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
+      console.log("📡 EVENTO APP MESSAGE RECIBIDO:", data.action, data.message?.ticketId, "currentTicketId:", currentTicketId.current);
+      
+      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
+      if (!isMounted.current) return;
+      
       if (data.action === "create" && data.message.ticketId === currentTicketId.current) {
+        console.log("➕ AGREGANDO MENSAJE:", data.message.id);
         dispatch({ type: "ADD_MESSAGE", payload: data.message });
         scrollToBottom();
       }
 
       if (data.action === "update" && data.message.ticketId === currentTicketId.current) {
+        console.log("🔄 ACTUALIZANDO MENSAJE:", data.message.id);
         dispatch({ type: "UPDATE_MESSAGE", payload: data.message });
       }
     });
 
     return () => {
-      socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-appMessage`);
+        socket.off(`company-${companyId}-contact`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
     };
   }, [ticketId, ticket, socketManager]);
+
+  // ✅ CLEANUP DEL COMPONENTE
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const loadMore = () => {
     setPageNumber((prevPageNumber) => prevPageNumber + 1);

@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import ShowUserService from "./ShowUserService";
 import Company from "../../models/Company";
 import User from "../../models/User";
+import { getIO } from "../../libs/socket";
 
 interface UserData {
   email?: string;
@@ -84,6 +85,13 @@ const UpdateUserService = async ({
     company,
     queues: user.queues
   };
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ACTUALIZACIÓN DE USUARIO
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-user`, {
+    action: "update",
+    user: serializedUser
+  });
 
   return serializedUser;
 };

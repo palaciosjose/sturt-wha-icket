@@ -2,6 +2,7 @@ import User from "../../models/User";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import UpdateDeletedUserOpenTicketsStatus from "../../helpers/UpdateDeletedUserOpenTicketsStatus";
+import { getIO } from "../../libs/socket";
 
 const DeleteUserService = async (
   id: string | number,
@@ -22,6 +23,13 @@ const DeleteUserService = async (
   if (userOpenTickets.length > 0) {
     UpdateDeletedUserOpenTicketsStatus(userOpenTickets, companyId);
   }
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ELIMINACIÓN DE USUARIO
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-user`, {
+    action: "delete",
+    userId: user.id
+  });
 
   await user.destroy();
 };

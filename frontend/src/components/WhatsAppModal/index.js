@@ -228,7 +228,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId, onSave }) => {
   const handleClose = () => {
     onClose();
     setWhatsApp(initialState);
-	  setSelectedQueueId('');
+	      setSelectedQueueId('');
     setSelectedQueueIds([]);
     setSelectedPrompt('');
     setIsLoading(false);

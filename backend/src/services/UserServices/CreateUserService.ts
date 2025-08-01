@@ -5,6 +5,7 @@ import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
 import Plan from "../../models/Plan";
 import Company from "../../models/Company";
+import { getIO } from "../../libs/socket";
 
 interface Request {
   email: string;
@@ -100,6 +101,15 @@ const CreateUserService = async ({
   await user.reload();
 
   const serializedUser = SerializeUser(user);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA CREACIÓN DE USUARIO
+  if (companyId) {
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-user`, {
+      action: "create",
+      user: serializedUser
+    });
+  }
 
   return serializedUser;
 };

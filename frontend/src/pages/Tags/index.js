@@ -136,18 +136,24 @@ const Tags = () => {
   useEffect(() => {
     const socket = socketManager.getSocket(user.companyId);
 
-    socket.on("user", (data) => {
+    socket.on(`company-${user.companyId}-tag`, (data) => {
       if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_TAGS", payload: data.tags });
+        dispatch({ type: "UPDATE_TAGS", payload: data.tag });
       }
 
       if (data.action === "delete") {
-        dispatch({ type: "DELETE_USER", payload: +data.tagId });
+        dispatch({ type: "DELETE_TAG", payload: +data.tagId });
       }
     });
 
     return () => {
-      socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${user.companyId}-tag`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
     };
   }, [socketManager, user]);
 

@@ -282,7 +282,13 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     }, 1000 * 60 * 5);
 
     return () => {
-      socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-notification`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
       clearInterval(interval);
     };
   }, [socketManager]);

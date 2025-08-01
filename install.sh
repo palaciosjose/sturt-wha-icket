@@ -2908,6 +2908,8 @@ frontend_set_env() {
     cat > "$FRONTEND_DIR/.env" << EOF
 REACT_APP_BACKEND_URL=https://${backend_domain}
 REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24
+REACT_APP_NAME_SYSTEM=${instancia_add}
+NODE_ENV=production
 EOF
 
     # Verificar que el archivo .env se creó correctamente

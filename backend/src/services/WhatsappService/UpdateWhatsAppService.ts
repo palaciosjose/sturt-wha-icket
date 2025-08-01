@@ -6,6 +6,7 @@ import Whatsapp from "../../models/Whatsapp";
 import Ticket from "../../models/Ticket";
 import ShowWhatsAppService from "./ShowWhatsAppService";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
+import { getIO } from "../../libs/socket";
 
 interface WhatsappData {
   name?: string;
@@ -204,6 +205,20 @@ const UpdateWhatsAppService = async ({
   console.log("  - Nombre:", whatsapp.name);
   console.log("  - Departamentos:", whatsapp.queues?.map(q => q.name));
   console.log("  - Prompt ID:", whatsapp.promptId);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ACTUALIZACIÓN DE WHATSAPP
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
+    action: "update",
+    whatsapp
+  });
+
+  if (oldDefaultWhatsapp) {
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
+      action: "update",
+      whatsapp: oldDefaultWhatsapp
+    });
+  }
 
   return { whatsapp, oldDefaultWhatsapp };
 };

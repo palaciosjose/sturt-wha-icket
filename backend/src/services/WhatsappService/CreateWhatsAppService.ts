@@ -5,6 +5,7 @@ import Whatsapp from "../../models/Whatsapp";
 import Company from "../../models/Company";
 import Plan from "../../models/Plan";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
+import { getIO } from "../../libs/socket";
 
 interface Request {
   name: string;
@@ -20,7 +21,7 @@ interface Request {
   provider?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
-  transferQueueId?: number;
+  transferQueueId?: number | string;
   timeToTransfer?: number;    
   promptId?: number;
   maxUseBotQueues?: number;
@@ -156,6 +157,9 @@ const CreateWhatsAppService = async ({
     }
   }
 
+  // Limpiar transferQueueId: si es '' (cadena vacía), poner null
+  const cleanTransferQueueId = transferQueueId && transferQueueId !== '' && transferQueueId !== 0 ? Number(transferQueueId) : null;
+
   const whatsapp = await Whatsapp.create(
     {
       name,
@@ -170,8 +174,8 @@ const CreateWhatsAppService = async ({
       provider,
       //timeSendQueue,
       //sendIdQueue,
-	  transferQueueId,
-	  timeToTransfer,	  
+      transferQueueId: cleanTransferQueueId, // Usar valor limpio
+      timeToTransfer,  
       promptId,
       maxUseBotQueues,
       timeUseBotQueues,
@@ -182,6 +186,20 @@ const CreateWhatsAppService = async ({
   );
 
   await AssociateWhatsappQueue(whatsapp, queueIds);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA CREACIÓN DE WHATSAPP
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
+    action: "create",
+    whatsapp
+  });
+
+  if (oldDefaultWhatsapp) {
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-whatsapp`, {
+      action: "update",
+      whatsapp: oldDefaultWhatsapp
+    });
+  }
 
   return { whatsapp, oldDefaultWhatsapp };
 };

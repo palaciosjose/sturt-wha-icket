@@ -26,7 +26,7 @@ interface WhatsappData {
   token?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
-  transferQueueId?: number;
+  transferQueueId?: number | string;
   timeToTransfer?: number;  
   promptId?: number;
   maxUseBotQueues?: number;
@@ -76,9 +76,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         .filter(id => id && id !== null && id !== undefined && !isNaN(Number(id)))
     : [];
 
+  // ✅ LIMPIAR transferQueueId (convertir '' a null)
+  const cleanTransferQueueId = transferQueueId && transferQueueId !== '' && transferQueueId !== 0 ? Number(transferQueueId) : null;
+
   console.log("🔄 DATOS RECIBIDOS:");
   console.log("  - queueIds original:", queueIds);
   console.log("  - queueIds limpio:", cleanQueueIds);
+  console.log("  - transferQueueId original:", transferQueueId);
+  console.log("  - transferQueueId limpio:", cleanTransferQueueId);
   console.log("  - token:", token);
   console.log("  - name:", name);
   console.log("  - status:", status);
@@ -95,7 +100,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     token,
     //timeSendQueue,
     //sendIdQueue,
-	transferQueueId,
+	transferQueueId: cleanTransferQueueId, // ✅ USAR VALOR LIMPIO
 	timeToTransfer,	
     promptId,
     maxUseBotQueues,

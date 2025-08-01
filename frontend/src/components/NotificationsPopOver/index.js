@@ -168,9 +168,15 @@ const NotificationsPopOver = (volume) => {
 			}
 		});
 
-		return () => {
-			socket.disconnect();
-		};
+		    return () => {
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${user.companyId}-notification`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
+    };
 	}, [user, showPendingTickets, socketManager]);
 
 	const handleNotifications = data => {

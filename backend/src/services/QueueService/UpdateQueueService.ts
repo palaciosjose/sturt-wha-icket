@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import ShowQueueService from "./ShowQueueService";
+import { getIO } from "../../libs/socket";
 
 interface QueueData {
   name?: string;
@@ -76,6 +77,13 @@ const UpdateQueueService = async (
   }
 
   await queue.update(queueData);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ACTUALIZACIÓN DE DEPARTAMENTO
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-queue`, {
+    action: "update",
+    queue
+  });
 
   return queue;
 };

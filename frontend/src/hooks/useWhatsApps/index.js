@@ -11,6 +11,11 @@ const reducer = (state, action) => {
     return [...whatsApps];
   }
 
+  if (action.type === "ADD_WHATSAPPS") {
+    const whatsApp = action.payload;
+    return [whatsApp, ...state];
+  }
+
   if (action.type === "UPDATE_WHATSAPPS") {
     const whatsApp = action.payload;
     const whatsAppIndex = state.findIndex((s) => s.id === whatsApp.id);
@@ -119,9 +124,18 @@ const useWhatsApps = () => {
       const companyId = localStorage.getItem("companyId");
       const socket = socketManager.getSocket(companyId);
 
+      console.log("🔌 CONFIGURANDO LISTENER WHATSAPP PARA COMPANY:", companyId);
+      console.log("🔌 SOCKET CONECTADO:", socket.connected);
+
       socket.on(`company-${companyId}-whatsapp`, (data) => {
         if (isMounted.current) {
+          console.log("📡 EVENTO WHATSAPP RECIBIDO:", data.action, data);
           logger.whatsapp.debug("📡 EVENTO WHATSAPP RECIBIDO:", data.action);
+          
+          if (data.action === "create") {
+            logger.whatsapp.debug("➕ CREANDO NUEVA CONEXIÓN:", data.whatsapp.id);
+            dispatch({ type: "ADD_WHATSAPPS", payload: data.whatsapp });
+          }
           
           if (data.action === "update") {
             logger.whatsapp.debug("🔄 ACTUALIZANDO CONEXIÓN:", data.whatsapp.id);
@@ -152,7 +166,11 @@ const useWhatsApps = () => {
 
       return () => {
         if (isMounted.current) {
-          socket.disconnect();
+          // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+          if (socket && typeof socket.off === 'function') {
+            socket.off(`company-${companyId}-whatsapp`);
+            socket.off(`company-${companyId}-whatsappSession`);
+          }
         }
       };
     }

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useRef, useEffect } from "react";
 import { useHistory } from "react-router-dom";
 
 import { makeStyles, createTheme, ThemeProvider } from "@material-ui/core/styles";
@@ -38,6 +38,7 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 	const ticketOptionsMenuOpen = Boolean(anchorEl);
 	const { user } = useContext(AuthContext);
 	const { setCurrentTicket } = useContext(TicketsContext);
+	const isMounted = useRef(true);
 
 	const customTheme = createTheme({
 		palette: {
@@ -64,6 +65,9 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 				integrationId: status === "closed" ? false : ticket.integrationId
 			});
 
+			// ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE ACTUALIZAR ESTADO
+			if (!isMounted.current) return;
+
 			setLoading(false);
 			if (status === "open") {
 				setCurrentTicket({ ...ticket, code: "#open" });
@@ -72,10 +76,20 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 				history.push("/tickets");
 			}
 		} catch (err) {
+			// ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE ACTUALIZAR ESTADO
+			if (!isMounted.current) return;
+			
 			setLoading(false);
 			toastError(err);
 		}
 	};
+
+	// ✅ CLEANUP DEL COMPONENTE
+	useEffect(() => {
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	return (
 		<div className={classes.actionButtons}>

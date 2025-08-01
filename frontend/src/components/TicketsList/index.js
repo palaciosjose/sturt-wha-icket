@@ -312,9 +312,18 @@ const TicketsList = (props) => {
 			}
 		});
 
-		return () => {
-			socket.disconnect();
-		};
+		    return () => {
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-ticket`);
+        socket.off(`company-${companyId}-appMessage`);
+        socket.off(`company-${companyId}-presence`);
+        socket.off(`company-${companyId}-contact`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
+    };
 	}, [status, showAll, user, selectedQueueIds]);
 
 	useEffect(() => {

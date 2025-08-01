@@ -3,6 +3,7 @@ import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Company from "../../models/Company";
 import Plan from "../../models/Plan";
+import { getIO } from "../../libs/socket";
 
 interface QueueData {
   name: string;
@@ -87,6 +88,19 @@ const CreateQueueService = async (queueData: QueueData): Promise<Queue> => {
   }
 
   const queue = await Queue.create(queueData);
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA CREACIÓN DE DEPARTAMENTO
+  const io = getIO();
+  console.log("📡 EMITIENDO EVENTO QUEUE CREATE:", {
+    channel: `company-${companyId}-mainchannel`,
+    event: `company-${companyId}-queue`,
+    action: "create",
+    queueId: queue.id
+  });
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-queue`, {
+    action: "create",
+    queue
+  });
 
   return queue;
 };

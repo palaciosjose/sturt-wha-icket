@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import Tag from "../../models/Tag";
 import ShowService from "./ShowService";
+import { getIO } from "../../libs/socket";
 
 interface TagData {
   id?: number;
@@ -41,6 +42,14 @@ const UpdateUserService = async ({
   });
 
   await tag.reload();
+
+  // ✅ EMITIR EVENTO DE SOCKET PARA ACTUALIZACIÓN DE ETIQUETA
+  const io = getIO();
+  io.to(`company-${tag.companyId}-mainchannel`).emit(`company-${tag.companyId}-tag`, {
+    action: "update",
+    tag
+  });
+
   return tag;
 };
 

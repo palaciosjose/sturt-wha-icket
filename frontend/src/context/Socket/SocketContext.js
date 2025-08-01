@@ -27,11 +27,8 @@ class ManagedSocket {
   }
 
   on(event, callback) {
-    if (this.socketManager.socketReady) {
-      this.socket.on(event, callback);
-    } else {
-      this.pendingJoins.push({ event, callback });
-    }
+    // ✅ CONFIGURAR LISTENERS INMEDIATAMENTE, NO ESPERAR A SOCKET READY
+    this.socket.on(event, callback);
   }
 
   off(event, callback) {
@@ -39,15 +36,15 @@ class ManagedSocket {
   }
 
   emit(event, ...params) {
-    if (this.socketManager.socketReady) {
-      this.socket.emit(event, ...params);
-    } else {
-      this.pendingEmits.push({ event, params });
-    }
+    // ✅ EMITIR INMEDIATAMENTE, NO ESPERAR A SOCKET READY
+    this.socket.emit(event, ...params);
   }
 
   disconnect() {
-    this.socket.disconnect();
+    // ✅ SOLO LIMPIAR LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+    if (this.socket && typeof this.socket.off === 'function') {
+      this.socket.removeAllListeners();
+    }
   }
 }
 
@@ -65,6 +62,24 @@ const SocketManager = {
   socketReady: false,
 
   getSocket: function(companyId) {
+    // ✅ MÉTODO PARA DESCONECTAR MANUALMENTE CUANDO SEA NECESARIO
+    this.disconnectSocket = function() {
+      if (this.currentSocket) {
+        console.warn("Desconectando socket manualmente");
+        this.currentSocket.disconnect();
+        this.currentSocket = null;
+        this.currentCompanyId = null;
+        this.currentUserId = null;
+      }
+    };
+
+    // ✅ MÉTODO PARA LIMPIAR LISTENERS SIN DESCONECTAR
+    this.cleanupListeners = function() {
+      if (this.currentSocket) {
+        console.warn("Limpiando listeners del socket");
+        this.currentSocket.removeAllListeners();
+      }
+    };
     let userId = null;
     if (localStorage.getItem("userId")) {
       userId = localStorage.getItem("userId");
@@ -82,7 +97,8 @@ const SocketManager = {
       if (this.currentSocket) {
         console.warn("closing old socket - company or user changed");
         this.currentSocket.removeAllListeners();
-        this.currentSocket.disconnect();
+        // ✅ NO DESCONECTAR AUTOMÁTICAMENTE - SOLO LIMPIAR LISTENERS
+        // this.currentSocket.disconnect();
         this.currentSocket = null;
         this.currentCompanyId = null;
 		    this.currentUserId = null;

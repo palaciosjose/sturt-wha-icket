@@ -130,16 +130,22 @@ const Quickemessages = () => {
     const companyId = user.companyId;
     const socket = socketManager.getSocket(companyId);
 
-    socket.on(`company${companyId}-quickemessage`, (data) => {
+    socket.on(`company-${companyId}-quickMessage`, (data) => {
       if (data.action === "update" || data.action === "create") {
-        dispatch({ type: "UPDATE_QUICKMESSAGES", payload: data.record });
+        dispatch({ type: "UPDATE_QUICKMESSAGES", payload: data.quickMessage });
       }
       if (data.action === "delete") {
-        dispatch({ type: "DELETE_QUICKMESSAGE", payload: +data.id });
+        dispatch({ type: "DELETE_QUICKMESSAGE", payload: +data.quickMessageId });
       }
     });
     return () => {
-      socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-quickMessage`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
     };
   }, [socketManager, user.companyId]);
 

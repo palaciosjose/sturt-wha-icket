@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer, useContext, useRef } from "react";
 
 import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
@@ -91,6 +91,11 @@ const reducer = (state, action) => {
     return [...state];
   }
 
+  if (action.type === "ADD_TICKET") {
+    const ticket = action.payload;
+    return [ticket, ...state];
+  }
+
   if (action.type === "RESET_UNREAD") {
     const ticketId = action.payload;
 
@@ -178,6 +183,7 @@ const TicketsListCustom = (props) => {
   const [ticketsList, dispatch] = useReducer(reducer, []);
   const { user } = useContext(AuthContext);
   const { profile, queues } = user;
+  const isMounted = useRef(true);
 
   const socketManager = useContext(SocketContext);
 
@@ -221,16 +227,46 @@ const TicketsListCustom = (props) => {
       ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
 
     socket.on("ready", () => {
+      console.log("🔌 SOCKET READY - Uniéndose a canales...");
       if (status) {
+        console.log("📡 Uniéndose a tickets con status:", status);
         socket.emit("joinTickets", status);
+        // ✅ UNIRSE TAMBIÉN A OTROS STATUS PARA RECIBIR EVENTOS DE ELIMINACIÓN
+        if (status === "open") {
+          socket.emit("joinTickets", "closed");
+        } else if (status === "closed") {
+          socket.emit("joinTickets", "open");
+        }
       } else {
+        console.log("📡 Uniéndose a notificaciones");
         socket.emit("joinNotification");
       }
     });
 
+    socket.on("connect", () => {
+      console.log("🔌 SOCKET CONECTADO");
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 SOCKET DESCONECTADO:", reason);
+    });
+
     socket.on(`company-${companyId}-ticket`, (data) => {
+      console.log("📡 EVENTO TICKET RECIBIDO:", data.action, data);
+      
+      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
+      if (!isMounted.current) return;
+      
+      if (data.action === "create" && shouldUpdateTicket(data.ticket) && (status === undefined || data.ticket.status === status)) {
+        console.log("➕ CREANDO TICKET:", data.ticket.id);
+        dispatch({
+          type: "ADD_TICKET",
+          payload: data.ticket,
+        });
+      }
       
       if (data.action === "updateUnread") {
+        console.log("🔄 ACTUALIZANDO UNREAD:", data.ticketId);
         dispatch({
           type: "RESET_UNREAD",
           payload: data.ticketId,
@@ -238,6 +274,7 @@ const TicketsListCustom = (props) => {
       }
 
       if (data.action === "update" && shouldUpdateTicket(data.ticket) && data.ticket.status === status) {
+        console.log("🔄 ACTUALIZANDO TICKET:", data.ticket.id);
         dispatch({
           type: "UPDATE_TICKET",
           payload: data.ticket,
@@ -245,15 +282,20 @@ const TicketsListCustom = (props) => {
       }
 
       if (data.action === "update" && notBelongsToUserQueues(data.ticket)) {
+        console.log("🗑️ ELIMINANDO TICKET (no pertenece a colas):", data.ticket.id);
         dispatch({ type: "DELETE_TICKET", payload: data.ticket.id });
       }
 
       if (data.action === "delete") {
+        console.log("🗑️ ELIMINANDO TICKET:", data.ticketId);
         dispatch({ type: "DELETE_TICKET", payload: data.ticketId });
       }
     });
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
+      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
+      if (!isMounted.current) return;
+      
       const queueIds = queues.map((q) => q.id);
       if (
         profile === "user" &&
@@ -272,6 +314,12 @@ const TicketsListCustom = (props) => {
     });
 
     socket.on(`company-${companyId}-presence`, (data) => {
+      console.log("📡 EVENTO PRESENCE RECIBIDO:", data);
+      
+      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
+      if (!isMounted.current) return;
+      
+      console.log("🔄 ACTUALIZANDO PRESENCE:", data.ticketId, data.presence);
       dispatch({
         type: "UPDATE_TICKET_PRESENCE",
         payload: data,
@@ -279,6 +327,9 @@ const TicketsListCustom = (props) => {
     });
 
     socket.on(`company-${companyId}-contact`, (data) => {
+      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
+      if (!isMounted.current) return;
+      
       if (data.action === "update") {
         dispatch({
           type: "UPDATE_TICKET_CONTACT",
@@ -288,12 +339,25 @@ const TicketsListCustom = (props) => {
     });
 
     return () => {
-      // Solo desconectar si el socket existe y no es un dummy socket
-      if (socket && typeof socket.disconnect === 'function') {
-        socket.disconnect();
+      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
+      if (socket && typeof socket.off === 'function') {
+        socket.off(`company-${companyId}-ticket`);
+        socket.off(`company-${companyId}-appMessage`);
+        socket.off(`company-${companyId}-presence`);
+        socket.off(`company-${companyId}-contact`);
+        socket.off("ready");
+        socket.off("connect");
+        socket.off("disconnect");
       }
     };
   }, [status, showAll, user, selectedQueueIds, tags, users, profile, queues, socketManager]);
+
+  // ✅ CLEANUP DEL COMPONENTE
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof updateCount === "function") {
