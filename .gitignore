@@ -2,6 +2,37 @@
 # GITIGNORE PARA WHATICKET SAAS
 # ========================================
 
+# ========================================
+# REGLAS ESPECÍFICAS PARA EVITAR TRACKING
+# ========================================
+
+# Archivos de desarrollo local que NO deben estar en Git
+server.js
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Archivos de configuración local
+.env.back.local
+.env.local.backup
+*.local
+*.backup
+
+# Archivos de desarrollo específicos
+frontend/server.js
+backend/server.js
+*.dev.js
+*.local.js
+
+# ========================================
+# DEPENDENCIAS Y ARCHIVOS GENERADOS
+# ========================================
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -31,6 +62,10 @@ build/
 .next/
 .nuxt/
 .gatsby/
+
+# ========================================
+# LOGS Y ARCHIVOS TEMPORALES
+# ========================================
 
 # Logs
 logs/
@@ -95,6 +130,10 @@ tmp/
 temp/
 .tmp/
 
+# ========================================
+# EDITORES Y SISTEMAS OPERATIVOS
+# ========================================
+
 # Editor directories and files
 .vscode/
 .idea/
@@ -114,6 +153,10 @@ temp/
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+# ========================================
+# SERVICIOS Y CONFIGURACIÓN
+# ========================================
 
 # PM2
 .pm2/
@@ -137,6 +180,10 @@ src/config/sentry.js
 config/database.js
 src/config/database.js
 
+# ========================================
+# WHATSAPP Y MEDIA
+# ========================================
+
 # WhatsApp session files
 *.session
 *.session.json
@@ -158,6 +205,10 @@ uploads/
 public/uploads/
 media/
 
+# ========================================
+# BASE DE DATOS Y CERTIFICADOS
+# ========================================
+
 # Database files
 *.sql
 *.sqlite
@@ -172,6 +223,10 @@ media/
 *.pfx
 certs/
 ssl/
+
+# ========================================
+# CACHE Y BUILD
+# ========================================
 
 # Cache directories
 .cache/
@@ -193,11 +248,29 @@ build/
 dist/
 out/
 
+# ========================================
+# EXCEPCIONES - ARCHIVOS QUE SÍ DEBEN ESTAR
+# ========================================
+
 # Keep empty directories
 !public/logotipos/
 !public/.gitkeep
 !backend/public/uploads/.gitkeep
 !frontend/public/.gitkeep
+
+# Keep important files
+!backend/env.example
+!frontend/env.example
+!README.md
+!package.json
+!ecosystem.config.js
+!install.sh
+!setup/
+!guias/
+
+# ========================================
+# REGLAS ESPECÍFICAS DE WHATICKET
+# ========================================
 
 # Specific to Whaticket
 *.session
@@ -229,13 +302,15 @@ media/
 certs/
 ssl/
 
+# ========================================
+# ARCHIVOS IMPORTANTES QUE SÍ DEBEN ESTAR
+# ========================================
+
 # Keep important files
 !backend/env.example
 !frontend/env.example
 !README.md
 !package.json
-!package-lock.json
-!yarn.lock
 !ecosystem.config.js
 !install.sh
 !setup/
