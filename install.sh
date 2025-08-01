@@ -2729,6 +2729,16 @@ backend_db_migrate() {
         log_message "SUCCESS" "✅ Columna apiKey agregada a Prompts"
     fi
     
+    # MEJORA: Verificar y agregar setting viewregister si falta
+    log_message "INFO" "Verificando setting viewregister..."
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM Settings WHERE \`key\` = 'viewregister';" 2>/dev/null | tail -1 | tr -d ' ' | grep -q "1"; then
+        log_message "SUCCESS" "✅ Setting viewregister ya existe"
+    else
+        log_message "INFO" "Agregando setting viewregister..."
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT INTO Settings (\`key\`, value, companyId, createdAt, updatedAt) VALUES ('viewregister', 'disabled', 1, NOW(), NOW());" 2>/dev/null || true
+        log_message "SUCCESS" "✅ Setting viewregister agregado"
+    fi
+    
     sleep 2
     return 0
 }

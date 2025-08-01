@@ -115,6 +115,13 @@ module.exports = {
                     createdAt: new Date(),
                     updatedAt: new Date()
                 },
+                {
+                    key: "viewregister",
+                    value: "disabled",
+                    companyId: companyId,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                },
             ]
         );
     },
