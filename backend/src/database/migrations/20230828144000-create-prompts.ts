@@ -72,6 +72,10 @@ module.exports = {
           type: DataTypes.TEXT,
           allowNull: true
         },
+        provider: {
+          type: DataTypes.STRING(250),
+          allowNull: true
+        },
         queueId: {
           type: DataTypes.INTEGER,
           references: { model: "Queues", key: "id" },

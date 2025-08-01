@@ -22,14 +22,28 @@ module.exports = function override(config, env) {
     ...(envConfig.parsed || {})
   };
   
-  config.plugins = (config.plugins || []).concat([
+  // Agregar variables de entorno al webpack
+  config.plugins.push(
     new webpack.DefinePlugin({
-      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(envVars.REACT_APP_BACKEND_URL),
-      'process.env.REACT_APP_HOURS_CLOSE_TICKETS_AUTO': JSON.stringify(envVars.REACT_APP_HOURS_CLOSE_TICKETS_AUTO),
-      'process.env.REACT_APP_NAME_SYSTEM': JSON.stringify(envVars.REACT_APP_NAME_SYSTEM),
-      'process.env.PORT': JSON.stringify(envVars.PORT)
+      'process.env': JSON.stringify(envVars)
     })
-  ]);
-
+  );
+  
+  // Configurar Babel para excluir node_modules
+  if (config.module && config.module.rules) {
+    const babelRule = config.module.rules.find(rule => 
+      rule.test && rule.test.toString().includes('js')
+    );
+    
+    if (babelRule && babelRule.exclude) {
+      // Asegurar que node_modules esté excluido
+      if (!babelRule.exclude.toString().includes('node_modules')) {
+        babelRule.exclude = /node_modules/;
+      }
+    } else if (babelRule) {
+      babelRule.exclude = /node_modules/;
+    }
+  }
+  
   return config;
 }; 

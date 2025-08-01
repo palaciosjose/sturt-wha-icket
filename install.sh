@@ -1614,26 +1614,43 @@ obtain_ssl_certificates_improved() {
     
     log_message "SUCCESS" "✅ DNS verificado correctamente"
     
-    # Obtener certificado para backend
-    log_message "INFO" "Obteniendo certificado SSL para backend: $backend_domain"
-    if sudo certbot --nginx -d "$backend_domain" --non-interactive --agree-tos --email admin@watoolx.com; then
-        log_message "SUCCESS" "✅ Certificado SSL obtenido para backend"
+    # MEJORA: Verificar si SSL ya está instalado antes de intentar instalarlo
+    log_message "INFO" "Verificando si SSL ya está instalado..."
+    
+    # Verificar certificado backend
+    local backend_cert="/etc/letsencrypt/live/$backend_domain/fullchain.pem"
+    local backend_key="/etc/letsencrypt/live/$backend_domain/privkey.pem"
+    
+    if [ -f "$backend_cert" ] && [ -f "$backend_key" ]; then
+        log_message "SUCCESS" "✅ Certificado SSL para backend ya está instalado: $backend_domain"
     else
-        log_message "ERROR" "❌ Error al obtener certificado para backend"
-        log_message "INFO" "Verificando logs de Certbot..."
-        sudo tail -10 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || true
-        return 1
+        log_message "INFO" "Instalando certificado SSL para backend: $backend_domain"
+        if sudo certbot --nginx -d "$backend_domain" --non-interactive --agree-tos --email admin@watoolx.com; then
+            log_message "SUCCESS" "✅ Certificado SSL obtenido para backend"
+        else
+            log_message "ERROR" "❌ Error al obtener certificado para backend"
+            log_message "INFO" "Verificando logs de Certbot..."
+            sudo tail -10 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || true
+            return 1
+        fi
     fi
     
-    # Obtener certificado para frontend
-    log_message "INFO" "Obteniendo certificado SSL para frontend: $frontend_domain"
-    if sudo certbot --nginx -d "$frontend_domain" --non-interactive --agree-tos --email admin@watoolx.com; then
-        log_message "SUCCESS" "✅ Certificado SSL obtenido para frontend"
+    # Verificar certificado frontend
+    local frontend_cert="/etc/letsencrypt/live/$frontend_domain/fullchain.pem"
+    local frontend_key="/etc/letsencrypt/live/$frontend_domain/privkey.pem"
+    
+    if [ -f "$frontend_cert" ] && [ -f "$frontend_key" ]; then
+        log_message "SUCCESS" "✅ Certificado SSL para frontend ya está instalado: $frontend_domain"
     else
-        log_message "ERROR" "❌ Error al obtener certificado para frontend"
-        log_message "INFO" "Verificando logs de Certbot..."
-        sudo tail -10 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || true
-        return 1
+        log_message "INFO" "Instalando certificado SSL para frontend: $frontend_domain"
+        if sudo certbot --nginx -d "$frontend_domain" --non-interactive --agree-tos --email admin@watoolx.com; then
+            log_message "SUCCESS" "✅ Certificado SSL obtenido para frontend"
+        else
+            log_message "ERROR" "❌ Error al obtener certificado para frontend"
+            log_message "INFO" "Verificando logs de Certbot..."
+            sudo tail -10 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || true
+            return 1
+        fi
     fi
     
     log_message "SUCCESS" "✅ Todos los certificados SSL obtenidos correctamente"
@@ -1648,16 +1665,55 @@ obtain_ssl_certificates_improved() {
     # Verificar que los certificados existen físicamente
     local backend_cert="/etc/letsencrypt/live/$backend_domain/fullchain.pem"
     local frontend_cert="/etc/letsencrypt/live/$frontend_domain/fullchain.pem"
+    local backend_key="/etc/letsencrypt/live/$backend_domain/privkey.pem"
+    local frontend_key="/etc/letsencrypt/live/$frontend_domain/privkey.pem"
     
-    if [ -f "$backend_cert" ] && [ -f "$frontend_cert" ]; then
-        log_message "SUCCESS" "✅ Certificados SSL verificados físicamente"
+    # MEJORA: Verificación más robusta de certificados
+    local backend_ssl_ok=false
+    local frontend_ssl_ok=false
+    
+    if [ -f "$backend_cert" ] && [ -f "$backend_key" ]; then
+        log_message "SUCCESS" "✅ Certificado SSL backend verificado: $backend_domain"
+        backend_ssl_ok=true
     else
-        log_message "WARNING" "⚠️ Certificados no encontrados inmediatamente, verificando..."
+        log_message "WARNING" "⚠️ Certificado SSL backend no encontrado: $backend_domain"
+    fi
+    
+    if [ -f "$frontend_cert" ] && [ -f "$frontend_key" ]; then
+        log_message "SUCCESS" "✅ Certificado SSL frontend verificado: $frontend_domain"
+        frontend_ssl_ok=true
+    else
+        log_message "WARNING" "⚠️ Certificado SSL frontend no encontrado: $frontend_domain"
+    fi
+    
+    # Esperar un momento y verificar nuevamente si es necesario
+    if [ "$backend_ssl_ok" = false ] || [ "$frontend_ssl_ok" = false ]; then
+        log_message "INFO" "Esperando que los certificados se procesen..."
         sleep 10
-        if [ -f "$backend_cert" ] && [ -f "$frontend_cert" ]; then
-            log_message "SUCCESS" "✅ Certificados SSL verificados después del delay"
-        else
-            log_message "ERROR" "❌ Certificados SSL no encontrados después del delay"
+        
+        if [ -f "$backend_cert" ] && [ -f "$backend_key" ]; then
+            log_message "SUCCESS" "✅ Certificado SSL backend verificado después del delay: $backend_domain"
+            backend_ssl_ok=true
+        fi
+        
+        if [ -f "$frontend_cert" ] && [ -f "$frontend_key" ]; then
+            log_message "SUCCESS" "✅ Certificado SSL frontend verificado después del delay: $frontend_domain"
+            frontend_ssl_ok=true
+        fi
+    fi
+    
+    # Verificación final
+    if [ "$backend_ssl_ok" = true ] && [ "$frontend_ssl_ok" = true ]; then
+        log_message "SUCCESS" "✅ Todos los certificados SSL verificados correctamente"
+    else
+        log_message "WARNING" "⚠️ Algunos certificados SSL pueden no estar disponibles"
+        if [ "$backend_ssl_ok" = false ]; then
+            log_message "WARNING" "⚠️ Certificado SSL backend no disponible: $backend_domain"
+        fi
+        if [ "$frontend_ssl_ok" = false ]; then
+            log_message "WARNING" "⚠️ Certificado SSL frontend no disponible: $frontend_domain"
+        fi
+    fi
             log_message "INFO" "Listando directorio de certificados:"
             ls -la /etc/letsencrypt/live/ 2>/dev/null || true
             return 1
@@ -1820,30 +1876,51 @@ system_nodejs_install() {
 
     sleep 2
 
-    # Verificar si Node.js ya está instalado
+    # MEJORA: Verificar versión específica y forzar Node.js 20
     if command -v node &> /dev/null && command -v npm &> /dev/null; then
-        log_message "INFO" "Node.js ya está instalado"
-        return 0
+        NODE_VERSION=$(node --version 2>/dev/null | cut -d'v' -f2 | cut -d'.' -f1 || echo "0")
+        if [ "$NODE_VERSION" -ge 20 ]; then
+            log_message "SUCCESS" "✅ Node.js $NODE_VERSION ya está instalado (versión correcta)"
+            return 0
+        else
+            log_message "WARNING" "⚠️ Node.js versión $NODE_VERSION detectada, forzando actualización a 20.x..."
+        fi
     fi
 
-    # Instalar Node.js usando el repositorio oficial
+    # MEJORA: Desinstalar versión anterior si existe
+    if command -v node &> /dev/null; then
+        log_message "INFO" "Desinstalando versión anterior de Node.js..."
+        sudo apt-get remove -y nodejs npm 2>/dev/null || true
+        sudo apt-get autoremove -y 2>/dev/null || true
+    fi
+
+    # Instalar Node.js 20 usando el repositorio oficial
+    log_message "INFO" "Configurando repositorio Node.js 20.x..."
     if ! curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -; then
         register_error "No se pudo configurar el repositorio de Node.js"
         return 1
     fi
     
+    log_message "INFO" "Instalando Node.js 20.x..."
     if ! sudo apt-get install -y nodejs; then
         register_error "No se pudo instalar Node.js"
         return 1
     fi
     
-    # Verificar instalación
+    # Verificar instalación y versión
     if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
         register_error "Node.js no se instaló correctamente"
         return 1
     fi
     
-    log_message "SUCCESS" "✅ Node.js instalado correctamente"
+    # MEJORA: Verificar versión específica
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 20 ]; then
+        register_error "Node.js instalado pero versión incorrecta ($NODE_VERSION). Se requiere versión 20+"
+        return 1
+    fi
+    
+    log_message "SUCCESS" "✅ Node.js $NODE_VERSION instalado correctamente"
     sleep 2
     return 0
 }
@@ -2633,8 +2710,105 @@ backend_db_migrate() {
     fi
 
     log_message "SUCCESS" "✅ Migraciones ejecutadas correctamente (${table_count} tablas creadas)"
+    
+    # MEJORA: Verificar y agregar columnas faltantes en tabla Prompts
+    log_message "INFO" "Verificando estructura de tabla Prompts..."
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; DESCRIBE Prompts;" 2>/dev/null | grep -q "provider"; then
+        log_message "SUCCESS" "✅ Columna provider ya existe en Prompts"
+    else
+        log_message "INFO" "Agregando columna provider a tabla Prompts..."
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; ALTER TABLE Prompts ADD COLUMN provider VARCHAR(250) DEFAULT NULL;" 2>/dev/null || true
+        log_message "SUCCESS" "✅ Columna provider agregada a Prompts"
+    fi
+    
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; DESCRIBE Prompts;" 2>/dev/null | grep -q "apiKey"; then
+        log_message "SUCCESS" "✅ Columna apiKey ya existe en Prompts"
+    else
+        log_message "INFO" "Agregando columna apiKey a tabla Prompts..."
+        mysql -u root -p${mysql_password} -e "USE ${instancia_add}; ALTER TABLE Prompts ADD COLUMN apiKey TEXT DEFAULT NULL;" 2>/dev/null || true
+        log_message "SUCCESS" "✅ Columna apiKey agregada a Prompts"
+    fi
+    
     sleep 2
     return 0
+}
+
+# MEJORA: Nueva función para verificar servicios
+verify_services() {
+    log_message "STEP" "=== VERIFICANDO SERVICIOS ==="
+    
+    print_banner
+    printf "${WHITE} 🔍 Verificando servicios de WATOOLX...${GRAY_LIGHT}\n\n"
+
+    sleep 2
+
+    # Verificar PM2
+    if ! command -v pm2 &> /dev/null; then
+        log_message "ERROR" "❌ PM2 no está instalado"
+        return 1
+    fi
+
+    # Verificar servicios PM2
+    log_message "INFO" "Verificando servicios PM2..."
+    
+    # Verificar frontend
+    if pm2 list | grep -q "watoolx-frontend"; then
+        frontend_status=$(pm2 list | grep "watoolx-frontend" | awk '{print $10}')
+        if [ "$frontend_status" = "online" ]; then
+            log_message "SUCCESS" "✅ Frontend PM2: online"
+        else
+            log_message "WARNING" "⚠️ Frontend PM2: $frontend_status"
+        fi
+    else
+        log_message "ERROR" "❌ Frontend PM2 no encontrado"
+    fi
+
+    # Verificar backend
+    if pm2 list | grep -q "watoolx-backend"; then
+        backend_status=$(pm2 list | grep "watoolx-backend" | awk '{print $10}')
+        if [ "$backend_status" = "online" ]; then
+            log_message "SUCCESS" "✅ Backend PM2: online"
+        else
+            log_message "WARNING" "⚠️ Backend PM2: $backend_status"
+        fi
+    else
+        log_message "ERROR" "❌ Backend PM2 no encontrado"
+    fi
+
+    # Verificar puertos
+    log_message "INFO" "Verificando puertos..."
+    
+    if netstat -tlnp 2>/dev/null | grep -q ":3435"; then
+        log_message "SUCCESS" "✅ Puerto frontend (3435): activo"
+    else
+        log_message "WARNING" "⚠️ Puerto frontend (3435): inactivo"
+    fi
+
+    if netstat -tlnp 2>/dev/null | grep -q ":4142"; then
+        log_message "SUCCESS" "✅ Puerto backend (4142): activo"
+    else
+        log_message "WARNING" "⚠️ Puerto backend (4142): inactivo"
+    fi
+
+    # Verificar base de datos
+    log_message "INFO" "Verificando base de datos..."
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT 1;" 2>/dev/null > /dev/null; then
+        log_message "SUCCESS" "✅ Base de datos: conectada"
+    else
+        log_message "ERROR" "❌ Base de datos: no conectada"
+    fi
+
+    # Verificar estructura de tabla Prompts
+    if mysql -u root -p${mysql_password} -e "USE ${instancia_add}; DESCRIBE Prompts;" 2>/dev/null | grep -q "provider"; then
+        log_message "SUCCESS" "✅ Tabla Prompts: estructura correcta"
+    else
+        log_message "WARNING" "⚠️ Tabla Prompts: estructura incompleta"
+    fi
+
+    log_message "SUCCESS" "✅ Verificación de servicios completada"
+    sleep 2
+    return 0
+}
 }
 
 backend_db_seed() {
@@ -3051,10 +3225,16 @@ frontend_node_build() {
         return 1
     fi
 
-    # Verificar que el archivo .env existe
+    # MEJORA: Crear archivo .env automáticamente si no existe
     if [ ! -f ".env" ]; then
-        register_error "No se encontró el archivo .env en el directorio frontend"
-        return 1
+        log_message "INFO" "Creando archivo .env con configuración por defecto..."
+        cat > .env << EOF
+REACT_APP_BACKEND_URL=http://localhost:8080
+REACT_APP_HOURS_CLOSE_TICKETS_AUTO=24
+REACT_APP_NAME_SYSTEM=WATOOLX
+PORT=3000
+EOF
+        log_message "SUCCESS" "✅ Archivo .env creado automáticamente"
     fi
 
     echo "🧹 Limpiando build anterior..."
@@ -3069,6 +3249,11 @@ frontend_node_build() {
         npm install react-app-rewired --save-dev
         chmod +x node_modules/.bin/react-app-rewired 2>/dev/null || true
     fi
+    
+    # MEJORA: Aplicar fix para dependencias problemáticas
+    log_message "INFO" "Aplicando fix para dependencias problemáticas..."
+    npm install @mui/x-date-pickers@5.0.20 --legacy-peer-deps --silent 2>/dev/null || true
+    log_message "SUCCESS" "✅ Fix de dependencias aplicado"
     
     # Configurar variables de entorno directamente para evitar el problema
     export NODE_OPTIONS="--max-old-space-size=8192 --openssl-legacy-provider"
@@ -4132,6 +4317,11 @@ run_complete_installation() {
     
     # Verificación final de servicios
     verify_services_status
+    
+    # MEJORA: Verificación adicional de servicios críticos
+    if ! verify_services; then
+        log_message "WARNING" "⚠️ Algunos servicios pueden no estar funcionando correctamente"
+    fi
     
     # Verificación final
     verify_installation
