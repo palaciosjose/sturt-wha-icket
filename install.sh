@@ -1714,11 +1714,6 @@ obtain_ssl_certificates_improved() {
             log_message "WARNING" "⚠️ Certificado SSL frontend no disponible: $frontend_domain"
         fi
     fi
-            log_message "INFO" "Listando directorio de certificados:"
-            ls -la /etc/letsencrypt/live/ 2>/dev/null || true
-            return 1
-        fi
-    fi
     
     # Asegurar que los enlaces simbólicos estén presentes
     if ! [[ -L "/etc/nginx/sites-enabled/$backend_domain" ]]; then
