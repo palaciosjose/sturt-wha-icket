@@ -2814,7 +2814,6 @@ verify_services() {
     sleep 2
     return 0
 }
-}
 
 backend_db_seed() {
     log_message "STEP" "=== EJECUTANDO SEEDS ==="
