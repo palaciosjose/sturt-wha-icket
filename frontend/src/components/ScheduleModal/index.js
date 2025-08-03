@@ -77,14 +77,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 
 	const initialState = {
 		body: "",
-		contactId: "",
-		whatsappId: "",
+		contactId: null,
+		whatsappId: null,
 		sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
 		sentAt: ""
 	};
 
 	const initialContact = {
-		id: "",
+		id: null,
 		name: ""
 	}
 
@@ -367,7 +367,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											value={currentContact}
 											options={contacts}
 											onChange={(e, contact) => {
-												const contactId = contact ? contact.id : '';
+												const contactId = contact ? Number(contact.id) : null;
 												setSchedule({ ...schedule, contactId });
 												setCurrentContact(contact ? contact : initialContact);
 											}}
@@ -390,7 +390,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											value={currentWhatsapp}
 											options={whatsapps}
 											onChange={(e, whatsapp) => {
-												const whatsappId = whatsapp ? whatsapp.id : '';
+												const whatsappId = whatsapp ? Number(whatsapp.id) : null;
 												setSchedule({ ...schedule, whatsappId });
 												setCurrentWhatsapp(whatsapp ? whatsapp : null);
 											}}
