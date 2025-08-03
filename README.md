@@ -1,8 +1,8 @@
-# 🚀 WATOOLX - Sistema de Tickets WhatsApp con IA
+# 🚀 WATOOLX - Sistema de Tickets con WhatsApp
 
 ## 📋 Descripción
 
-**Watoolx** es una plataforma SaaS completa para la gestión de tickets de WhatsApp con inteligencia artificial integrada. Desarrollada con tecnologías modernas y optimizada para producción.
+**Watoolx** es una plataforma SaaS completa para la gestión de tickets de atención via WhatsApp y con sincronización a inteligencia artificial integrada. Desarrollada con tecnologías modernas y optimizada para producción.
 
 ## ✨ Características Principales
 
@@ -14,7 +14,7 @@
 - ✅ Extracción automática de códigos YouTube
 
 ### 📱 **WhatsApp Integration**
-- ✅ Integración completa con WhatsApp Business
+- ✅ Integración completa con WhatsApp
 - ✅ Campos personalizados (waName, Avatar, Token, Instance)
 - ✅ Gestión de sesiones múltiples
 - ✅ QR Code automático
@@ -41,10 +41,10 @@
 - **IA**: OpenAI Integration
 - **WhatsApp**: Baileys Library
 
-## 🚀 Instalación Rápida
+## 🚀 Instalación Rápida 10 a 15mim
 
 ### Prerrequisitos
-- Node.js 16+
+- Node.js 20+
 - MySQL 8.0+
 - Redis 6.0+
 - Git
@@ -119,7 +119,7 @@ REACT_APP_BACKEND_URL=http://localhost:8080
 - Respuestas automáticas inteligentes
 - Transferencias basadas en contenido
 - Manejo de contextos complejos
-- Integración con OpenAI
+- Integración con OpenRouter Multi IA
 
 ### 🔄 **Transferencias Automáticas**
 - Transferencias entre departamentos
@@ -144,12 +144,12 @@ REACT_APP_BACKEND_URL=http://localhost:8080
 ### Usando el Script Automático
 ```bash
 # Ejecutar script de configuración
-chmod +x configurar_produccion.sh
-./configurar_produccion.sh
+chmod +x install.sh
+./install.sh
 ```
 
 ### Configuración Manual
-1. **Configurar servidor VPS** con Ubuntu 20.04+
+1. **Configurar servidor VPS** con Ubuntu 22+
 2. **Instalar dependencias**: PM2, Nginx, MySQL, Redis
 3. **Configurar SSL** con Let's Encrypt
 4. **Configurar firewall** y seguridad
@@ -208,17 +208,15 @@ pm2 logs
 sudo nginx -t
 sudo systemctl reload nginx
 
-# Backup
-./backup_waticket.sh
 ```
 
 ## 📊 Estado del Proyecto
 
 ### ✅ **Completado (100%)**
 - Sistema de tickets completo
-- Integración con WhatsApp
-- IA conversacional
-- Transferencias automáticas
+- Sincronización con WhatsApp
+- IA conversacional OpenRouter
+- Transferencias automáticas con IA
 - Interfaz de usuario moderna
 - Sistema de logging optimizado
 - Configuración de producción
@@ -229,22 +227,14 @@ sudo systemctl reload nginx
 - Scripts de despliegue
 - Documentación completa
 
-## 🤝 Contribuir
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
-
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
 ## 📞 Soporte
 
-- **Email**: soporte@watoolx.com
-- **Documentación**: [Guias técnicas](./guias/)
+- **WhatsApp**: +51936450940
+- **Documentación técnoca**: [Guias técnicas](./guias/)
 - **Issues**: [GitHub Issues](https://github.com/leopoldohuacasiv/watoolxoficial/issues)
 
 ## 🎯 Roadmap
@@ -259,5 +249,6 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 ---
 
 **Versión**: 1.1.0  
-**Última actualización**: Julio 2025  
+**Última actualización**: 31 de Julio 2025  
 **Estado**: ✅ Listo para producción
+**Autor**: Leopoldo Huacasi
