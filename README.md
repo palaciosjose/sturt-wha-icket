@@ -250,5 +250,5 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 **Versión**: 1.1.0  
 **Última actualización**: 31 de Julio 2025  
-**Estado**: ✅ Listo para producción
+**Estado**: ✅ Listo para producción  
 **Autor**: Leopoldo Huacasi

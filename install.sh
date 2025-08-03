@@ -2734,6 +2734,34 @@ backend_db_migrate() {
         log_message "SUCCESS" "✅ Setting viewregister agregado"
     fi
     
+    # MEJORA: Asignar todas las colas al usuario Admin para mejor UX
+    log_message "INFO" "Asignando colas al usuario Admin..."
+    admin_id=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Users WHERE name = 'Admin' AND profile = 'admin' LIMIT 1;" 2>/dev/null | tail -1 | tr -d ' ')
+    
+    if [ ! -z "$admin_id" ] && [ "$admin_id" != "id" ]; then
+        # Obtener todas las colas
+        queues=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT id FROM Queues;" 2>/dev/null | tail -n +2)
+        
+        if [ ! -z "$queues" ]; then
+            for queue_id in $queues; do
+                # Verificar si ya existe la asignación
+                existing=$(mysql -u root -p${mysql_password} -e "USE ${instancia_add}; SELECT COUNT(*) FROM UserQueues WHERE userId = $admin_id AND queueId = $queue_id;" 2>/dev/null | tail -1 | tr -d ' ')
+                
+                if [ "$existing" -eq 0 ]; then
+                    mysql -u root -p${mysql_password} -e "USE ${instancia_add}; INSERT INTO UserQueues (userId, queueId, createdAt, updatedAt) VALUES ($admin_id, $queue_id, NOW(), NOW());" 2>/dev/null || true
+                    log_message "SUCCESS" "✅ Cola $queue_id asignada al Admin"
+                else
+                    log_message "INFO" "ℹ️ Cola $queue_id ya asignada al Admin"
+                fi
+            done
+            log_message "SUCCESS" "✅ Todas las colas asignadas al usuario Admin"
+        else
+            log_message "WARNING" "⚠️ No se encontraron colas para asignar"
+        fi
+    else
+        log_message "WARNING" "⚠️ Usuario Admin no encontrado"
+    fi
+    
     sleep 2
     return 0
 }
