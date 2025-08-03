@@ -325,20 +325,22 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					initialValues={schedule}
 					enableReinitialize={true}
 					validationSchema={ScheduleSchema}
-					onSubmit={async (values, actions) => {
+					onSubmit={(values, actions) => {
 						console.log("🔍 [DEBUG] onSubmit iniciado con valores:", values);
 						console.log("🔍 [DEBUG] actions:", actions);
-						try {
-							console.log("🔍 [DEBUG] Llamando a handleSaveSchedule...");
-							await handleSaveSchedule(values);
-							console.log("🔍 [DEBUG] handleSaveSchedule completado exitosamente");
-							actions.setSubmitting(false);
-							console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado");
-						} catch (error) {
-							console.error("❌ [ERROR] Error en onSubmit:", error);
-							actions.setSubmitting(false);
-							console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado después del error");
-						}
+						
+						// Ejecutar de forma síncrona para evitar problemas de listener
+						handleSaveSchedule(values)
+							.then(() => {
+								console.log("🔍 [DEBUG] handleSaveSchedule completado exitosamente");
+								actions.setSubmitting(false);
+								console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado");
+							})
+							.catch((error) => {
+								console.error("❌ [ERROR] Error en onSubmit:", error);
+								actions.setSubmitting(false);
+								console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado después del error");
+							});
 					}}
 				>
 					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
@@ -473,6 +475,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										disabled={isSubmitting}
 										variant="contained"
 										className={classes.btnWrapper}
+										onClick={() => console.log("🔍 [DEBUG] Botón GUARDAR presionado")}
 									>
 										{scheduleId
 											? `${i18n.t("scheduleModal.buttons.okEdit")}`
