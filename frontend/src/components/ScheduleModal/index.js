@@ -65,8 +65,8 @@ const ScheduleSchema = Yup.object().shape({
 	body: Yup.string()
 		.min(5, "Mensaje muy corto")
 		.required("Obligatorio"),
-	contactId: Yup.number().required("Obligatorio"),
-	whatsappId: Yup.number().required("Obligatorio"),
+	contactId: Yup.number().nullable().required("Obligatorio"),
+	whatsappId: Yup.number().nullable().required("Obligatorio"),
 	sendAt: Yup.string().required("Obligatorio")
 });
 
@@ -176,7 +176,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	};
 
 	const handleSaveSchedule = async values => {
-		console.log("🔍 [DEBUG] handleSaveSchedule iniciado con values:", values);
+		console.log("�� [DEBUG] handleSaveSchedule iniciado con values:", values);
 		const scheduleData = { ...values, userId: user.id };
 		console.log("🔍 [DEBUG] scheduleData preparado:", scheduleData);
 		console.log("🔍 [DEBUG] scheduleId:", scheduleId);
