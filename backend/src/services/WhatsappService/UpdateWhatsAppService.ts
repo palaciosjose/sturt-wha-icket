@@ -21,7 +21,7 @@ interface WhatsappData {
   token?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
-  transferQueueId?: number; 
+  transferQueueId?: number | string; 
   timeToTransfer?: number;    
   promptId?: number;
   maxUseBotQueues?: number;
@@ -77,6 +77,13 @@ const UpdateWhatsAppService = async ({
 
   // ✅ ASEGURAR QUE queueIds SIEMPRE SEA UN ARRAY
   const safeQueueIds = Array.isArray(queueIds) ? queueIds : [];
+
+  // ✅ LIMPIAR transferQueueId (convertir '' a null)
+  const cleanTransferQueueId = transferQueueId && transferQueueId !== '' && transferQueueId !== 0 && transferQueueId !== '0' ? Number(transferQueueId) : null;
+
+  console.log("🔄 DATOS RECIBIDOS EN UPDATE:");
+  console.log("  - transferQueueId original:", transferQueueId);
+  console.log("  - transferQueueId limpio:", cleanTransferQueueId);
 
   try {
     await schema.validate({ name, status, isDefault });
@@ -171,8 +178,8 @@ const UpdateWhatsAppService = async ({
     token,
     //timeSendQueue,
     //sendIdQueue,
-    transferQueueId,	
-	timeToTransfer,	
+    transferQueueId: cleanTransferQueueId, // ✅ USAR VALOR LIMPIO
+    timeToTransfer,	
     promptId,
     maxUseBotQueues,
     timeUseBotQueues,
