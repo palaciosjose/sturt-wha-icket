@@ -456,6 +456,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										disabled={isSubmitting}
 										variant="contained"
 										className={classes.btnWrapper}
+										onClick={() => console.log("🔍 [DEBUG TEMPORAL] Botón GUARDAR clickeado")}
 									>
 										{scheduleId
 											? `${i18n.t("scheduleModal.buttons.okEdit")}`
