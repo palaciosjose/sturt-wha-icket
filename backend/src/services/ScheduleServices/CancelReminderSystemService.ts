@@ -64,6 +64,29 @@ const CancelReminderSystemService = async ({
     
     // Guardar mensaje en la base de datos
     if (sentMessage) {
+      // Buscar o crear ticket para el contacto
+      let ticket = await Ticket.findOne({
+        where: { contactId: mainSchedule.contactId, companyId },
+        order: [["createdAt", "DESC"]]
+      });
+
+      // Si no existe ticket, crear uno nuevo
+      if (!ticket) {
+        const whatsapp = await GetDefaultWhatsApp(companyId);
+        if (!whatsapp) {
+          throw new Error("WhatsApp no configurado para crear ticket");
+        }
+
+        ticket = await Ticket.create({
+          contactId: mainSchedule.contactId,
+          companyId,
+          whatsappId: whatsapp.id,
+          status: "open",
+          unreadMessages: 0,
+          lastMessage: cancelMessage
+        });
+      }
+
       const messageId = `cancel_reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       await Message.create({
         id: messageId,
@@ -74,20 +97,13 @@ const CancelReminderSystemService = async ({
         mediaType: null,
         contactId: mainSchedule.contactId,
         companyId: companyId,
-        ticketId: 42, // Usar ticket existente
+        ticketId: ticket.id, // Usar el ticket correcto
         ack: 1,
         reactions: []
       });
 
       // Actualizar lastMessage del ticket
-      const ticket = await Ticket.findOne({
-        where: { contactId: mainSchedule.contactId, companyId },
-        order: [["createdAt", "DESC"]]
-      });
-
-      if (ticket) {
-        await ticket.update({ lastMessage: cancelMessage });
-      }
+      await ticket.update({ lastMessage: cancelMessage });
     }
 
     // Notificar por socket
