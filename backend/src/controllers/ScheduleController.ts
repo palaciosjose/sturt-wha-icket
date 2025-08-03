@@ -107,22 +107,35 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
+  console.log("🔍 [DEBUG] ScheduleController.update iniciado");
+  console.log("🔍 [DEBUG] req.params:", req.params);
+  console.log("🔍 [DEBUG] req.body:", req.body);
+  console.log("🔍 [DEBUG] req.user:", req.user);
+  
   if (req.user.profile !== "admin") {
+    console.log("❌ [ERROR] Usuario no es admin:", req.user.profile);
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
   const { scheduleId } = req.params;
   const scheduleData = req.body;
   const { companyId, id: userId } = req.user;
+  
+  console.log("🔍 [DEBUG] scheduleId:", scheduleId);
+  console.log("🔍 [DEBUG] scheduleData:", scheduleData);
+  console.log("🔍 [DEBUG] companyId:", companyId);
+  console.log("🔍 [DEBUG] userId:", userId);
 
   // Verificar si es un agendamiento del sistema de recordatorios y si cambió la fecha
   const originalSchedule = await Schedule.findByPk(scheduleId);
+  console.log("🔍 [DEBUG] originalSchedule:", originalSchedule);
   
   if (originalSchedule && 
       originalSchedule.isReminderSystem && 
       originalSchedule.reminderType === 'start' &&
       originalSchedule.sendAt.toISOString() !== scheduleData.sendAt) {
     
+    console.log("🔍 [DEBUG] Es reprogramación del sistema de recordatorios");
     // Es una reprogramación del sistema de recordatorios
     const newSchedule = await RescheduleReminderSystemService({
       scheduleId: Number(scheduleId),
@@ -131,18 +144,23 @@ export const update = async (
       userId: Number(userId)
     });
 
+    console.log("🔍 [DEBUG] RescheduleReminderSystemService completado:", newSchedule);
     return res.status(200).json(newSchedule);
   }
 
+  console.log("🔍 [DEBUG] Actualización normal de agendamiento");
   // Actualización normal
   const schedule = await UpdateService({ scheduleData, id: scheduleId, companyId });
+  console.log("🔍 [DEBUG] UpdateService completado:", schedule);
 
   const io = getIO();
   io.to(`company-${companyId}-mainchannel`).emit("schedule", {
     action: "update",
     schedule
   });
+  console.log("🔍 [DEBUG] Socket emit enviado");
 
+  console.log("🔍 [DEBUG] ScheduleController.update completado exitosamente");
   return res.status(200).json(schedule);
 };
 
