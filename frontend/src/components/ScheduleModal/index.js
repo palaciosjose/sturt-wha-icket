@@ -213,12 +213,13 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					history.push('/schedules');
 				}
 			}
+			setCurrentContact(initialContact);
+			setSchedule(initialState);
+			handleClose();
 		} catch (err) {
 			toastError(err);
+			throw err; // Re-lanzar el error para que Formik lo maneje
 		}
-		setCurrentContact(initialContact);
-		setSchedule(initialState);
-		handleClose();
 	};
 
 
@@ -298,11 +299,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					initialValues={schedule}
 					enableReinitialize={true}
 					validationSchema={ScheduleSchema}
-					onSubmit={(values, actions) => {
-						setTimeout(() => {
-							handleSaveSchedule(values);
+					onSubmit={async (values, actions) => {
+						try {
+							await handleSaveSchedule(values);
 							actions.setSubmitting(false);
-						}, 400);
+						} catch (error) {
+							actions.setSubmitting(false);
+							console.error("Error al guardar agendamiento:", error);
+						}
 					}}
 				>
 					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
