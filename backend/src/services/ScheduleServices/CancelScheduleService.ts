@@ -4,9 +4,10 @@ import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
+import GetTimezone from "../../helpers/GetTimezone";
 import { SendMessage } from "../../helpers/SendMessage";
 import { logger } from "../../utils/logger";
-import moment from "moment";
+import moment from "moment-timezone";
 
 interface CancelScheduleData {
   scheduleId: number;

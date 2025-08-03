@@ -5,8 +5,9 @@ import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
 import { SendMessage } from "../../helpers/SendMessage";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
+import GetTimezone from "../../helpers/GetTimezone";
 import formatBody from "../../helpers/Mustache";
-import moment from "moment";
+import moment from "moment-timezone";
 import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
 
@@ -33,8 +34,12 @@ const CreateReminderSystemService = async ({
     throw new Error("Contacto no encontrado");
   }
 
-  const scheduledTime = moment(sendAt);
-  const reminderTime = moment(sendAt).subtract(10, 'minutes');
+  // Obtener zona horaria de la empresa
+  const timezone = await GetTimezone(companyId);
+  
+  // Convertir hora local a UTC para guardar en BD
+  const scheduledTime = moment.tz(sendAt, timezone).utc();
+  const reminderTime = moment.tz(sendAt, timezone).subtract(10, 'minutes').utc();
 
   // 1. Crear el agendamiento principal
   const mainSchedule = await Schedule.create({
@@ -98,6 +103,38 @@ const CreateReminderSystemService = async ({
 
     // Actualizar lastMessage del ticket
     await ticket.update({ lastMessage: immediateMessage });
+
+    // Emitir mensaje por socket para actualización en tiempo real
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit("ticket", {
+      action: "update",
+      ticket: {
+        id: ticket.id,
+        contactId: contactId,
+        companyId: companyId,
+        lastMessage: immediateMessage
+      }
+    });
+
+    // Emitir mensaje específico para el chat
+    io.to(`company-${companyId}-ticket-${ticket.id}`).emit("appMessage", {
+      action: "create",
+      message: {
+        id: messageId,
+        body: immediateMessage,
+        fromMe: true,
+        read: true,
+        mediaUrl: null,
+        mediaType: null,
+        contactId: contactId,
+        companyId: companyId,
+        ticketId: ticket.id,
+        ack: 1,
+        reactions: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
   }
 
   // 3. Crear recordatorio 10 minutos antes
