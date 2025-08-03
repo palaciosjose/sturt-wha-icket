@@ -176,73 +176,54 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	};
 
 	const handleSaveSchedule = async values => {
-		console.log("�� [DEBUG] handleSaveSchedule iniciado con values:", values);
 		const scheduleData = { ...values, userId: user.id };
-		console.log("🔍 [DEBUG] scheduleData preparado:", scheduleData);
-		console.log("🔍 [DEBUG] scheduleId:", scheduleId);
-		console.log("🔍 [DEBUG] attachment:", attachment);
 		
 		try {
 			if (scheduleId) {
-				console.log("🔍 [DEBUG] Actualizando agendamiento existente...");
 				const response = await api.put(`/schedules/${scheduleId}`, scheduleData);
-				console.log("🔍 [DEBUG] Respuesta de actualización:", response);
 				
 				if (attachment != null) {
-					console.log("🔍 [DEBUG] Subiendo archivo adjunto...");
 					const formData = new FormData();
 					formData.append("file", attachment);
 					await api.post(
 						`/schedules/${scheduleId}/media-upload`,
 						formData
 					);
-					console.log("🔍 [DEBUG] Archivo adjunto subido exitosamente");
 				}
 				
 				// Si es una reprogramación del sistema de recordatorios, actualizar página
 				if (response.data && response.data.isReminderSystem) {
-					console.log("🔍 [DEBUG] Es sistema de recordatorios, recargando página...");
 					toast.success("Reunión reprogramada exitosamente");
 					window.location.reload();
 					return;
 				}
 			} else {
-				console.log("🔍 [DEBUG] Creando nuevo agendamiento...");
 				const { data } = await api.post("/schedules", scheduleData);
-				console.log("🔍 [DEBUG] Respuesta de creación:", data);
 				
 				if (attachment != null) {
-					console.log("🔍 [DEBUG] Subiendo archivo adjunto para nuevo agendamiento...");
 					const formData = new FormData();
 					formData.append("file", attachment);
 					await api.post(`/schedules/${data.id}/media-upload`, formData);
-					console.log("🔍 [DEBUG] Archivo adjunto subido exitosamente");
 				}
 			}
-			console.log("🔍 [DEBUG] Mostrando toast de éxito...");
 			toast.success(i18n.t("scheduleModal.success"));
 			
 			if (typeof reload == 'function') {
-				console.log("🔍 [DEBUG] Ejecutando función reload...");
 				reload();
 			}
 			
 			if (contactId) {
 				if (typeof cleanContact === 'function') {
-					console.log("🔍 [DEBUG] Ejecutando cleanContact y navegando...");
 					cleanContact();
 					history.push('/schedules');
 				}
 			}
 			
-			console.log("🔍 [DEBUG] Limpiando estado y cerrando modal...");
 			setCurrentContact(initialContact);
 			setSchedule(initialState);
 			handleClose();
-			console.log("🔍 [DEBUG] handleSaveSchedule completado exitosamente");
 		} catch (err) {
 			console.error("❌ [ERROR] Error en handleSaveSchedule:", err);
-			console.error("❌ [ERROR] Detalles del error:", err.response?.data || err.message);
 			toastError(err);
 			throw err; // Re-lanzar el error para que Formik lo maneje
 		}
@@ -326,36 +307,19 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					enableReinitialize={true}
 					validationSchema={ScheduleSchema}
 					onSubmit={(values, actions) => {
-						console.log("🔍 [DEBUG] onSubmit iniciado con valores:", values);
-						console.log("🔍 [DEBUG] actions:", actions);
-						
-						// Ejecutar de forma síncrona para evitar problemas de listener
 						handleSaveSchedule(values)
 							.then(() => {
-								console.log("🔍 [DEBUG] handleSaveSchedule completado exitosamente");
 								actions.setSubmitting(false);
-								console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado");
 							})
 							.catch((error) => {
 								console.error("❌ [ERROR] Error en onSubmit:", error);
 								actions.setSubmitting(false);
-								console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado después del error");
 							});
-					}}
-					validate={(values) => {
-						console.log("🔍 [DEBUG] Formik validate llamado con:", values);
-						return {};
 					}}
 				>
 					{({ touched, errors, isSubmitting, values, setFieldValue, handleSubmit }) => {
-						console.log("🔍 [DEBUG] Formik render - isSubmitting:", isSubmitting);
-						console.log("🔍 [DEBUG] Formik render - errors:", errors);
-						
 						return (
-							<Form onSubmit={(e) => {
-								console.log("🔍 [DEBUG] Form onSubmit llamado");
-								handleSubmit(e);
-							}}>
+							<Form onSubmit={handleSubmit}>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
 									<FormControl
@@ -368,6 +332,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											options={contacts}
 											onChange={(e, contact) => {
 												const contactId = contact ? Number(contact.id) : null;
+												setFieldValue("contactId", contactId);
 												setSchedule({ ...schedule, contactId });
 												setCurrentContact(contact ? contact : initialContact);
 											}}
@@ -391,6 +356,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											options={whatsapps}
 											onChange={(e, whatsapp) => {
 												const whatsappId = whatsapp ? Number(whatsapp.id) : null;
+												setFieldValue("whatsappId", whatsappId);
 												setSchedule({ ...schedule, whatsappId });
 												setCurrentWhatsapp(whatsapp ? whatsapp : null);
 											}}
@@ -486,7 +452,6 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										disabled={isSubmitting}
 										variant="contained"
 										className={classes.btnWrapper}
-										onClick={() => console.log("🔍 [DEBUG] Botón GUARDAR presionado")}
 									>
 										{scheduleId
 											? `${i18n.t("scheduleModal.buttons.okEdit")}`
