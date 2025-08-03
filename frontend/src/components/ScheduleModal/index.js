@@ -176,7 +176,9 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	};
 
 	const handleSaveSchedule = async values => {
+		console.log("🔍 [DEBUG TEMPORAL] handleSaveSchedule iniciado con values:", values);
 		const scheduleData = { ...values, userId: user.id };
+		console.log("🔍 [DEBUG TEMPORAL] scheduleData preparado:", scheduleData);
 		
 		try {
 			if (scheduleId) {
@@ -307,8 +309,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					enableReinitialize={true}
 					validationSchema={ScheduleSchema}
 					onSubmit={(values, actions) => {
+						console.log("🔍 [DEBUG TEMPORAL] onSubmit llamado con valores:", values);
 						handleSaveSchedule(values)
 							.then(() => {
+								console.log("🔍 [DEBUG TEMPORAL] handleSaveSchedule completado");
 								actions.setSubmitting(false);
 							})
 							.catch((error) => {
