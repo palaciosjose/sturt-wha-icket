@@ -37,14 +37,14 @@ const CreateReminderSystemService = async ({
   // Obtener zona horaria de la empresa
   const timezone = await GetTimezone(companyId);
   
-  // Convertir hora local a UTC para guardar en BD
-  const scheduledTime = moment.tz(sendAt, timezone).utc();
-  const reminderTime = moment.tz(sendAt, timezone).subtract(10, 'minutes').utc();
+  // Guardar la hora ORIGINAL del usuario (sin convertir a UTC)
+  const scheduledTime = moment.tz(sendAt, timezone);
+  const reminderTime = moment.tz(sendAt, timezone).subtract(10, 'minutes');
 
   // 1. Crear el agendamiento principal
   const mainSchedule = await Schedule.create({
     body,
-    sendAt: scheduledTime.toDate(),
+    sendAt: scheduledTime.toDate(), // Guardar hora original
     contactId,
     companyId,
     userId,
@@ -55,7 +55,7 @@ const CreateReminderSystemService = async ({
   });
 
   // 2. Enviar mensaje inmediato de confirmación
-  const immediateMessage = formatImmediateMessage(contact, body, scheduledTime);
+  const immediateMessage = formatImmediateMessage(contact, body, sendAt, timezone);
   const sentMessage = await sendImmediateMessage(contact, immediateMessage, companyId, whatsappId);
   
   // Guardar mensaje en la base de datos
@@ -171,10 +171,13 @@ const CreateReminderSystemService = async ({
   return mainSchedule;
 };
 
-const formatImmediateMessage = (contact: Contact, body: string, scheduledTime: moment.Moment): string => {
+const formatImmediateMessage = (contact: Contact, body: string, sendAt: string, timezone: string): string => {
+  // Usar la hora original (local) en lugar de UTC
+  const localTime = moment.tz(sendAt, timezone);
+  
   return `🔔 ${contact.name} hemos agendado una reunión para el:\n\n` +
-         `📆Fecha: ${scheduledTime.format('DD/MM/YYYY')}\n` +
-         `⏰Hora: ${scheduledTime.format('HH:mm')}\n` +
+         `📆Fecha: ${localTime.format('DD/MM/YYYY')}\n` +
+         `⏰Hora: ${localTime.format('HH:mm')}\n` +
          `🎯Tema: ${body}\n\n` +
          `🔔10 minutos antes estaré notificándote nuevamente\n` +
          `👋Hasta ese tiempo, nos vemos`;

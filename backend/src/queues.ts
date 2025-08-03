@@ -247,13 +247,25 @@ async function handleVerifySchedules(job) {
       
       for (const schedule of schedules) {
         try {
+          // Obtener zona horaria de la empresa
+          const timezone = await GetTimezone(schedule.companyId);
+          
+          // Convertir hora actual a la zona horaria de la empresa para comparación
+          const nowInCompanyTimezone = moment().tz(timezone);
+          const scheduledTimeInCompanyTimezone = moment(schedule.sendAt).tz(timezone);
+          
+          // Verificar si realmente es hora de enviar
+          if (scheduledTimeInCompanyTimezone.isAfter(nowInCompanyTimezone)) {
+            logger.info(`[Schedules] Agendamiento ${schedule.id} aún no es hora de enviar`);
+            continue;
+          }
+          
           await schedule.update({
             status: "AGENDADA"
           });
           
-          // Calcular delay basado en cuánto tiempo ha pasado desde la hora programada
-          const scheduledTime = moment(schedule.sendAt);
-          const delay = Math.max(0, now.diff(scheduledTime, 'milliseconds'));
+          // Calcular delay basado en la zona horaria correcta
+          const delay = Math.max(0, nowInCompanyTimezone.diff(scheduledTimeInCompanyTimezone, 'milliseconds'));
           
           sendScheduledMessages.add(
             "SendMessage",
@@ -261,7 +273,7 @@ async function handleVerifySchedules(job) {
             { delay: delay + 1000 } // Agregar 1 segundo para asegurar que se ejecute
           );
           
-          logger.info(`[Schedules] Programado: ${schedule.contact.name} - Hora programada: ${scheduledTime.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
+          logger.info(`[Schedules] Programado: ${schedule.contact.name} - Hora programada: ${scheduledTimeInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
         } catch (error) {
           logger.error(`[Schedules] Error al procesar agendamiento ${schedule.id}:`, error.message);
         }

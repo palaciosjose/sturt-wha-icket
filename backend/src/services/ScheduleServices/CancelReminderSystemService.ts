@@ -60,7 +60,7 @@ const CancelReminderSystemService = async ({
     }
 
     // Enviar mensaje de cancelación
-    const cancelMessage = formatCancelMessage(mainSchedule.contact, mainSchedule.body, mainSchedule.sendAt);
+    const cancelMessage = await formatCancelMessage(mainSchedule.contact, mainSchedule.body, mainSchedule.sendAt, companyId);
     const sentMessage = await sendCancelMessage(mainSchedule.contact, cancelMessage, companyId);
     
     // Guardar mensaje en la base de datos
@@ -122,11 +122,14 @@ const CancelReminderSystemService = async ({
   }
 };
 
-const formatCancelMessage = (contact: Contact, body: string, scheduledTime: Date): string => {
-  const scheduledMoment = moment(scheduledTime);
+const formatCancelMessage = async (contact: Contact, body: string, scheduledTime: Date, companyId: number): Promise<string> => {
+  // Obtener zona horaria y convertir a hora local
+  const timezone = await GetTimezone(companyId);
+  const localTime = moment(scheduledTime).tz(timezone);
+  
   return `❎ Hemos cancelado la reunión programada para:\n\n` +
-         `📆 Fecha: ${scheduledMoment.format('DD/MM/YYYY')}\n` +
-         `⏰ Hora: ${scheduledMoment.format('HH:mm')}\n` +
+         `📆 Fecha: ${localTime.format('DD/MM/YYYY')}\n` +
+         `⏰ Hora: ${localTime.format('HH:mm')}\n` +
          `🎯 Tema: ${body}\n\n` +
          `📞 Contáctanos para reprogramar si es necesario`;
 };
