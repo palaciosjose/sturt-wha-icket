@@ -342,9 +342,20 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								console.log("🔍 [DEBUG] actions.setSubmitting(false) ejecutado después del error");
 							});
 					}}
+					validate={(values) => {
+						console.log("🔍 [DEBUG] Formik validate llamado con:", values);
+						return {};
+					}}
 				>
-					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
-						<Form>
+					{({ touched, errors, isSubmitting, values, setFieldValue, handleSubmit }) => {
+						console.log("🔍 [DEBUG] Formik render - isSubmitting:", isSubmitting);
+						console.log("🔍 [DEBUG] Formik render - errors:", errors);
+						
+						return (
+							<Form onSubmit={(e) => {
+								console.log("🔍 [DEBUG] Form onSubmit llamado");
+								handleSubmit(e);
+							}}>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
 									<FormControl
@@ -490,7 +501,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								) : null}
 							</DialogActions>
 						</Form>
-					)}
+					);
+				}}
 				</Formik>
 			</Dialog>
 		</div>
