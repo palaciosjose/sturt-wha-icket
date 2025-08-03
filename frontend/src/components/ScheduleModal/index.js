@@ -310,6 +310,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					validationSchema={ScheduleSchema}
 					onSubmit={(values, actions) => {
 						console.log("🔍 [DEBUG TEMPORAL] onSubmit llamado con valores:", values);
+						console.log("🔍 [DEBUG TEMPORAL] Botón GUARDAR procesado");
 						handleSaveSchedule(values)
 							.then(() => {
 								console.log("🔍 [DEBUG TEMPORAL] handleSaveSchedule completado");
@@ -456,7 +457,6 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										disabled={isSubmitting}
 										variant="contained"
 										className={classes.btnWrapper}
-										onClick={() => console.log("🔍 [DEBUG TEMPORAL] Botón GUARDAR clickeado")}
 									>
 										{scheduleId
 											? `${i18n.t("scheduleModal.buttons.okEdit")}`
