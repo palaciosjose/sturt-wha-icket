@@ -190,9 +190,14 @@ const reducer = (state, action) => {
 
   if (action.type === "DELETE_TICKET") {
     const ticketId = action.payload;
+    console.log("🗑️ [TICKETS LIST CUSTOM REDUCER] Eliminando ticket:", ticketId);
+    
     const ticketIndex = state.findIndex((t) => t.id === ticketId);
     if (ticketIndex !== -1) {
+      console.log("✅ [TICKETS LIST CUSTOM REDUCER] Ticket encontrado y eliminado:", ticketId);
       state.splice(ticketIndex, 1);
+    } else {
+      console.log("⚠️ [TICKETS LIST CUSTOM REDUCER] Ticket no encontrado para eliminar:", ticketId);
     }
 
     return [...state];
@@ -288,6 +293,13 @@ const TicketsListCustom = (props) => {
       // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
       if (!isMounted.current) return;
       
+      console.log("📡 [TICKETS LIST CUSTOM] Evento recibido:", {
+        action: data.action,
+        ticketId: data.ticketId,
+        ticketStatus: data.ticket?.status,
+        currentStatus: status
+      });
+      
       if (data.action === "create" && shouldUpdateTicket(data.ticket) && (status === undefined || data.ticket.status === status)) {
         dispatch({
           type: "ADD_TICKET",
@@ -313,7 +325,9 @@ const TicketsListCustom = (props) => {
         dispatch({ type: "DELETE_TICKET", payload: data.ticket.id });
       }
 
+      // ✅ MEJORAR MANEJO DE DELETE - PROCESAR SIEMPRE QUE SE RECIBA
       if (data.action === "delete") {
+        console.log("🗑️ [TICKETS LIST CUSTOM] Procesando DELETE_TICKET:", data.ticketId);
         dispatch({ type: "DELETE_TICKET", payload: data.ticketId });
       }
     });

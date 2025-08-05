@@ -1322,8 +1322,46 @@ export const verifyMessage = async (
             { text: invalidOptionMessage }
           );
           
-          await verifyMessage(sendMsg, ticket, contact);
-          console.log("✅ VERIFYMESSAGE - Mensaje de opción inválida enviado");
+          // ✅ GUARDAR MENSAJE DE ERROR EN BASE DE DATOS
+          const errorMessageData = {
+            id: sendMsg.key.id,
+            ticketId: ticket.id,
+            contactId: undefined, // Mensaje del bot
+            body: invalidOptionMessage,
+            fromMe: true,
+            mediaType: "conversation",
+            read: true,
+            quotedMsgId: undefined,
+            ack: 2, // ACK_SUCCESS
+            remoteJid: sendMsg.key.remoteJid,
+            participant: sendMsg.key.participant,
+            dataJson: JSON.stringify(sendMsg),
+            isEdited: false,
+          };
+
+          // ✅ GUARDAR MENSAJE DE ERROR
+          await CreateMessageService({ messageData: errorMessageData, companyId: ticket.companyId });
+          
+          // ✅ ACTUALIZAR TICKET
+          await ticket.update({
+            lastMessage: invalidOptionMessage
+          });
+
+          console.log("✅ VERIFYMESSAGE - Mensaje de opción inválida enviado y guardado en BD");
+          
+          // ✅ VOLVER A MOSTRAR EL MENÚ DESPUÉS DEL ERROR
+          console.log("🔄 VERIFYMESSAGE - Volviendo a mostrar menú después del error");
+          
+          let options = "";
+          currentQueue.options.forEach((option, index) => {
+            options += `*[ ${index + 1} ]* - ${option.title}\n`;
+          });
+
+          const queueGreetingMessage = currentQueue.greetingMessage || "";
+          
+          // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
+          await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
+          
           return;
         }
         
@@ -1467,6 +1505,53 @@ ${JSON.stringify(msg?.message)}`);
 const Push = (msg: proto.IWebMessageInfo) => {
   return msg.pushName;
 }
+
+// ✅ FUNCIÓN AUXILIAR PARA ENVIAR MENÚ DE OPCIONES
+const sendChatbotMenu = async (
+  wbot: Session,
+  ticket: Ticket,
+  contact: Contact,
+  queueGreetingMessage: string,
+  options: string
+): Promise<void> => {
+  console.log("🤖 CHATBOT - Enviando menú de opciones");
+  
+  const textMessage = {
+    text: formatBody(`\u200e${queueGreetingMessage}\n\n${options}`, contact),
+  };
+
+  const sendMsg = await wbot.sendMessage(
+    `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+    textMessage
+  );
+  
+  // ✅ GUARDAR MENSAJE DEL CHATBOT EN BASE DE DATOS PARA QUE APAREZCA EN EL CHAT
+  const chatbotMessageData = {
+    id: sendMsg.key.id,
+    ticketId: ticket.id,
+    contactId: undefined, // Mensaje del bot
+    body: formatBody(`${queueGreetingMessage}\n\n${options}`, contact),
+    fromMe: true,
+    mediaType: "conversation",
+    read: true,
+    quotedMsgId: undefined,
+    ack: 2, // ACK_SUCCESS
+    remoteJid: sendMsg.key.remoteJid,
+    participant: sendMsg.key.participant,
+    dataJson: JSON.stringify(sendMsg),
+    isEdited: false,
+  };
+
+  // ✅ GUARDAR MENSAJE DEL CHATBOT
+  await CreateMessageService({ messageData: chatbotMessageData, companyId: ticket.companyId });
+  
+  // ✅ ACTUALIZAR TICKET
+  await ticket.update({
+    lastMessage: formatBody(`${queueGreetingMessage}\n\n${options}`, contact)
+  });
+
+  console.log("✅ MENÚ DE OPCIONES ENVIADO Y GUARDADO EN BD");
+};
 const verifyQueue = async (
   wbot: Session,
   msg: proto.IWebMessageInfo,
@@ -1573,17 +1658,9 @@ const verifyQueue = async (
       });
 
       const queueGreetingMessage = firstQueue.greetingMessage || greetingMessage;
-      const textMessage = {
-        text: formatBody(`\u200e${queueGreetingMessage}\n\n${options}`, contact),
-      };
-
-      const sendMsg = await wbot.sendMessage(
-        `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-        textMessage
-      );
       
-      await verifyMessage(sendMsg, ticket, ticket.contact);
-      console.log("✅ MENÚ DE OPCIONES ENVIADO");
+      // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
+      await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
     }
 
     return;
@@ -2049,8 +2126,51 @@ const handleChartbot = async (
         { text: invalidOptionMessage }
       );
       
-      await verifyMessage(sendMsg, ticket, contact);
-      console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado");
+      // ✅ GUARDAR MENSAJE DE ERROR EN BASE DE DATOS
+      const errorMessageData = {
+        id: sendMsg.key.id,
+        ticketId: ticket.id,
+        contactId: undefined, // Mensaje del bot
+        body: invalidOptionMessage,
+        fromMe: true,
+        mediaType: "conversation",
+        read: true,
+        quotedMsgId: undefined,
+        ack: 2, // ACK_SUCCESS
+        remoteJid: sendMsg.key.remoteJid,
+        participant: sendMsg.key.participant,
+        dataJson: JSON.stringify(sendMsg),
+        isEdited: false,
+      };
+
+      // ✅ GUARDAR MENSAJE DE ERROR
+      await CreateMessageService({ messageData: errorMessageData, companyId: ticket.companyId });
+      
+      // ✅ ACTUALIZAR TICKET
+      await ticket.update({
+        lastMessage: invalidOptionMessage
+      });
+
+      console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado y guardado en BD");
+      
+      // ✅ VOLVER A MOSTRAR EL MENÚ DESPUÉS DEL ERROR
+      console.log("🔄 HANDLECHATBOT - Volviendo a mostrar menú después del error");
+      
+      const { queues } = await ShowWhatsAppService(wbot.id!, ticket.companyId);
+      if (queues.length === 1) {
+        const currentQueue = queues[0];
+        if (currentQueue.options && currentQueue.options.length > 0) {
+          let options = "";
+          currentQueue.options.forEach((option, index) => {
+            options += `*[ ${index + 1} ]* - ${option.title}\n`;
+          });
+
+          const queueGreetingMessage = currentQueue.greetingMessage || "";
+          
+          // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
+          await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
+        }
+      }
     }
   } else {
     console.log("🔍 HANDLECHATBOT - Un solo departamento detectado");
@@ -2084,8 +2204,51 @@ const handleChartbot = async (
           { text: invalidOptionMessage }
         );
         
-        await verifyMessage(sendMsg, ticket, contact);
-        console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado");
+        // ✅ GUARDAR MENSAJE DE ERROR EN BASE DE DATOS
+        const errorMessageData = {
+          id: sendMsg.key.id,
+          ticketId: ticket.id,
+          contactId: undefined, // Mensaje del bot
+          body: invalidOptionMessage,
+          fromMe: true,
+          mediaType: "conversation",
+          read: true,
+          quotedMsgId: undefined,
+          ack: 2, // ACK_SUCCESS
+          remoteJid: sendMsg.key.remoteJid,
+          participant: sendMsg.key.participant,
+          dataJson: JSON.stringify(sendMsg),
+          isEdited: false,
+        };
+
+        // ✅ GUARDAR MENSAJE DE ERROR
+        await CreateMessageService({ messageData: errorMessageData, companyId: ticket.companyId });
+        
+        // ✅ ACTUALIZAR TICKET
+        await ticket.update({
+          lastMessage: invalidOptionMessage
+        });
+
+        console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado y guardado en BD");
+        
+        // ✅ VOLVER A MOSTRAR EL MENÚ DESPUÉS DEL ERROR
+        console.log("🔄 HANDLECHATBOT - Volviendo a mostrar menú después del error");
+        
+        const { queues } = await ShowWhatsAppService(wbot.id!, ticket.companyId);
+        if (queues.length === 1) {
+          const currentQueue = queues[0];
+          if (currentQueue.options && currentQueue.options.length > 0) {
+            let options = "";
+            currentQueue.options.forEach((option, index) => {
+              options += `*[ ${index + 1} ]* - ${option.title}\n`;
+            });
+
+            const queueGreetingMessage = currentQueue.greetingMessage || "";
+            
+            // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
+            await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
+          }
+        }
       }
     } else {
       console.log("🔍 HANDLECHATBOT - Departamento sin opciones, procesando normalmente");
@@ -2688,13 +2851,21 @@ const handleMessage = async (
     }
 
 
+    // ✅ VERIFICAR SI ES EL PRIMER MENSAJE PARA EVITAR PROCESARLO DOS VECES
+    const messageCount = await Message.count({
+      where: {
+        ticketId: ticket.id,
+        fromMe: false
+      }
+    });
+
     if (whatsapp.queues.length == 1 && ticket.queue) {
-      if (ticket.chatbot && !msg.key.fromMe) {
+      if (ticket.chatbot && !msg.key.fromMe && messageCount > 1) {
         await handleChartbot(wbot, msg, ticket, ticket.contact, mediaSent);
       }
     }
     if (whatsapp.queues.length > 1 && ticket.queue) {
-      if (ticket.chatbot && !msg.key.fromMe) {
+      if (ticket.chatbot && !msg.key.fromMe && messageCount > 1) {
         await handleChartbot(wbot, msg, ticket, ticket.contact, mediaSent);
       }
     }
