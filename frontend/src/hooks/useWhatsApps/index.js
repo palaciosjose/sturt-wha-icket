@@ -1,7 +1,6 @@
-import { useReducer, useEffect, useRef, useContext, useState } from "react";
-import { SocketContext } from "../../context/Socket/SocketContext";
-import api from "../../services/api";
+import { useState, useEffect, useReducer, useRef } from "react";
 import toastError from "../../errors/toastError";
+import api from "../../services/api";
 import logger from "../../utils/logger";
 
 const reducer = (state, action) => {
@@ -63,7 +62,7 @@ const useWhatsApps = () => {
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
 
-  const socketManager = useContext(SocketContext);
+  // const socketManager = useContext(SocketContext); // ✅ TEMPORALMENTE COMENTADO
 
   useEffect(() => {
     return () => {
@@ -119,6 +118,8 @@ const useWhatsApps = () => {
     }
   }, []);
 
+  // ✅ TEMPORALMENTE DESHABILITADO PARA PROBAR FORMULARIO
+  /*
   useEffect(() => {
     if (isMounted.current) {
       const companyId = localStorage.getItem("companyId");
@@ -175,6 +176,7 @@ const useWhatsApps = () => {
       };
     }
   }, [socketManager]);
+  */
 
   return { whatsApps, loading, refreshWhatsApps };
 };

@@ -15,11 +15,12 @@ import {
 import {
   AccessTime,
   Block,
-  Done,
   DoneAll,
   ExpandMore,
   GetApp,
   Reply,
+  CheckCircleOutline,
+  CheckCircle,
 } from "@material-ui/icons";
 
 import MarkdownWrapper from "../MarkdownWrapper";
@@ -88,7 +89,7 @@ const useStyles = makeStyles((theme) => ({
 
     whiteSpace: "pre-wrap",
     backgroundColor: "#3b82f6",
-    color: "#ffffff",
+    color: "#ffffff", // ✅ MANTENER BLANCO EN BURBUJAS AZULES
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 8,
@@ -136,7 +137,7 @@ const useStyles = makeStyles((theme) => ({
 
     whiteSpace: "pre-wrap",
     backgroundColor: "#10b981",
-    color: "#ffffff",
+    color: "#000000", // ✅ CAMBIAR A NEGRO EN BURBUJAS VERDES
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
@@ -228,7 +229,7 @@ const useStyles = makeStyles((theme) => ({
     position: "absolute",
     bottom: 0,
     right: 5,
-    color: "#999",
+    color: "#ffffff", // ✅ CAMBIAR A BLANCO PARA MEJOR LEGIBILIDAD
     display: "flex",
     alignItems: "center",
   },
@@ -314,6 +315,12 @@ const reducer = (state, action) => {
     const messageIndex = state.findIndex((m) => m.id === messageToUpdate.id);
 
     if (messageIndex !== -1) {
+      console.log("🔄 ACTUALIZANDO MENSAJE EN ESTADO:", {
+        messageId: messageToUpdate.id,
+        ackAnterior: state[messageIndex].ack,
+        ackNuevo: messageToUpdate.ack,
+        fromMe: messageToUpdate.fromMe
+      });
       state[messageIndex] = messageToUpdate;
     }
 
@@ -391,28 +398,195 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
     });
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
-      console.log("📡 EVENTO APP MESSAGE RECIBIDO:", data.action, data.message?.ticketId, "currentTicketId:", currentTicketId.current);
+      // ✅ DEBUG: Verificar TODOS los eventos recibidos
+      console.log("📡 EVENTO APP MESSAGE RECIBIDO:", {
+        action: data.action,
+        messageId: data.message?.id,
+        ticketId: data.message?.ticketId,
+        currentTicketId: currentTicketId.current,
+        ack: data.message?.ack,
+        fromMe: data.message?.fromMe,
+        // ✅ DEBUG: Verificar si es el canal correcto
+        canal: `company-${companyId}-appMessage`,
+        companyId: companyId
+      });
       
-      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
-      if (!isMounted.current) return;
-      
-      if (data.action === "create" && data.message.ticketId === currentTicketId.current) {
-        console.log("➕ AGREGANDO MENSAJE:", data.message.id);
-        dispatch({ type: "ADD_MESSAGE", payload: data.message });
-        scrollToBottom();
+      if (!isMounted.current) {
+        return;
       }
-
-      if (data.action === "update" && data.message.ticketId === currentTicketId.current) {
-        console.log("🔄 ACTUALIZANDO MENSAJE:", data.message.id);
-        dispatch({ type: "UPDATE_MESSAGE", payload: data.message });
+      
+      // ✅ PROCESAR AMBOS TIPOS DE EVENTOS
+      if (data.message?.ticketId === currentTicketId.current) {
+        if (data.action === "update") {
+          console.log("🔄 ACTUALIZACIÓN ACK RECIBIDA:", {
+            messageId: data.message.id,
+            ack: data.message.ack,
+            fromMe: data.message.fromMe
+          });
+          
+          dispatch({
+            type: "UPDATE_MESSAGE",
+            payload: data.message,
+          });
+        } else if (data.action === "create") {
+          dispatch({
+            type: "ADD_MESSAGE",
+            payload: data.message,
+          });
+        }
       }
     });
+
+    // ✅ LISTENER ESPECÍFICO PARA EVENTOS UPDATE
+    socket.on(`company-${companyId}-appMessage-update`, (data) => {
+      console.log("🔍 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
+        messageId: data.message?.id,
+        ticketId: data.message?.ticketId,
+        currentTicketId: currentTicketId.current,
+        ack: data.message?.ack,
+        fromMe: data.message?.fromMe
+      });
+      
+      if (!isMounted.current) {
+        return;
+      }
+      
+      if (data.message?.ticketId === currentTicketId.current) {
+        console.log("🔄 PROCESANDO ACTUALIZACIÓN ESPECÍFICA:", {
+          messageId: data.message.id,
+          ack: data.message.ack,
+          fromMe: data.message.fromMe
+        });
+        
+        dispatch({
+          type: "UPDATE_MESSAGE",
+          payload: data.message,
+        });
+      }
+    });
+
+    // ✅ LISTENER ESPECÍFICO PARA EVENTOS UPDATE
+    socket.on(`company-${companyId}-appMessage-update`, (data) => {
+      console.log("🔄 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
+        messageId: data.message?.id,
+        ticketId: data.message?.ticketId,
+        currentTicketId: currentTicketId.current,
+        ack: data.message?.ack,
+        fromMe: data.message?.fromMe
+      });
+      
+      if (!isMounted.current) {
+        return;
+      }
+      
+      if (data.message?.ticketId === currentTicketId.current) {
+        console.log("🔄 PROCESANDO ACTUALIZACIÓN:", {
+          messageId: data.message.id,
+          ack: data.message.ack,
+          fromMe: data.message.fromMe
+        });
+        
+        dispatch({
+          type: "UPDATE_MESSAGE",
+          payload: data.message,
+        });
+      }
+    });
+
+    // ✅ LISTENER GENÉRICO PARA CAPTURAR TODOS LOS EVENTOS
+    socket.onAny = socket.onAny || function(eventName, data) {
+      console.log("🔍 EVENTO GENÉRICO CAPTURADO:", {
+        eventName: eventName,
+        data: data,
+        currentTicketId: currentTicketId.current,
+        ticketId: ticket.id
+      });
+    };
+
+    // ✅ LISTENER DE DEBUG PARA CAPTURAR TODOS LOS EVENTOS
+    // Agregar listeners específicos para cada canal
+    socket.on(`company-${companyId}-appMessage-update`, (data) => {
+      console.log("🔍 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
+        messageId: data.message?.id,
+        ticketId: data.message?.ticketId,
+        currentTicketId: currentTicketId.current,
+        ack: data.message?.ack,
+        fromMe: data.message?.fromMe
+      });
+      
+      if (!isMounted.current) {
+        return;
+      }
+      
+      if (data.message?.ticketId === currentTicketId.current) {
+        console.log("🔄 PROCESANDO ACTUALIZACIÓN ESPECÍFICA:", {
+          messageId: data.message.id,
+          ack: data.message.ack,
+          fromMe: data.message.fromMe
+        });
+        
+        dispatch({
+          type: "UPDATE_MESSAGE",
+          payload: data.message,
+        });
+      }
+    });
+
+    // ✅ AGREGAR LISTENER PARA EL CANAL DEL TICKET
+    socket.on(`${ticket.id}`, (data) => {
+      console.log("📡 EVENTO TICKET RECIBIDO:", {
+        action: data.action,
+        messageId: data.message?.id,
+        ticketId: data.message?.ticketId,
+        currentTicketId: currentTicketId.current,
+        ack: data.message?.ack,
+        fromMe: data.message?.fromMe,
+        canal: `${ticket.id}`
+      });
+      
+      if (!isMounted.current) {
+        return;
+      }
+      
+      if (data.action === "update" && data.message?.ticketId === currentTicketId.current) {
+        console.log("🔄 ACTUALIZACIÓN ACK RECIBIDA (TICKET):", {
+          messageId: data.message.id,
+          ack: data.message.ack,
+          fromMe: data.message.fromMe
+        });
+        
+        dispatch({
+          type: "UPDATE_MESSAGE",
+          payload: data.message,
+        });
+      }
+    });
+
+
+
+    // ✅ DEBUG: Verificar si se une al canal del ticket
+    console.log("🔌 UNIÉNDOSE AL CANAL DEL TICKET:", ticket.id);
+    
+    // ✅ TEST MANUAL: Emitir evento de prueba
+    setTimeout(() => {
+      console.log("🧪 EMITIENDO EVENTO DE PRUEBA");
+      socket.emit("test-update", {
+        action: "update",
+        message: {
+          id: "test-message-id",
+          ticketId: ticket.id,
+          ack: 4,
+          fromMe: true
+        }
+      });
+    }, 2000);
 
     return () => {
       // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
       if (socket && typeof socket.off === 'function') {
         socket.off(`company-${companyId}-appMessage`);
         socket.off(`company-${companyId}-contact`);
+        socket.off(`${ticket.id}`);
         socket.off("ready");
         socket.off("connect");
         socket.off("disconnect");
@@ -746,21 +920,27 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
     */
 
     const renderMessageAck = (message) => {
+      // ✅ NO MOSTRAR ICONO DE RELOJ PARA MENSAJES DEL CONTACTO
+      if (!message.fromMe) {
+        return null;
+      }
+      
       if (message.ack === 0) {
         return <AccessTime fontSize="small" className={classes.ackIcons} />;
       }
       if (message.ack === 1) {
-        return <Done fontSize="small" className={classes.ackIcons} />;
+        return <CheckCircleOutline fontSize="small" className={classes.ackIcons} />;
       }
       if (message.ack === 2) {
-        return <Done fontSize="small" className={classes.ackIcons} />;
+        return <CheckCircle fontSize="small" className={classes.ackIcons} />;
       }
       if (message.ack === 3) {
         return <DoneAll fontSize="small" className={classes.ackIcons} />;
       }
-      if (message.ack === 4 || message.ack === 5) {
-        return <DoneAll fontSize="small" className={classes.ackDoneAllIcon} style={{color:'#0377FC'}} />;
+      if (message.ack === 4) {
+        return <DoneAll fontSize="small" className={classes.ackIcons} color="primary" />;
       }
+      return <AccessTime fontSize="small" className={classes.ackIcons} />;
     };
 
   const renderDailyTimestamps = (message, index) => {
@@ -771,23 +951,29 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
           key={`timestamp-${message.id}`}
         >
           <div className={classes.dailyTimestampText}>
-            {format(parseISO(messagesList[index].createdAt), "dd/MM/yyyy")}
+            {message.createdAt && !isNaN(new Date(message.createdAt).getTime()) 
+              ? format(parseISO(message.createdAt), "dd/MM/yyyy")
+              : "Fecha no disponible"}
           </div>
         </span>
       );
     }
     if (index < messagesList.length - 1) {
-      let messageDay = parseISO(messagesList[index].createdAt);
-      let previousMessageDay = parseISO(messagesList[index - 1].createdAt);
+      const messageDay = message.createdAt && !isNaN(new Date(message.createdAt).getTime()) 
+        ? parseISO(message.createdAt) 
+        : null;
+      const previousMessageDay = messagesList[index - 1].createdAt && !isNaN(new Date(messagesList[index - 1].createdAt).getTime())
+        ? parseISO(messagesList[index - 1].createdAt)
+        : null;
 
-      if (!isSameDay(messageDay, previousMessageDay)) {
+      if (messageDay && previousMessageDay && !isSameDay(messageDay, previousMessageDay)) {
         return (
           <span
             className={classes.dailyTimestamp}
             key={`timestamp-${message.id}`}
           >
             <div className={classes.dailyTimestampText}>
-              {format(parseISO(messagesList[index].createdAt), "dd/MM/yyyy")}
+              {format(messageDay, "dd/MM/yyyy")}
             </div>
           </span>
         );
@@ -815,11 +1001,15 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
         return (
           <center>
             <div className={classes.ticketNunberClosed}>
-              Conversa encerrada: {format(parseISO(messagesList[index - 1].createdAt), "dd/MM/yyyy HH:mm:ss")}
+              Conversa encerrada: {messagesList[index - 1].createdAt && !isNaN(new Date(messagesList[index - 1].createdAt).getTime()) 
+                ? format(parseISO(messagesList[index - 1].createdAt), "dd/MM/yyyy HH:mm:ss")
+                : "Fecha no disponible"}
             </div>
 
             <div className={classes.ticketNunberOpen}>
-              Conversa iniciada: {format(parseISO(message.createdAt), "dd/MM/yyyy HH:mm:ss")}
+              Conversa iniciada: {message.createdAt && !isNaN(new Date(message.createdAt).getTime()) 
+                ? format(parseISO(message.createdAt), "dd/MM/yyyy HH:mm:ss")
+                : "Fecha no disponible"}
             </div>
           </center>
         );
@@ -923,7 +1113,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                 <div>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 17" width="20" height="17">
                     <path fill="#df3333" d="M18.2 12.1c-1.5-1.8-5-2.7-8.2-2.7s-6.7 1-8.2 2.7c-.7.8-.3 2.3.2 2.8.2.2.3.3.5.3 1.4 0 3.6-.7 3.6-.7.5-.2.8-.5.8-1v-1.3c.7-1.2 5.4-1.2 6.4-.1l.1.1v1.3c0 .2.1.4.2.6.1.2.3.3.5.4 0 0 2.2.7 3.6.7.2 0 1.4-2 .5-3.1zM5.4 3.2l4.7 4.6 5.8-5.7-.9-.8L10.1 6 6.4 2.3h2.5V1H4.1v4.8h1.3V3.2z"></path>
-                  </svg> <span>Chamada de voz/vídeo perdida às {format(parseISO(message.createdAt), "HH:mm")}</span>
+                  </svg> <span>Chamada de voz/vídeo perdida às {message.createdAt && !isNaN(new Date(message.createdAt).getTime()) ? format(parseISO(message.createdAt), "HH:mm") : "Hora no disponible"}</span>
                 </div>
               </div>
             </React.Fragment>
@@ -1014,7 +1204,8 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                   )}
                                   
                   <span className={classes.timestamp}>
-                    {format(parseISO(message.createdAt), "HH:mm")}
+                    {" "}{message.createdAt && !isNaN(new Date(message.createdAt).getTime()) ? format(parseISO(message.createdAt), "HH:mm") : "Hora no disponible"}
+                    {renderMessageAck(message)}
                     <IconButton
                       size="small"
                       id="messageActionsButton"
@@ -1110,7 +1301,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
                   
                 
                   <span className={classes.timestamp}>
-                    {format(parseISO(message.createdAt), "HH:mm")}
+                    {" "}{message.createdAt && !isNaN(new Date(message.createdAt).getTime()) ? format(parseISO(message.createdAt), "HH:mm") : "Hora no disponible"}
                     {renderMessageAck(message)}
                     <IconButton
                       size="small"

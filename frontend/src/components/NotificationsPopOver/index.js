@@ -141,7 +141,9 @@ const NotificationsPopOver = (volume) => {
 
 		socket.on(`company-${user.companyId}-appMessage`, data => {
 			if (
-				data.action === "create" && !data.message.fromMe && 
+				data.action === "create" && 
+				data.message && 
+				!data.message.fromMe && 
 				(data.ticket.status !== "pending" ) &&
 				(!data.message.read || data.ticket.status === "pending") &&
 				(data.ticket.userId === user?.id || !data.ticket.userId) &&
@@ -243,7 +245,7 @@ const NotificationsPopOver = (volume) => {
 			<Popover
 				disableScrollLock
 				open={isOpen}
-				anchorEl={anchorEl.current}
+				anchorEl={anchorEl.current || null}
 				anchorOrigin={{
 					vertical: "bottom",
 					horizontal: "right",

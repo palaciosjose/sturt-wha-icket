@@ -36,19 +36,25 @@ const SendWhatsAppMessage = async ({
       }
     });
 
-    if (chatMessages) {
-      const msgFound = JSON.parse(chatMessages.dataJson);
-
-      options = {
-        quoted: {
-          key: msgFound.key,
-          message: {
-            extendedTextMessage: msgFound.message.extendedTextMessage
-          }
+    if (chatMessages && chatMessages.dataJson) {
+      try {
+        const msgFound = JSON.parse(chatMessages.dataJson);
+        
+        if (msgFound && msgFound.key) {
+          options = {
+            quoted: {
+              key: msgFound.key,
+              message: {
+                extendedTextMessage: msgFound.message?.extendedTextMessage
+              }
+            }
+          };
         }
-      };
+      } catch (error) {
+        console.log("Error parsing quoted message:", error);
+        // Continue without quoted message if parsing fails
+      }
     }
-
   }
 
   try {

@@ -66,9 +66,25 @@ const SignUp = () => {
 
 
 	useEffect(() => {
-        fetchallowregister();
-        fetchtrial();
-    }, []);
+		let isMounted = true;
+		
+		const fetchData = async () => {
+			try {
+				await fetchallowregister();
+				await fetchtrial();
+			} catch (error) {
+				if (isMounted) {
+					console.error('Error in initial fetch:', error);
+				}
+			}
+		};
+		
+		fetchData();
+		
+		return () => {
+			isMounted = false;
+		};
+	}, []);
 
 
     const fetchtrial = async () => {

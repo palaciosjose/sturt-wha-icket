@@ -1,9 +1,10 @@
 /* cor quando passa o mouse por cima */
 .MuiButtonBase-root.buttonHover:hover {
-    background: rgb(36, 36, 36)
+    background: rgb(25, 118, 210) /* ✅ AZUL MÁS OSCURO AL HOVER */
   }
   
   /* cor enquanto não passa o mouse */
   .MuiButtonBase-root.buttonHover {
-    background: rgb(71, 71, 71)
+    background: rgb(63, 81, 181); /* ✅ AZUL PRIMARIO */
+    color: #ffffff !important; /* ✅ TEXTO BLANCO */
   }

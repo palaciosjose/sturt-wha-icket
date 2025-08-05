@@ -211,11 +211,14 @@ const TicketListItemCustom = ({ ticket }) => {
     }
     setTag(ticket?.tags);
 
+    // ✅ DEBUG: Log del presence del ticket
+    // console.log("🎯 TICKET LIST ITEM - ID:", ticket.id, "Presence:", ticket?.presence);
+
     return () => {
       isMounted.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ticket.presence]); // ✅ AGREGAR DEPENDENCIA PARA RE-RENDERIZAR CUANDO CAMBIE PRESENCE
 
   const handleCloseTicket = async (id) => {
     setTag(ticket?.tags);
@@ -509,13 +512,13 @@ const TicketListItemCustom = ({ ticket }) => {
                   </span>
                 ) : (
                   <>
-                    {ticket.lastMessage.includes('data:image/png;base64') ? 
+                    {ticket.lastMessage && ticket.lastMessage.includes('data:image/png;base64') ? 
                       <MarkdownWrapper> Localização</MarkdownWrapper> 
                       : 
                       <MarkdownWrapper>
-                        {ticket.lastMessage.length > 30 
+                        {ticket.lastMessage && ticket.lastMessage.length > 30 
                           ? `${ticket.lastMessage.substring(0, 30)}...` 
-                          : ticket.lastMessage
+                          : ticket.lastMessage || "Sin mensaje"
                         }
                       </MarkdownWrapper>
                     }

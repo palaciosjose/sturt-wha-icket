@@ -40,7 +40,26 @@ const SendWhatsAppReaction = async ({
       throw new AppError("ReactionType not found");
     }
 
-    const msgFound = JSON.parse(messageToReact.dataJson);
+    // ✅ DEBUG: Verificar dataJson
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('🔍 DEBUG - messageToReact.id:', messageToReact.id);
+      console.debug('🔍 DEBUG - messageToReact.dataJson:', messageToReact.dataJson ? 'EXISTS' : 'NULL');
+    }
+
+    if (!messageToReact.dataJson) {
+      throw new AppError("Message data not found");
+    }
+
+    let msgFound;
+    try {
+      msgFound = JSON.parse(messageToReact.dataJson);
+    } catch (error) {
+      throw new AppError("Invalid message data format");
+    }
+
+    if (!msgFound || !msgFound.key) {
+      throw new AppError("Message key not found");
+    }
 
     console.log(reactionType);
 
@@ -49,7 +68,6 @@ const SendWhatsAppReaction = async ({
         text: reactionType, // O tipo de reação
         key: msgFound.key // A chave da mensagem original a qual a reação se refere
       }
-
     });
 
 

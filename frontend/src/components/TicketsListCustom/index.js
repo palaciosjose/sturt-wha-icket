@@ -117,7 +117,18 @@ const reducer = (state, action) => {
       state.unshift(ticket);
     }
 
-    return [...state];
+    // ✅ REORDENAR POR updatedAt EN ORDEN DESCENDENTE
+    console.log("🔄 [TICKETS LIST CUSTOM] Reordenando tickets por UPDATE_TICKET - Ticket:", ticket.id);
+    
+    // ✅ FORZAR REORDENAMIENTO DE TODOS LOS TICKETS
+    const sortedTickets = [...state].sort((a, b) => {
+      const dateA = new Date(a.updatedAt);
+      const dateB = new Date(b.updatedAt);
+      return dateB - dateA; // DESC: más reciente primero
+    });
+    
+    console.log("✅ [TICKETS LIST CUSTOM] Reordenamiento completado. Tickets ordenados:", sortedTickets.map(t => `${t.id} (${t.updatedAt})`));
+    return sortedTickets;
   }
 
   if (action.type === "UPDATE_TICKET_UNREAD_MESSAGES") {
@@ -131,7 +142,18 @@ const reducer = (state, action) => {
       state.unshift(ticket);
     }
 
-    return [...state];
+    // ✅ REORDENAR POR updatedAt EN ORDEN DESCENDENTE
+    console.log("🔄 [TICKETS LIST CUSTOM] Reordenando tickets por UPDATE_TICKET_UNREAD_MESSAGES - Ticket:", ticket.id);
+    
+    // ✅ FORZAR REORDENAMIENTO DE TODOS LOS TICKETS
+    const sortedTickets = [...state].sort((a, b) => {
+      const dateA = new Date(a.updatedAt);
+      const dateB = new Date(b.updatedAt);
+      return dateB - dateA; // DESC: más reciente primero
+    });
+    
+    console.log("✅ [TICKETS LIST CUSTOM] Reordenamiento completado. Tickets ordenados:", sortedTickets.map(t => `${t.id} (${t.updatedAt})`));
+    return sortedTickets;
   }
 
   if (action.type === "UPDATE_TICKET_CONTACT") {
@@ -148,6 +170,20 @@ const reducer = (state, action) => {
     const ticketIndex = state.findIndex((t) => t.id === data.ticketId);
     if (ticketIndex !== -1) {
       state[ticketIndex].presence = data.presence;
+      
+      // ✅ TIMEOUT: Ocultar "Digitando..." después de 10 segundos si es "composing"
+      if (data.presence === "composing") {
+        setTimeout(() => {
+          const currentTicketIndex = state.findIndex((t) => t.id === data.ticketId);
+          if (currentTicketIndex !== -1 && state[currentTicketIndex].presence === "composing") {
+            state[currentTicketIndex].presence = "available";
+            // ✅ Forzar re-render
+            return [...state];
+          }
+        }, 10000); // 10 segundos
+      }
+    } else {
+      // ❌ TICKET NO ENCONTRADO PARA PRESENCE:
     }
     return [...state];
   }
@@ -184,6 +220,7 @@ const TicketsListCustom = (props) => {
   const { user } = useContext(AuthContext);
   const { profile, queues } = user;
   const isMounted = useRef(true);
+  const presenceTimeouts = useRef({});
 
   const socketManager = useContext(SocketContext);
 
@@ -227,9 +264,7 @@ const TicketsListCustom = (props) => {
       ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
 
     socket.on("ready", () => {
-      console.log("🔌 SOCKET READY - Uniéndose a canales...");
       if (status) {
-        console.log("📡 Uniéndose a tickets con status:", status);
         socket.emit("joinTickets", status);
         // ✅ UNIRSE TAMBIÉN A OTROS STATUS PARA RECIBIR EVENTOS DE ELIMINACIÓN
         if (status === "open") {
@@ -238,27 +273,22 @@ const TicketsListCustom = (props) => {
           socket.emit("joinTickets", "open");
         }
       } else {
-        console.log("📡 Uniéndose a notificaciones");
         socket.emit("joinNotification");
       }
     });
 
     socket.on("connect", () => {
-      console.log("🔌 SOCKET CONECTADO");
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("🔌 SOCKET DESCONECTADO:", reason);
     });
 
     socket.on(`company-${companyId}-ticket`, (data) => {
-      console.log("📡 EVENTO TICKET RECIBIDO:", data.action, data);
       
       // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
       if (!isMounted.current) return;
       
       if (data.action === "create" && shouldUpdateTicket(data.ticket) && (status === undefined || data.ticket.status === status)) {
-        console.log("➕ CREANDO TICKET:", data.ticket.id);
         dispatch({
           type: "ADD_TICKET",
           payload: data.ticket,
@@ -266,7 +296,6 @@ const TicketsListCustom = (props) => {
       }
       
       if (data.action === "updateUnread") {
-        console.log("🔄 ACTUALIZANDO UNREAD:", data.ticketId);
         dispatch({
           type: "RESET_UNREAD",
           payload: data.ticketId,
@@ -274,7 +303,6 @@ const TicketsListCustom = (props) => {
       }
 
       if (data.action === "update" && shouldUpdateTicket(data.ticket) && data.ticket.status === status) {
-        console.log("🔄 ACTUALIZANDO TICKET:", data.ticket.id);
         dispatch({
           type: "UPDATE_TICKET",
           payload: data.ticket,
@@ -282,12 +310,10 @@ const TicketsListCustom = (props) => {
       }
 
       if (data.action === "update" && notBelongsToUserQueues(data.ticket)) {
-        console.log("🗑️ ELIMINANDO TICKET (no pertenece a colas):", data.ticket.id);
         dispatch({ type: "DELETE_TICKET", payload: data.ticket.id });
       }
 
       if (data.action === "delete") {
-        console.log("🗑️ ELIMINANDO TICKET:", data.ticketId);
         dispatch({ type: "DELETE_TICKET", payload: data.ticketId });
       }
     });
@@ -310,16 +336,60 @@ const TicketsListCustom = (props) => {
           type: "UPDATE_TICKET_UNREAD_MESSAGES",
           payload: data.ticket,
         });
+        
+        // ✅ SOLUCIÓN ALTERNATIVA: Reordenar también en eventos CREATE
+        console.log("🔄 [TICKET REORDER] Reordenando por evento CREATE:", data.ticket.id);
+        dispatch({
+          type: "UPDATE_TICKET",
+          payload: data.ticket,
+        });
+      }
+
+      // ✅ NUEVO: PROCESAR EVENTOS UPDATE PARA REORDENAMIENTO
+      if (data.action === "update" && data.ticket) {
+        console.log("🔄 [TICKET REORDER] Evento UPDATE recibido:", data);
+        
+        // ✅ SIEMPRE PROCESAR REORDENAMIENTO, SIN FILTROS
+        dispatch({
+          type: "UPDATE_TICKET",
+          payload: data.ticket,
+        });
+        
+        // ✅ DEBUG: Verificar que se procesa
+        console.log("✅ [TICKET REORDER] Procesando reordenamiento para ticket:", data.ticket.id);
       }
     });
 
     socket.on(`company-${companyId}-presence`, (data) => {
-      console.log("📡 EVENTO PRESENCE RECIBIDO:", data);
-      
       // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
-      if (!isMounted.current) return;
+      if (!isMounted.current) {
+        return;
+      }
       
-      console.log("🔄 ACTUALIZANDO PRESENCE:", data.ticketId, data.presence);
+      // ✅ MEJORAR TIMEOUT: Limpiar timeout anterior si existe
+      if (data.presence === "composing") {
+        const ticketId = data.ticketId;
+        const existingTimeout = presenceTimeouts.current[ticketId];
+        
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+        
+        // ✅ CREAR NUEVO TIMEOUT
+        const newTimeout = setTimeout(() => {
+          dispatch({
+            type: "UPDATE_TICKET_PRESENCE",
+            payload: {
+              ticketId: ticketId,
+              presence: "available"
+            }
+          });
+        }, 10000); // 10 segundos
+        
+        // ✅ GUARDAR REFERENCIA DEL TIMEOUT
+        presenceTimeouts.current[ticketId] = newTimeout;
+      }
+      
       dispatch({
         type: "UPDATE_TICKET_PRESENCE",
         payload: data,
@@ -356,6 +426,11 @@ const TicketsListCustom = (props) => {
   useEffect(() => {
     return () => {
       isMounted.current = false;
+      // ✅ LIMPIAR TODOS LOS TIMEOUTS AL DESMONTAR
+      Object.values(presenceTimeouts.current).forEach(timeout => {
+        clearTimeout(timeout);
+      });
+      presenceTimeouts.current = {};
     };
   }, []);
 
@@ -365,6 +440,29 @@ const TicketsListCustom = (props) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketsList]);
+
+  // ✅ SOLUCIÓN SIMPLE: REORDENAR AUTOMÁTICAMENTE CADA 2 SEGUNDOS
+  useEffect(() => {
+            const interval = setInterval(() => {
+          if (ticketsList.length > 0) {
+            const sortedTickets = [...ticketsList].sort((a, b) => {
+              const dateA = new Date(a.updatedAt);
+              const dateB = new Date(b.updatedAt);
+              return dateB - dateA; // DESC: más reciente primero
+            });
+            
+            // Solo actualizar si el orden cambió
+            const currentOrder = ticketsList.map(t => t.id).join(',');
+            const newOrder = sortedTickets.map(t => t.id).join(',');
+            
+            if (currentOrder !== newOrder) {
+              dispatch({ type: "LOAD_TICKETS", payload: sortedTickets });
+            }
+          }
+        }, 2000); // Cada 2 segundos
+
+    return () => clearInterval(interval);
+  }, [ticketsList, dispatch]);
 
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);

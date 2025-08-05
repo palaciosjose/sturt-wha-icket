@@ -65,6 +65,16 @@ const RescheduleReminderSystemService = async ({
     
     // Guardar mensaje en la base de datos
     if (sentMessage) {
+      // Buscar ticket existente para el contacto
+      const ticket = await Ticket.findOne({
+        where: { contactId: mainSchedule.contactId, companyId },
+        order: [["createdAt", "DESC"]]
+      });
+
+      if (!ticket) {
+        throw new Error("No se encontró ticket para el contacto");
+      }
+
       const messageId = `reschedule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       await Message.create({
         id: messageId,
@@ -75,20 +85,13 @@ const RescheduleReminderSystemService = async ({
         mediaType: null,
         contactId: mainSchedule.contactId,
         companyId: companyId,
-        ticketId: 42, // Usar ticket existente
+        ticketId: ticket.id, // ✅ Usar el ticket correcto
         ack: 1,
         reactions: []
       });
 
       // Actualizar lastMessage del ticket
-      const ticket = await Ticket.findOne({
-        where: { contactId: mainSchedule.contactId, companyId },
-        order: [["createdAt", "DESC"]]
-      });
-
-      if (ticket) {
-        await ticket.update({ lastMessage: rescheduleMessage });
-      }
+      await ticket.update({ lastMessage: rescheduleMessage });
     }
 
     // Crear nuevo sistema de recordatorios con la nueva fecha (sin mensaje inmediato)

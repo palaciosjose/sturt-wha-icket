@@ -3,7 +3,6 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
-import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
@@ -72,7 +71,6 @@ const ScheduleSchema = Yup.object().shape({
 
 const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload, ticketId }) => {
 	const classes = useStyles();
-	const history = useHistory();
 	const { user } = useContext(AuthContext);
 
 	const initialState = {
@@ -83,14 +81,9 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		sentAt: ""
 	};
 
-	const initialContact = {
-		id: null,
-		name: ""
-	}
-
 	const [schedule, setSchedule] = useState(initialState);
-	const [currentContact, setCurrentContact] = useState(initialContact);
-	const [contacts, setContacts] = useState([initialContact]);
+	const [currentContact, setCurrentContact] = useState(null);
+	const [contacts, setContacts] = useState([]);
 	const [whatsapps, setWhatsapps] = useState([]);
 	const [currentWhatsapp, setCurrentWhatsapp] = useState(null);
 	const [attachment, setAttachment] = useState(null);
@@ -117,7 +110,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					const { data: contactList } = await api.get('/contacts/list', { params: { companyId: companyId } });
 					let customList = contactList.map((c) => ({ id: c.id, name: c.name }));
 					if (isArray(customList)) {
-						setContacts([{ id: "", name: "" }, ...customList]);
+						setContacts(customList);
 					}
 					
 					// Cargar conexiones WhatsApp
@@ -140,7 +133,13 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								setSchedule(prevState => {
 									return { ...prevState, whatsappId: ticket.whatsappId }
 								});
-								setCurrentWhatsapp(whatsapps.find(w => w.id === ticket.whatsappId));
+								// ✅ CORREGIR: Usar whatsappList en lugar de whatsapps
+								const whatsapp = whatsappList.find(w => w.id === ticket.whatsappId);
+								if (whatsapp) {
+									setCurrentWhatsapp(whatsapp);
+								} else {
+									// No se encontró conexión del ticket
+								}
 								logger.dashboard.debug(`[ScheduleModal] Usando WhatsApp del ticket: ${ticket.whatsappId}`);
 							}
 						} catch (err) {
@@ -155,12 +154,32 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 						return { ...prevState, ...data, sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm') };
 					});
 					setCurrentContact(data.contact);
+					
+					// ✅ CORREGIR: Establecer la conexión WhatsApp DESPUÉS de cargar whatsapps
+					if (data.whatsappId && whatsappList.length > 0) {
+						const whatsapp = whatsappList.find(w => w.id === data.whatsappId);
+						if (whatsapp) {
+							setCurrentWhatsapp(whatsapp);
+						} else {
+							// No se encontró conexión con ID
+						}
+					} else {
+						// No hay whatsappId o whatsapps vacío
+						if (whatsappList.length > 0) {
+							const defaultWhatsapp = whatsappList[0];
+							setCurrentWhatsapp(defaultWhatsapp);
+							setSchedule(prevState => ({
+								...prevState,
+								whatsappId: defaultWhatsapp.id
+							}));
+						}
+					}
 				})()
 			} catch (err) {
 				toastError(err);
 			}
 		}
-	}, [scheduleId, contactId, open, user, ticketId, whatsapps]);
+	}, [open, scheduleId, contactId, ticketId, user]); // ✅ SOLO DEPENDENCIAS ESENCIALES
 
 	const handleClose = () => {
 		onClose();
@@ -175,59 +194,62 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		}
 	};
 
-	const handleSaveSchedule = async values => {
-		console.log("🔍 [DEBUG TEMPORAL] handleSaveSchedule iniciado con values:", values);
-		const scheduleData = { ...values, userId: user.id };
-		console.log("🔍 [DEBUG TEMPORAL] scheduleData preparado:", scheduleData);
-		
+	const handleSaveSchedule = async (values) => {
 		try {
+			// ✅ VALIDACIÓN 1: CAMPOS OBLIGATORIOS
+			if (!values.contactId || !values.whatsappId || !values.body || !values.sendAt) {
+				toast.error("❌ Todos los campos son obligatorios: Contacto, Conexión, Mensaje y Fecha/Hora");
+				return;
+			}
+
+			// ✅ VALIDACIÓN 2: CAMBIO MÍNIMO DE 30 MINUTOS (solo para UPDATE)
 			if (scheduleId) {
-				const response = await api.put(`/schedules/${scheduleId}`, scheduleData);
+				const originalSchedule = await api.get(`/schedules/${scheduleId}`);
+				const originalTime = moment(originalSchedule.data.sendAt);
+				const newTime = moment(values.sendAt);
+				const timeDiff = Math.abs(newTime.diff(originalTime, 'minutes'));
 				
-				if (attachment != null) {
-					const formData = new FormData();
-					formData.append("file", attachment);
-					await api.post(
-						`/schedules/${scheduleId}/media-upload`,
-						formData
-					);
-				}
-				
-				// Si es una reprogramación del sistema de recordatorios, actualizar página
-				if (response.data && response.data.isReminderSystem) {
-					toast.success("Reunión reprogramada exitosamente");
-					window.location.reload();
+				if (timeDiff < 30) {
+					toast.error("❌ El cambio mínimo debe ser de 30 minutos. Hora original: " + 
+						originalTime.format('DD/MM/YYYY HH:mm') + 
+						" - Nueva hora: " + newTime.format('DD/MM/YYYY HH:mm'));
 					return;
 				}
-			} else {
-				const { data } = await api.post("/schedules", scheduleData);
+			}
+
+			const scheduleData = {
+				contactId: values.contactId,
+				whatsappId: values.whatsappId,
+				body: values.body,
+				sendAt: values.sendAt,
+				sentAt: null
+			};
+
+			if (scheduleId) {
+				await api.put(`/schedules/${scheduleId}`, scheduleData);
 				
-				if (attachment != null) {
-					const formData = new FormData();
-					formData.append("file", attachment);
-					await api.post(`/schedules/${data.id}/media-upload`, formData);
+				// ✅ NOTIFICACIÓN DE ÉXITO
+				toast.success("✅ Agendamiento actualizado correctamente");
+			} else {
+				await api.post("/schedules", scheduleData);
+				
+				// ✅ NOTIFICACIÓN DE ÉXITO
+				toast.success("✅ Agendamiento creado correctamente");
+			}
+			
+			// ✅ DELAY PARA QUE EL USUARIO VEA LA NOTIFICACIÓN
+			setTimeout(() => {
+				onClose();
+				if (typeof reload === 'function') {
+					reload();
+				} else {
+					// Si no hay función reload, recargar la página
+					window.location.reload();
 				}
-			}
-			toast.success(i18n.t("scheduleModal.success"));
-			
-			if (typeof reload == 'function') {
-				reload();
-			}
-			
-			if (contactId) {
-				if (typeof cleanContact === 'function') {
-					cleanContact();
-					history.push('/schedules');
-				}
-			}
-			
-			setCurrentContact(initialContact);
-			setSchedule(initialState);
-			handleClose();
+			}, 1000); // 1 segundo de delay
 		} catch (err) {
-			console.error("❌ [ERROR] Error en handleSaveSchedule:", err);
+			console.log("❌ [ERROR] Error en handleSaveSchedule:", err);
 			toastError(err);
-			throw err; // Re-lanzar el error para que Formik lo maneje
 		}
 	};
 
@@ -309,15 +331,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					enableReinitialize={true}
 					validationSchema={ScheduleSchema}
 					onSubmit={(values, actions) => {
-						console.log("🔍 [DEBUG TEMPORAL] onSubmit llamado con valores:", values);
-						console.log("🔍 [DEBUG TEMPORAL] Botón GUARDAR procesado");
 						handleSaveSchedule(values)
 							.then(() => {
-								console.log("🔍 [DEBUG TEMPORAL] handleSaveSchedule completado");
 								actions.setSubmitting(false);
 							})
 							.catch((error) => {
-								console.error("❌ [ERROR] Error en onSubmit:", error);
+								console.error("❌ [UPDATE TEST] ❌ Error en onSubmit:", error);
 								actions.setSubmitting(false);
 							});
 					}}
@@ -333,19 +352,31 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 									>
 										<Autocomplete
 											fullWidth
-											value={currentContact}
+											value={currentContact || null}
 											options={contacts}
 											onChange={(e, contact) => {
 												const contactId = contact ? Number(contact.id) : null;
 												setFieldValue("contactId", contactId);
 												setSchedule({ ...schedule, contactId });
-												setCurrentContact(contact ? contact : initialContact);
+												setCurrentContact(contact || null);
 											}}
-											getOptionLabel={(option) => option.name}
+											getOptionLabel={(option) => {
+												if (!option) return "";
+												return option.name || "";
+											}}
 											getOptionSelected={(option, value) => {
-												return value.id === option.id
+												if (!option || !value) return false;
+												return value.id === option.id;
 											}}
-											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Contacto" />}
+											renderInput={(params) => (
+												<TextField 
+													{...params} 
+													variant="outlined" 
+													placeholder="Contacto"
+													error={touched.contactId && Boolean(errors.contactId)}
+													helperText={touched.contactId && errors.contactId}
+												/>
+											)}
 										/>
 									</FormControl>
 								</div>
@@ -357,19 +388,31 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 									>
 										<Autocomplete
 											fullWidth
-											value={currentWhatsapp}
+											value={currentWhatsapp || null}
 											options={whatsapps}
 											onChange={(e, whatsapp) => {
 												const whatsappId = whatsapp ? Number(whatsapp.id) : null;
 												setFieldValue("whatsappId", whatsappId);
 												setSchedule({ ...schedule, whatsappId });
-												setCurrentWhatsapp(whatsapp ? whatsapp : null);
+												setCurrentWhatsapp(whatsapp || null);
 											}}
-											getOptionLabel={(option) => option.name}
+											getOptionLabel={(option) => {
+												if (!option) return "";
+												return option.name || "";
+											}}
 											getOptionSelected={(option, value) => {
-												return value && value.id === option.id
+												if (!option || !value) return false;
+												return value.id === option.id;
 											}}
-											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Conexión WhatsApp" />}
+											renderInput={(params) => (
+												<TextField 
+													{...params} 
+													variant="outlined" 
+													placeholder="Conexión WhatsApp"
+													error={touched.whatsappId && Boolean(errors.whatsappId)}
+													helperText={touched.whatsappId && errors.whatsappId}
+												/>
+											)}
 										/>
 									</FormControl>
 								</div>
@@ -449,8 +492,23 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								>
 									SALIR
 								</Button>
-								{((schedule.sentAt === null || schedule.sentAt === "") && 
-								 !scheduleId) || (scheduleId && moment(schedule.sendAt).isAfter(moment())) ? (
+													{scheduleId ? (
+						<Button
+							type="submit"
+							color="primary"
+							disabled={isSubmitting}
+							variant="contained"
+							className={classes.btnWrapper}
+						>
+							{i18n.t("scheduleModal.buttons.okEdit")}
+							{isSubmitting && (
+								<CircularProgress
+									size={24}
+									className={classes.buttonProgress}
+								/>
+							)}
+						</Button>
+								) : (
 									<Button
 										type="submit"
 										color="primary"
@@ -458,9 +516,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										variant="contained"
 										className={classes.btnWrapper}
 									>
-										{scheduleId
-											? `${i18n.t("scheduleModal.buttons.okEdit")}`
-											: `${i18n.t("scheduleModal.buttons.okAdd")}`}
+										{i18n.t("scheduleModal.buttons.okAdd")}
 										{isSubmitting && (
 											<CircularProgress
 												size={24}
@@ -468,7 +524,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 											/>
 										)}
 									</Button>
-								) : null}
+								)}
 							</DialogActions>
 						</Form>
 					);

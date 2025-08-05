@@ -120,7 +120,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 		if (optionL.number) {
 			return `${optionL.name} - ${optionL.number}`;
 		} else {
-			return `Nenhum contato encontrado com o nome ${optionL.name}`;
+			return `Ningún contacto encontrado con el nombre ${optionL.name}`;
 		}
 	};
 
@@ -232,7 +232,7 @@ const ForwardMessageModal = ({ messages, onClose, modalOpen }) => {
 						disabled={sending}
 						color="secondary"
 					>
-						{i18n.t("transfersList.buttons.cancel")}
+						{i18n.t("transferTicketModal.buttons.cancel")}
 					</Button>
 					<ButtonWithSpinner
 						variant="contained"

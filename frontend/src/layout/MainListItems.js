@@ -29,7 +29,6 @@ import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import LoyaltyRoundedIcon from '@material-ui/icons/LoyaltyRounded';
 import { Can } from "../components/Can";
-import { SocketContext } from "../context/Socket/SocketContext";
 import { isArray } from "lodash";
 import api from "../services/api";
 import BorderColorIcon from '@material-ui/icons/BorderColor';
@@ -158,8 +157,8 @@ const MainListItems = (props) => {
   const [searchParam] = useState("");
   const [chats, dispatch] = useReducer(reducer, []);
   const { getPlanCompany } = usePlans();
-  
-  const socketManager = useContext(SocketContext);
+	
+	// const socketManager = useContext(SocketContext); // ✅ TEMPORALMENTE COMENTADO
  
 
   useEffect(() => {
@@ -208,6 +207,8 @@ const MainListItems = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParam, pageNumber]);
 
+  // ✅ TEMPORALMENTE DESHABILITADO PARA PROBAR FORMULARIO
+  /*
   useEffect(() => {
     if (isMounted.current) {
       const companyId = localStorage.getItem("companyId");
@@ -233,6 +234,7 @@ const MainListItems = (props) => {
       };
     }
   }, [socketManager]);
+  */
 
   useEffect(() => {
     if (isMounted.current) {

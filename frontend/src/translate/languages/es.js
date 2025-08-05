@@ -980,7 +980,7 @@ const messages = {
           confirmations: "Confirmaciones",
           connection: "Conexión",
           contactList: "Lista de Contactos",
-          scheduling: "Programación",
+          scheduling: "Agendar",
           conclusion: "Conclusión",
           statusValues: {
             inactive: "Inactiva",
@@ -1304,7 +1304,7 @@ const messages = {
         success: "Lista de archivos guardada correctamente!",
       },
       ticketOptionsMenu: {
-        schedule: "Programación",
+        schedule: "Agendar",
         delete: "Eliminar",
         transfer: "Transferir",
         registerAppointment: "Observaciones del Contacto",

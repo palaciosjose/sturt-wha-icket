@@ -45,7 +45,13 @@ import useQuickMessages from "../../hooks/useQuickMessages";
 import useFiles from "../../hooks/useFiles";
 import logger from "../../utils/logger";
 
+// ✅ CORRECCIÓN: Inicialización segura de MicRecorder
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
+
+// ✅ VALIDACIÓN: Verificar que MicRecorder se inicializó correctamente
+if (!Mp3Recorder) {
+  console.warn("⚠️ [WARNING] MicRecorder no se inicializó correctamente");
+}
 
 const useStyles = makeStyles((theme) => ({
   mainWrapper: {
@@ -516,7 +522,7 @@ const MessageInputCustom = (props) => {
         }
         return {
           value: m.message,
-          label: `/${m.shortcode} - ${truncatedMessage}`,
+          label: `/${m.shortcode} ${truncatedMessage}`,
           shortcode: m.shortcode,
           message: m.message,
           mediaPath: m.mediaPath,

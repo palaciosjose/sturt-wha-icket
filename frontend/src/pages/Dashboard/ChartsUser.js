@@ -10,15 +10,11 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import esLocale from 'date-fns/locale/es';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { Button, Stack, TextField } from '@mui/material';
+import { Button, Grid, TextField } from '@material-ui/core';
 import Typography from "@material-ui/core/Typography";
 import api from '../../services/api';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
-
 
 import './button.css';
 import { i18n } from '../../translate/i18n';
@@ -119,30 +115,49 @@ export const ChatsUser = () => {
                 {i18n.t("dashboard.cards.totalConversationsByUsers")}
             </Typography>
 
-            <Stack direction={'row'} spacing={2} alignItems={'center'} sx={{ my: 2, }} >
+            <Grid container spacing={2} alignItems="center" style={{ margin: '16px 0' }}>
 
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
-                    <DatePicker
-                        value={initialDate}
-                        onChange={(newValue) => { setInitialDate(newValue) }}
+                <Grid item>
+                    <TextField
                         label={i18n.t("dashboard.filters.start")}
-                        textField={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
-
+                        type="date"
+                        value={initialDate instanceof Date && !isNaN(initialDate) ? format(initialDate, 'yyyy-MM-dd') : ''}
+                        onChange={(e) => {
+                            const date = new Date(e.target.value);
+                            if (!isNaN(date.getTime())) {
+                                setInitialDate(date);
+                            }
+                        }}
+                        InputLabelProps={{
+                            shrink: true,
+                        }}
+                        style={{ width: '200px' }}
                     />
-                </LocalizationProvider>
+                </Grid>
 
-                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={esLocale}>
-                    <DatePicker
-                        value={finalDate}
-                        onChange={(newValue) => { setFinalDate(newValue) }}
+                <Grid item>
+                    <TextField
                         label={i18n.t("dashboard.filters.end")}
-                        textField={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
+                        type="date"
+                        value={finalDate instanceof Date && !isNaN(finalDate) ? format(finalDate, 'yyyy-MM-dd') : ''}
+                        onChange={(e) => {
+                            const date = new Date(e.target.value);
+                            if (!isNaN(date.getTime())) {
+                                setFinalDate(date);
+                            }
+                        }}
+                        InputLabelProps={{
+                            shrink: true,
+                        }}
+                        style={{ width: '200px' }}
                     />
-                </LocalizationProvider>
+                </Grid>
 
-                <Button className="buttonHover" onClick={handleGetTicketsInformation} variant='contained'>{i18n.t("dashboard.filters.filter")}</Button>
+                <Grid item>
+                    <Button className="buttonHover" onClick={handleGetTicketsInformation} variant='contained' color="primary">{i18n.t("dashboard.filters.filter")}</Button>
+                </Grid>
 
-            </Stack>
+            </Grid>
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '20px' }}>
                     <Typography>Cargando datos...</Typography>

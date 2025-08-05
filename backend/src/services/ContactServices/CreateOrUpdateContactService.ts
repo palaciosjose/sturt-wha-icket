@@ -46,7 +46,7 @@ const CreateOrUpdateContactService = async ({
     if (process.env.NODE_ENV === 'development') {
       console.debug('Contact whatsappId:', contact.whatsappId);
     }
-    if (isNil(contact.whatsappId === null)) {
+    if (isNil(contact.whatsappId) && !isNil(whatsappId)) {
       contact.update({
         whatsappId
       });

@@ -302,6 +302,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 { remoteJid, presences },
                 "Received contact presence"
               );
+              
               if (!presences[remoteJid]?.lastKnownPresence) {
                 return;
               }
@@ -325,16 +326,6 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               });
 
               if (ticket) {
-                console.log("📡 EMITIENDO EVENTO PRESENCE:", {
-                  ticketId: ticket.id,
-                  presence: presences[remoteJid].lastKnownPresence,
-                  channels: [
-                    ticket.id.toString(),
-                    `company-${whatsapp.companyId}-${ticket.status}`,
-                    `queue-${ticket.queueId}-${ticket.status}`
-                  ]
-                });
-                
                 io.to(ticket.id.toString())
                   .to(`company-${whatsapp.companyId}-${ticket.status}`)
                   .to(`queue-${ticket.queueId}-${ticket.status}`)

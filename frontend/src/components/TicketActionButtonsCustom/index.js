@@ -1,5 +1,4 @@
 import React, { useContext, useState, useRef, useEffect } from "react";
-import { useHistory } from "react-router-dom";
 
 import { makeStyles, createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { IconButton } from "@material-ui/core";
@@ -32,7 +31,6 @@ const useStyles = makeStyles(theme => ({
 
 const TicketActionButtonsCustom = ({ ticket }) => {
 	const classes = useStyles();
-	const history = useHistory();
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const ticketOptionsMenuOpen = Boolean(anchorEl);
@@ -73,7 +71,10 @@ const TicketActionButtonsCustom = ({ ticket }) => {
 				setCurrentTicket({ ...ticket, code: "#open" });
 			} else {
 				setCurrentTicket({ id: null, code: null })
-				history.push("/tickets");
+				
+				// ✅ ACTUALIZAR PÁGINA DESPUÉS DE CERRAR TICKET
+				console.log("🔒 [TICKET ACTIONS] Ticket cerrado, actualizando página...");
+				window.location.href = "/tickets";
 			}
 		} catch (err) {
 			// ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE ACTUALIZAR ESTADO

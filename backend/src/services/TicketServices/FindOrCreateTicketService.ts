@@ -8,6 +8,7 @@ import ShowTicketService from "./ShowTicketService";
 import FindOrCreateATicketTrakingService from "./FindOrCreateATicketTrakingService";
 import Setting from "../../models/Setting";
 import Whatsapp from "../../models/Whatsapp";
+import { getIO } from "../../libs/socket";
 
 interface TicketData {
   status?: string;
@@ -113,6 +114,8 @@ const FindOrCreateTicketService = async (
     where: { id: whatsappId }
   });
 
+  let wasCreated = false;
+
   if (!ticket) {
     ticket = await Ticket.create({
       contactId: groupContact ? groupContact.id : contact.id,
@@ -129,9 +132,20 @@ const FindOrCreateTicketService = async (
       whatsappId,
       userId: ticket.userId
     });
+    wasCreated = true;
   }
 
   ticket = await ShowTicketService(ticket.id, companyId);
+
+  // Emitir evento 'create' si el ticket fue creado en esta llamada
+  if (wasCreated) {
+    const io = getIO();
+    io.to(`company-${ticket.companyId}-pending`).emit(`company-${ticket.companyId}-ticket`, {
+      action: "create",
+      ticket,
+      ticketId: ticket.id,
+    });
+  }
 
   return ticket;
 };

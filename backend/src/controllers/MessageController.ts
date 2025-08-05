@@ -105,6 +105,22 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     sentMessages.push(sentMessage);
   }
 
+  // ✅ EMITIR EVENTO SOCKET PARA ACTUALIZACIÓN EN TIEMPO REAL
+  const io = getIO();
+  sentMessages.forEach((message) => {
+    io.to(`company-${companyId}-${ticket.status}`)
+      .to(`queue-${ticket.queueId}-${ticket.status}`)
+      .to(`company-${companyId}-notification`)
+      .to(`queue-${ticket.queueId}-notification`)
+      .to(ticket.id.toString())
+      .emit(`company-${companyId}-appMessage`, {
+        action: "create",
+        message,
+        ticket,
+        contact: ticket.contact
+      });
+  });
+
   // ✅ ENVIAR RESPUESTA CON INFORMACIÓN DE LOS MENSAJES ENVIADOS
   return res.json({ 
     success: true, 
@@ -353,6 +369,9 @@ export const forwardMessage = async (
   if (message.mediaType === 'conversation' || message.mediaType === 'extendedTextMessage') {
     await SendWhatsAppMessage({ body, ticket: createTicket, quotedMsg, isForwarded: message.fromMe ? false : true });
   } else {
+    if (!message.mediaUrl) {
+      return res.status(400).send("Media URL not found");
+    }
 
     const mediaUrl = message.mediaUrl.replace(`:${process.env.PORT}`, '');
     const fileName = obterNomeEExtensaoDoArquivo(mediaUrl);

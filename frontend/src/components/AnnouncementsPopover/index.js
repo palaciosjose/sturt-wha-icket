@@ -262,7 +262,7 @@ export default function AnnouncementsPopover() {
       <Popover
         id={id}
         open={open}
-        anchorEl={anchorEl}
+        anchorEl={anchorEl || null}
         onClose={handleClose}
         anchorOrigin={{
           vertical: "bottom",

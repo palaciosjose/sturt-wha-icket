@@ -219,21 +219,21 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 				</MenuItem>
 			</Menu>
 			<Popover
-					open={Boolean(reactionAnchorEl) && reactionAnchorEl}
-					anchorEl={reactionAnchorEl}
-					onClose={closeReactionsMenu}
-					anchorOrigin={{
-						vertical: 'bottom',
-						horizontal: 'right',
-					}}
-					transformOrigin={{
-						vertical: 'top',
-						horizontal: 'right',
-					}}
-					PaperProps={{
-						style: { width: 'auto', maxWidth: '380px', borderRadius: '50px'  }
-					}}
-				>
+				open={Boolean(reactionAnchorEl)}
+				anchorEl={reactionAnchorEl || null}
+				onClose={closeReactionsMenu}
+				anchorOrigin={{
+					vertical: 'bottom',
+					horizontal: 'right',
+				}}
+				transformOrigin={{
+					vertical: 'top',
+					horizontal: 'right',
+				}}
+				PaperProps={{
+					style: { width: 'auto', maxWidth: '380px', borderRadius: '50px'  }
+				}}
+			>
 					<div className={classes.hideScrollbar}>
 					<Grid container spacing={1} className={classes.gridContainer}>
 						{availableReactions.slice(0, 6).map(reaction => (
@@ -252,8 +252,8 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 					</div>
 				</Popover>
 				<Popover
-					open={Boolean(moreAnchorEl) && moreAnchorEl}
-					anchorEl={moreAnchorEl}
+					open={Boolean(moreAnchorEl)}
+					anchorEl={moreAnchorEl || null}
 					onClose={closeMoreReactionsMenu}
 					anchorOrigin={{
 						vertical: 'bottom',

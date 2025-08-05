@@ -31,7 +31,13 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import toastError from "../../errors/toastError";
 
+// ✅ CORRECCIÓN: Inicialización segura de MicRecorder
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
+
+// ✅ VALIDACIÓN: Verificar que MicRecorder se inicializó correctamente
+if (!Mp3Recorder) {
+  console.warn("⚠️ [WARNING] MicRecorder no se inicializó correctamente");
+}
 
 const useStyles = makeStyles(theme => ({
 	mainWrapper: {

@@ -25,7 +25,17 @@ module.exports = function override(config, env) {
   // Agregar variables de entorno al webpack
   config.plugins.push(
     new webpack.DefinePlugin({
-      'process.env': JSON.stringify(envVars)
+      'process.env': JSON.stringify(envVars),
+      'process': JSON.stringify({
+        env: envVars,
+        browser: true,
+        version: process.version,
+        platform: 'browser',
+        nextTick: 'function(cb) { setTimeout(cb, 0); }'
+      })
+    }),
+    new webpack.ProvidePlugin({
+      process: 'process/browser'
     })
   );
   

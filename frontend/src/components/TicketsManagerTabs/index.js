@@ -27,6 +27,7 @@ import TransferTicketModalCustom from "../TransferTicketModalCustom";
 
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { SocketContext } from "../../context/Socket/SocketContext";
 
 import TicketsQueueSelect from "../TicketsQueueSelect";
 import { Button, Snackbar } from "@material-ui/core";
@@ -213,7 +214,42 @@ const TicketsManagerTabs = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
+  // ✅ OBTENER SOCKET MANAGER EN EL NIVEL SUPERIOR
+  const socketManager = useContext(SocketContext);
 
+  // ✅ ESCUCHAR EVENTOS DE SOCKET PARA ACTUALIZAR CONTADORES EN TIEMPO REAL
+  useEffect(() => {
+    const companyId = localStorage.getItem("companyId");
+    const socket = socketManager.getSocket(companyId);
+
+    const handleTicketUpdate = (data) => {
+      if (data.action === "update") {
+        // ✅ ACTUALIZAR CONTADORES CUANDO UN TICKET CAMBIA DE ESTADO
+        if (data.ticket.status === "open") {
+          setOpenCount(prev => prev + 1);
+        } else if (data.ticket.status === "pending") {
+          setPendingCount(prev => prev + 1);
+        }
+      }
+      
+      if (data.action === "delete") {
+        // ✅ REDUCIR CONTADORES CUANDO UN TICKET SE ELIMINA DE UN ESTADO
+        // El backend emite delete al estado anterior cuando cambia
+        if (data.ticket?.status === "pending" || data.oldStatus === "pending") {
+          setPendingCount(prev => Math.max(0, prev - 1));
+        }
+        if (data.ticket?.status === "open" || data.oldStatus === "open") {
+          setOpenCount(prev => Math.max(0, prev - 1));
+        }
+      }
+    };
+
+    socket.on(`company-${companyId}-ticket`, handleTicketUpdate);
+
+    return () => {
+      socket.off(`company-${companyId}-ticket`, handleTicketUpdate);
+    };
+  }, [socketManager]);
 
   useEffect(() => {
     if (tab === "search") {
@@ -442,19 +478,24 @@ const TicketsManagerTabs = () => {
           />
         </Tabs>
         <Paper className={classes.ticketsWrapper}>
-          <TicketsList
-            status="open"
-            showAll={true}
-            selectedQueueIds={selectedQueueIds}
-            updateCount={(val) => setOpenCount(val)}
-            style={applyPanelStyle("open")}
-          />
-          <TicketsList
-            status="pending"
-            selectedQueueIds={selectedQueueIds}
-            updateCount={(val) => setPendingCount(val)}
-            style={applyPanelStyle("pending")}
-          />
+          {/* ✅ RENDERIZAR SIEMPRE AMBOS COMPONENTES PARA MANTENER CONTADORES ACTUALIZADOS */}
+          <div style={{ display: tabOpen === "open" ? "block" : "none" }}>
+            <TicketsList
+              status="open"
+              showAll={true}
+              selectedQueueIds={selectedQueueIds}
+              updateCount={(val) => setOpenCount(val)}
+              style={applyPanelStyle("open")}
+            />
+          </div>
+          <div style={{ display: tabOpen === "pending" ? "block" : "none" }}>
+            <TicketsList
+              status="pending"
+              selectedQueueIds={selectedQueueIds}
+              updateCount={(val) => setPendingCount(val)}
+              style={applyPanelStyle("pending")}
+            />
+          </div>
         </Paper>
       </TabPanel>
       <TabPanel value={tab} name="closed" className={classes.ticketsWrapper}>

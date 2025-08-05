@@ -29,6 +29,8 @@ import { getMessageOptions } from "./services/WbotServices/SendWhatsAppMedia";
 import { ClosedAllOpenTickets } from "./services/WbotServices/wbotClosedTickets";
 import { logger } from "./utils/logger";
 import GetTimezone from "./helpers/GetTimezone";
+import SendWhatsAppMessage from "./services/WbotServices/SendWhatsAppMessage";
+import FindOrCreateTicketService from "./services/TicketServices/FindOrCreateTicketService";
 
 
 const nodemailer = require('nodemailer');
@@ -294,7 +296,12 @@ async function handleSendScheduledMessage(job) {
   let logPrefix = "[Schedules]"; // Definir logPrefix al inicio
 
   try {
-    scheduleRecord = await Schedule.findByPk(schedule.id);
+    scheduleRecord = await Schedule.findByPk(schedule.id, {
+      include: [
+        { model: Contact, as: "contact" },
+        { model: User, as: "user" }
+      ]
+    });
     
     if (!scheduleRecord) {
       logger.error(`[Schedules] Agendamiento ${schedule.id} no encontrado`);
@@ -302,8 +309,8 @@ async function handleSendScheduledMessage(job) {
     }
     
     // Verificar que el agendamiento aún esté pendiente
-    if (scheduleRecord.status !== "AGENDADA") {
-      logger.warn(`[Schedules] Agendamiento ${schedule.id} ya no está en estado AGENDADA (actual: ${scheduleRecord.status})`);
+    if (scheduleRecord.status !== "PENDENTE" && scheduleRecord.status !== "AGENDADA") {
+      logger.warn(`[Schedules] Agendamiento ${schedule.id} ya no está pendiente (actual: ${scheduleRecord.status})`);
       return;
     }
     
@@ -318,6 +325,11 @@ async function handleSendScheduledMessage(job) {
     
     if (!whatsapp) {
       throw new Error(`No se encontró WhatsApp configurado para la empresa ${schedule.companyId}`);
+    }
+
+    // ✅ VERIFICAR QUE EL CONTACTO EXISTA
+    if (!scheduleRecord.contact) {
+      throw new Error(`Contacto no encontrado para el agendamiento ${schedule.id}`);
     }
 
     let filePath = null;
@@ -352,57 +364,66 @@ async function handleSendScheduledMessage(job) {
       }
     }
 
-    logger.info(`${logPrefix} Enviando mensaje programado a ${schedule.contact.name} (${schedule.contact.number})`);
+    logger.info(`${logPrefix} Enviando mensaje programado a ${scheduleRecord.contact.name} (${scheduleRecord.contact.number})`);
     
-                      const sentMessage = await SendMessage(whatsapp, {
-                    number: schedule.contact.number,
-                    body: formatBody(messageBody, schedule.contact),
-                    mediaPath: filePath
-                  });
+    // ✅ ENVIAR MENSAJE USANDO LA FUNCIÓN CORRECTA
+    const scheduleTicket = await FindOrCreateTicketService(scheduleRecord.contact, whatsapp.id!, 0, schedule.companyId);
+    const sentMessage = await SendWhatsAppMessage({
+      body: formatBody(messageBody, scheduleRecord.contact),
+      ticket: scheduleTicket
+    });
 
-                  // Guardar mensaje en la base de datos
-                  if (sentMessage) {
-                    const messageId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    await Message.create({
-                      id: messageId,
-                      body: formatBody(messageBody, schedule.contact),
-                      fromMe: true,
-                      read: true,
-                      mediaUrl: filePath,
-                      mediaType: schedule.mediaName ? path.extname(schedule.mediaName).substring(1) : null,
-                      contactId: schedule.contactId,
-                      companyId: schedule.companyId,
-                      ticketId: 42, // Usar ticket existente
-                      ack: 1,
-                      reactions: []
-                    });
+    // ✅ GUARDAR MENSAJE EN LA BASE DE DATOS
+    if (sentMessage) {
+      const messageId = `schedule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await Message.create({
+        id: messageId,
+        body: formatBody(messageBody, scheduleRecord.contact),
+        fromMe: true,
+        read: true,
+        mediaUrl: filePath,
+        mediaType: schedule.mediaName ? path.extname(schedule.mediaName).substring(1) : null,
+        contactId: scheduleRecord.contactId,
+        companyId: schedule.companyId,
+        ticketId: scheduleTicket.id,
+        ack: 1,
+        reactions: []
+      });
 
-                    // Actualizar lastMessage del ticket
-                    const ticket = await Ticket.findOne({
-                      where: { contactId: schedule.contactId, companyId: schedule.companyId },
-                      order: [["createdAt", "DESC"]]
-                    });
+      // ✅ ACTUALIZAR LASTMESSAGE DEL TICKET
+      const existingTicket = await Ticket.findOne({
+        where: { contactId: scheduleRecord.contactId, companyId: schedule.companyId },
+        order: [["createdAt", "DESC"]]
+      });
 
-                    if (ticket) {
-                      await ticket.update({ lastMessage: formatBody(messageBody, schedule.contact) });
-                    }
-                  }
+      if (existingTicket) {
+        await existingTicket.update({ lastMessage: formatBody(messageBody, scheduleRecord.contact) });
+      }
+    }
 
-                  await scheduleRecord.update({
-                    sentAt: moment().format("YYYY-MM-DD HH:mm:ss"),
-                    status: "ENVIADO",
-                    reminderStatus: "sent"
-                  });
+    // ✅ ACTUALIZAR ESTADO DEL AGENDAMIENTO
+    await scheduleRecord.update({
+      sentAt: moment().format("YYYY-MM-DD HH:mm:ss"),
+      status: "ENVIADO",
+      reminderStatus: "sent"
+    });
 
-    logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente: ${schedule.contact.name} - ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
+    logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente: ${scheduleRecord.contact.name} - ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
     
   } catch (e: any) {
     Sentry.captureException(e);
-    await scheduleRecord.update({
-      status: "ERRO",
-      reminderStatus: "error"
-    });
-    logger.error(`${logPrefix} ❌ Error enviando mensaje programado: ${schedule.contact.name}`, e.message);
+    
+    // ✅ ACTUALIZAR ESTADO DE ERROR
+    if (scheduleRecord) {
+      await scheduleRecord.update({
+        status: "ERRO",
+        reminderStatus: "error"
+      });
+    }
+    
+    // ✅ LOG SIN CARACTERES EXTRAÑOS
+    const contactName = scheduleRecord?.contact?.name || "Contacto desconocido";
+    logger.error(`${logPrefix} ❌ Error enviando mensaje programado: ${contactName}`, e.message);
     throw e;
   }
 }
