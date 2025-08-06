@@ -15,6 +15,21 @@ export const initIO = (httpServer: Server): SocketIO => {
   io = new SocketIO(httpServer, {
     cors: {
       origin: process.env.FRONTEND_URL
+    },
+    // ✅ CONFIGURACIÓN MEJORADA PARA CONEXIÓN ESTABLE
+    pingTimeout: 60000, // 60 segundos para producción
+    pingInterval: 25000, // 25 segundos para producción
+    upgradeTimeout: 10000, // 10 segundos
+    allowEIO3: true, // Compatibilidad con versiones anteriores
+    transports: ['websocket', 'polling'], // Fallback a polling
+    maxHttpBufferSize: 1e8, // 100MB para archivos grandes
+    allowRequest: (req, callback) => {
+      // ✅ VERIFICACIÓN ADICIONAL DE SEGURIDAD
+      const origin = req.headers.origin;
+      if (origin && origin !== process.env.FRONTEND_URL) {
+        return callback('Origin not allowed', false);
+      }
+      callback(null, true);
     }
   });
 
@@ -53,6 +68,31 @@ export const initIO = (httpServer: Server): SocketIO => {
 
     socket.join(`company-${user.companyId}-mainchannel`);
     socket.join(`user-${user.id}`);
+
+    // ✅ HEARTBEAT PARA MANTENER CONEXIÓN ACTIVA
+    let heartbeatInterval: NodeJS.Timeout;
+    
+    // Función para enviar heartbeat
+    const sendHeartbeat = () => {
+      if (socket.connected) {
+        socket.emit("heartbeat");
+        logger.debug(`💓 Heartbeat enviado a usuario ${user.id}`);
+      }
+    };
+    
+    // Iniciar heartbeat cada 30 segundos
+    heartbeatInterval = setInterval(sendHeartbeat, 30000);
+    
+    // Listener para ping del cliente
+    socket.on("ping", () => {
+      socket.emit("pong");
+      logger.debug(`🏓 Pong enviado a usuario ${user.id}`);
+    });
+    
+    // Listener para heartbeat del cliente
+    socket.on("heartbeat", () => {
+      logger.debug(`💓 Heartbeat recibido de usuario ${user.id}`);
+    });
 
     socket.on("joinChatBox", async (ticketId: string) => {
       if (!ticketId || ticketId === "undefined") {
@@ -165,6 +205,25 @@ export const initIO = (httpServer: Server): SocketIO => {
     });
     
     socket.emit("ready");
+    
+    // ✅ LIMPIAR HEARTBEAT AL DESCONECTAR
+    socket.on("disconnect", (reason) => {
+      logger.info(`🔌 Usuario ${user.id} desconectado: ${reason}`);
+      
+      // Limpiar heartbeat
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        logger.debug(`🧹 Heartbeat limpiado para usuario ${user.id}`);
+      }
+      
+      // Marcar usuario como offline
+      if (user) {
+        user.online = false;
+        user.save().catch(err => {
+          logger.error(`Error marcando usuario ${user.id} como offline: ${err.message}`);
+        });
+      }
+    });
   });
   return io;
 };

@@ -31,6 +31,7 @@ import { logger } from "./utils/logger";
 import GetTimezone from "./helpers/GetTimezone";
 import SendWhatsAppMessage from "./services/WbotServices/SendWhatsAppMessage";
 import FindOrCreateTicketService from "./services/TicketServices/FindOrCreateTicketService";
+import { formatStartMessage, formatReminderMessage, formatImmediateMessage } from "./services/ScheduleServices/ReminderSystemService";
 
 
 const nodemailer = require('nodemailer');
@@ -256,12 +257,32 @@ async function handleVerifySchedules(job) {
           const nowInCompanyTimezone = moment().tz(timezone);
           const scheduledTimeInCompanyTimezone = moment(schedule.sendAt).tz(timezone);
           
-          // Verificar si realmente es hora de enviar
+          // ✅ VERIFICAR SI REALMENTE ES HORA DE ENVIAR
+          // Para agendamientos que ya pasaron su hora, procesarlos inmediatamente
           if (scheduledTimeInCompanyTimezone.isAfter(nowInCompanyTimezone)) {
-            logger.info(`[Schedules] Agendamiento ${schedule.id} aún no es hora de enviar`);
+            logger.info(`[Schedules] ⏰ Agendamiento ${schedule.id} aún no es hora de enviar - Programado para: ${scheduledTimeInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Actual: ${nowInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')}`);
             continue;
           }
           
+          logger.info(`[Schedules] ✅ Es hora de procesar agendamiento ${schedule.id} - Programado para: ${scheduledTimeInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Actual: ${nowInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Diferencia: ${nowInCompanyTimezone.diff(scheduledTimeInCompanyTimezone, 'minutes')} minutos`);
+          
+          // ✅ VERIFICAR SI YA EXISTE UN JOB PARA ESTE AGENDAMIENTO
+          const existingJobs = await sendScheduledMessages.getJobs(['waiting', 'delayed', 'active']);
+          const hasExistingJob = existingJobs.some(job => 
+            job.data.schedule && job.data.schedule.id === schedule.id
+          );
+
+          if (hasExistingJob) {
+            logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya está en cola, saltando...`);
+            continue;
+          }
+
+          // ✅ VERIFICAR SI YA SE ENVIÓ O ESTÁ EN PROCESO
+          if (schedule.status !== "PENDENTE") {
+            logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya no está pendiente (status: ${schedule.status}), saltando...`);
+            continue;
+          }
+
           await schedule.update({
             status: "AGENDADA"
           });
@@ -275,7 +296,7 @@ async function handleVerifySchedules(job) {
             { delay: delay + 1000 } // Agregar 1 segundo para asegurar que se ejecute
           );
           
-          logger.info(`[Schedules] Programado: ${schedule.contact.name} - Hora programada: ${scheduledTimeInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
+          logger.info(`[Schedules] ✅ Programado: ${schedule.contact.name} - Hora programada: ${scheduledTimeInCompanyTimezone.format('YYYY-MM-DD HH:mm:ss')} - Delay: ${delay}ms`);
         } catch (error) {
           logger.error(`[Schedules] Error al procesar agendamiento ${schedule.id}:`, error.message);
         }
@@ -308,9 +329,35 @@ async function handleSendScheduledMessage(job) {
       return;
     }
     
-    // Verificar que el agendamiento aún esté pendiente
+    // ✅ VERIFICACIONES DE ESTADO MEJORADAS
+    logger.info(`[Schedules] 🔍 Verificando estado del agendamiento ${schedule.id}: ${scheduleRecord.status}`);
+    
     if (scheduleRecord.status !== "PENDENTE" && scheduleRecord.status !== "AGENDADA") {
-      logger.warn(`[Schedules] Agendamiento ${schedule.id} ya no está pendiente (actual: ${scheduleRecord.status})`);
+      logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya no está pendiente (actual: ${scheduleRecord.status})`);
+      return;
+    }
+    
+    // ✅ VERIFICAR QUE NO SE HAYA ENVIADO YA
+    if (scheduleRecord.sentAt) {
+      logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya fue enviado en ${scheduleRecord.sentAt}`);
+      return;
+    }
+    
+    // ✅ VERIFICAR QUE NO SE ESTÉ PROCESANDO ACTUALMENTE
+    if (scheduleRecord.status === "AGENDADA") {
+      logger.info(`[Schedules] 🔄 Agendamiento ${schedule.id} ya está siendo procesado (status: AGENDADA) - Saltando...`);
+      return;
+    }
+    
+    // ✅ MARCAR COMO EN PROCESO INMEDIATAMENTE PARA EVITAR DUPLICACIÓN
+    await scheduleRecord.update({
+      status: "AGENDADA"
+    });
+    logger.info(`[Schedules] 🔒 Agendamiento ${schedule.id} marcado como AGENDADA para evitar duplicación`);
+    
+    // ✅ VERIFICAR QUE EL CONTACTO EXISTA
+    if (!scheduleRecord.contact) {
+      logger.error(`[Schedules] ❌ Agendamiento ${schedule.id} no tiene contacto asociado`);
       return;
     }
     
@@ -341,37 +388,38 @@ async function handleSendScheduledMessage(job) {
     let messageBody = schedule.body;
 
     if (scheduleRecord.isReminderSystem) {
-      // Importar función de formateo si es necesario
-      let formatStartMessage = null;
-      if (scheduleRecord.reminderType === 'start') {
-        const reminderService = require("../services/ScheduleServices/ReminderSystemService");
-        formatStartMessage = reminderService.formatStartMessage;
-      }
-
+      // ✅ USAR FUNCIONES IMPORTADAS CORRECTAMENTE
       switch (scheduleRecord.reminderType) {
         case 'reminder':
           logPrefix = "[ReminderSystem] Recordatorio 10min antes";
           break;
         case 'start':
           logPrefix = "[ReminderSystem] Mensaje de inicio";
-          // Si es el mensaje de inicio, usar el formato especial
-          if (formatStartMessage) {
-            messageBody = formatStartMessage(scheduleRecord.contact, scheduleRecord.body);
-          }
+          // ✅ USAR FUNCIÓN DE FORMATO CORRECTA
+          messageBody = formatStartMessage(scheduleRecord.contact, scheduleRecord.body);
           break;
         default:
           logPrefix = "[Schedules]";
       }
     }
 
-    logger.info(`${logPrefix} Enviando mensaje programado a ${scheduleRecord.contact.name} (${scheduleRecord.contact.number})`);
+    logger.info(`${logPrefix} 📤 Enviando mensaje programado a ${scheduleRecord.contact.name} (${scheduleRecord.contact.number})`);
+    logger.info(`${logPrefix} 📝 Tipo de mensaje: ${scheduleRecord.reminderType || 'normal'}`);
+    logger.info(`${logPrefix} 📅 Hora programada: ${moment(scheduleRecord.sendAt).format('YYYY-MM-DD HH:mm:ss')}`);
+    logger.info(`${logPrefix} 📱 WhatsApp ID: ${whatsapp.id}`);
+    logger.info(`${logPrefix} 📄 Mensaje a enviar: ${messageBody.substring(0, 100)}...`);
     
     // ✅ ENVIAR MENSAJE USANDO LA FUNCIÓN CORRECTA
+    logger.info(`${logPrefix} 🔄 Creando/buscando ticket...`);
     const scheduleTicket = await FindOrCreateTicketService(scheduleRecord.contact, whatsapp.id!, 0, schedule.companyId);
+    logger.info(`${logPrefix} ✅ Ticket creado/encontrado: ${scheduleTicket.id}`);
+    
+    logger.info(`${logPrefix} 📤 Enviando mensaje por WhatsApp...`);
     const sentMessage = await SendWhatsAppMessage({
       body: formatBody(messageBody, scheduleRecord.contact),
       ticket: scheduleTicket
     });
+    logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente`);
 
     // ✅ GUARDAR MENSAJE EN LA BASE DE DATOS
     if (sentMessage) {
@@ -407,6 +455,7 @@ async function handleSendScheduledMessage(job) {
       status: "ENVIADO",
       reminderStatus: "sent"
     });
+    logger.info(`[Schedules] ✅ Agendamiento ${schedule.id} marcado como ENVIADO`);
 
     logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente: ${scheduleRecord.contact.name} - ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
     
@@ -421,10 +470,26 @@ async function handleSendScheduledMessage(job) {
       });
     }
     
-    // ✅ LOG SIN CARACTERES EXTRAÑOS
+    // ✅ LOG DETALLADO CON INFORMACIÓN COMPLETA
     const contactName = scheduleRecord?.contact?.name || "Contacto desconocido";
-    logger.error(`${logPrefix} ❌ Error enviando mensaje programado: ${contactName}`, e.message);
-    throw e;
+    const scheduleId = scheduleRecord?.id || "ID desconocido";
+    const reminderType = scheduleRecord?.reminderType || "normal";
+    
+    logger.error(`${logPrefix} ❌ Error enviando mensaje programado:`, {
+      scheduleId: scheduleId,
+      contactName: contactName,
+      reminderType: reminderType,
+      error: e.message,
+      stack: e.stack,
+      timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+    });
+    
+    // ✅ LOG ADICIONAL PARA DEBUGGING
+    console.error(`[DEBUG] Error completo:`, e);
+    console.error(`[DEBUG] Stack trace:`, e.stack);
+    
+    // ✅ NO RELANZAR EL ERROR PARA EVITAR CRASH DEL SISTEMA
+    // throw e;
   }
 }
 

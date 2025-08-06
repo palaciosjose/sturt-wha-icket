@@ -8,10 +8,18 @@ class ManagedSocket {
     this.socket = socketManager.currentSocket;
     this.pendingJoins = [];
     this.pendingEmits = [];
+    this.registeredListeners = new Map(); // ✅ TRACKING DE LISTENERS REGISTRADOS
     
     const refreshJoinsOnReady = () => {
+      // ✅ RE-REGISTRAR TODOS LOS LISTENERS DESPUÉS DE RECONEXIÓN
+      this.registeredListeners.forEach((callback, event) => {
+        this.socket.on(event, callback);
+        console.debug(`🔄 Re-registrando listener: ${event}`);
+      });
+      
       this.pendingJoins.forEach(({ event, callback }) => {
         this.socket.on(event, callback);
+        this.registeredListeners.set(event, callback); // ✅ GUARDAR PARA RE-REGISTRO
       });
       this.pendingEmits.forEach(({ event, params }) => {
         this.socket.emit(event, ...params);
@@ -29,10 +37,14 @@ class ManagedSocket {
   on(event, callback) {
     // ✅ CONFIGURAR LISTENERS INMEDIATAMENTE, NO ESPERAR A SOCKET READY
     this.socket.on(event, callback);
+    // ✅ GUARDAR PARA RE-REGISTRO DESPUÉS DE RECONEXIÓN
+    this.registeredListeners.set(event, callback);
   }
 
   off(event, callback) {
     this.socket.off(event, callback);
+    // ✅ REMOVER DEL TRACKING
+    this.registeredListeners.delete(event);
   }
 
   emit(event, ...params) {
@@ -176,10 +188,27 @@ const SocketManager = {
       
       this.currentSocket.on("connect", (...params) => {
         console.debug("socket connected", params);
+        // ✅ RE-REGISTRAR LISTENERS DESPUÉS DE RECONEXIÓN
+        this.socketReady = false;
+        this.onReady(() => {
+          this.socketReady = true;
+          console.log("✅ Socket reconectado y listeners re-registrados");
+        });
       });
 
       this.currentSocket.on("connect_error", (error) => {
         console.error("Socket connection error:", error);
+      });
+      
+      // ✅ LISTENERS PARA HEARTBEAT
+      this.currentSocket.on("heartbeat", () => {
+        console.debug("💓 Heartbeat recibido del servidor");
+        // Responder al heartbeat
+        this.currentSocket.emit("heartbeat");
+      });
+      
+      this.currentSocket.on("pong", () => {
+        console.debug("🏓 Pong recibido del servidor");
       });
       
       this.currentSocket.onAny((event, ...args) => {

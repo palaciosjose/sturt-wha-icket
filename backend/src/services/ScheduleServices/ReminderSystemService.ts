@@ -55,8 +55,11 @@ const CreateReminderSystemService = async ({
   });
 
   // 2. Enviar mensaje inmediato de confirmación
+  logger.info(`[ReminderSystem] 📤 Enviando mensaje inmediato a ${contact.name}`);
   const immediateMessage = formatImmediateMessage(contact, body, sendAt, timezone);
+  logger.info(`[ReminderSystem] 📄 Mensaje inmediato: ${immediateMessage.substring(0, 100)}...`);
   const sentMessage = await sendImmediateMessage(contact, immediateMessage, companyId, whatsappId);
+  logger.info(`[ReminderSystem] ✅ Mensaje inmediato enviado exitosamente`);
   
   // Guardar mensaje en la base de datos
   if (sentMessage) {
@@ -138,7 +141,14 @@ const CreateReminderSystemService = async ({
   }
 
   // 3. Crear recordatorio 10 minutos antes
-  if (reminderTime.isAfter(moment())) {
+  const now = moment().tz(timezone);
+  const timeUntilReminder = reminderTime.diff(now, 'minutes');
+  
+  if (timeUntilReminder > 0) {
+    logger.info(`[ReminderSystem] 📅 Creando recordatorio 10min antes para ${contact.name}`);
+    logger.info(`[ReminderSystem] ⏰ Hora del recordatorio: ${reminderTime.format('YYYY-MM-DD HH:mm:ss')}`);
+    logger.info(`[ReminderSystem] ⏱️ Tiempo hasta recordatorio: ${timeUntilReminder} minutos`);
+    
     const reminderSchedule = await Schedule.create({
       body: formatReminderMessage(contact),
       sendAt: reminderTime.toDate(),
@@ -152,7 +162,9 @@ const CreateReminderSystemService = async ({
       reminderStatus: 'pending'
     });
 
-    
+    logger.info(`[ReminderSystem] ✅ Recordatorio creado con ID: ${reminderSchedule.id}`);
+  } else {
+    logger.warn(`[ReminderSystem] ⚠️ No se crea recordatorio 10min - ya pasó la hora: ${reminderTime.format('YYYY-MM-DD HH:mm:ss')} (hace ${Math.abs(timeUntilReminder)} minutos)`);
   }
 
   // 4. Actualizar el agendamiento principal con su ID como parentScheduleId
