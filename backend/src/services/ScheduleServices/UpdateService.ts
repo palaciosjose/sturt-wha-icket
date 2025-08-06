@@ -14,6 +14,7 @@ interface ScheduleData {
   companyId?: number;
   ticketId?: number;
   userId?: number;
+  whatsappId?: number;
 }
 
 interface Request {
@@ -114,6 +115,7 @@ const UpdateUserService = async ({
     contactId,
     ticketId,
     userId,
+    whatsappId,
   } = scheduleData;
 
   console.log("🔍 [DEBUG] Validando schema...");
@@ -141,6 +143,7 @@ const UpdateUserService = async ({
     contactId,
     ticketId,
     userId,
+    whatsappId,
   });
 
   console.log("🔍 [DEBUG] Recargando schedule...");

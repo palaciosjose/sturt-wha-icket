@@ -332,28 +332,27 @@ async function handleSendScheduledMessage(job) {
     // ✅ VERIFICACIONES DE ESTADO MEJORADAS
     logger.info(`[Schedules] 🔍 Verificando estado del agendamiento ${schedule.id}: ${scheduleRecord.status}`);
     
-    if (scheduleRecord.status !== "PENDENTE" && scheduleRecord.status !== "AGENDADA") {
-      logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya no está pendiente (actual: ${scheduleRecord.status})`);
-      return;
-    }
-    
     // ✅ VERIFICAR QUE NO SE HAYA ENVIADO YA
     if (scheduleRecord.sentAt) {
       logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} ya fue enviado en ${scheduleRecord.sentAt}`);
       return;
     }
     
-    // ✅ VERIFICAR QUE NO SE ESTÉ PROCESANDO ACTUALMENTE
-    if (scheduleRecord.status === "AGENDADA") {
-      logger.info(`[Schedules] 🔄 Agendamiento ${schedule.id} ya está siendo procesado (status: AGENDADA) - Saltando...`);
+    // ✅ VERIFICAR QUE ESTÉ EN UN ESTADO VÁLIDO PARA PROCESAR
+    if (scheduleRecord.status !== "PENDENTE" && scheduleRecord.status !== "AGENDADA") {
+      logger.warn(`[Schedules] ⚠️ Agendamiento ${schedule.id} no está en estado válido (actual: ${scheduleRecord.status})`);
       return;
     }
     
-    // ✅ MARCAR COMO EN PROCESO INMEDIATAMENTE PARA EVITAR DUPLICACIÓN
-    await scheduleRecord.update({
-      status: "AGENDADA"
-    });
-    logger.info(`[Schedules] 🔒 Agendamiento ${schedule.id} marcado como AGENDADA para evitar duplicación`);
+    // ✅ MARCAR COMO EN PROCESO SOLO SI ESTÁ PENDENTE
+    if (scheduleRecord.status === "PENDENTE") {
+      await scheduleRecord.update({
+        status: "AGENDADA"
+      });
+      logger.info(`[Schedules] 🔒 Agendamiento ${schedule.id} marcado como AGENDADA para evitar duplicación`);
+    } else {
+      logger.info(`[Schedules] 🔄 Agendamiento ${schedule.id} ya está marcado como AGENDADA, continuando procesamiento...`);
+    }
     
     // ✅ VERIFICAR QUE EL CONTACTO EXISTA
     if (!scheduleRecord.contact) {
@@ -421,32 +420,14 @@ async function handleSendScheduledMessage(job) {
     });
     logger.info(`${logPrefix} ✅ Mensaje enviado exitosamente`);
 
-    // ✅ GUARDAR MENSAJE EN LA BASE DE DATOS
-    if (sentMessage) {
-      const messageId = `schedule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await Message.create({
-        id: messageId,
-        body: formatBody(messageBody, scheduleRecord.contact),
-        fromMe: true,
-        read: true,
-        mediaUrl: filePath,
-        mediaType: schedule.mediaName ? path.extname(schedule.mediaName).substring(1) : null,
-        contactId: scheduleRecord.contactId,
-        companyId: schedule.companyId,
-        ticketId: scheduleTicket.id,
-        ack: 1,
-        reactions: []
-      });
+    // ✅ ACTUALIZAR LASTMESSAGE DEL TICKET
+    const existingTicket = await Ticket.findOne({
+      where: { contactId: scheduleRecord.contactId, companyId: schedule.companyId },
+      order: [["createdAt", "DESC"]]
+    });
 
-      // ✅ ACTUALIZAR LASTMESSAGE DEL TICKET
-      const existingTicket = await Ticket.findOne({
-        where: { contactId: scheduleRecord.contactId, companyId: schedule.companyId },
-        order: [["createdAt", "DESC"]]
-      });
-
-      if (existingTicket) {
-        await existingTicket.update({ lastMessage: formatBody(messageBody, scheduleRecord.contact) });
-      }
+    if (existingTicket) {
+      await existingTicket.update({ lastMessage: formatBody(messageBody, scheduleRecord.contact) });
     }
 
     // ✅ ACTUALIZAR ESTADO DEL AGENDAMIENTO
