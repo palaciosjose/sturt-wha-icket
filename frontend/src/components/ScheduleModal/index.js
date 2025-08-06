@@ -29,6 +29,82 @@ import { head } from "lodash";
 import ConfirmationModal from "../ConfirmationModal";
 import logger from "../../utils/logger";
 
+// ✅ FUNCIONES DE VALIDACIÓN DE FECHA/HORA (MÁS FLEXIBLES)
+const validateScheduleDateTime = (sendAt) => {
+	if (!sendAt) {
+		return { valid: false, message: "Obligatorio" };
+	}
+
+	const now = moment();
+	const selectedTime = moment(sendAt);
+
+	// ✅ VALIDACIÓN 1: FECHA/HORA VÁLIDA
+	if (!selectedTime.isValid()) {
+		return { valid: false, message: "❌ Fecha/hora inválida" };
+	}
+
+	// ✅ VALIDACIÓN 2: FECHA/HORA PASADA (solo para fechas pasadas, no futuras)
+	if (selectedTime.isBefore(now, 'minute')) {
+		return { 
+			valid: false, 
+			message: `❌ No puedes agendar para una fecha/hora pasada. Hora actual: ${now.format('DD/MM/YYYY HH:mm')}` 
+		};
+	}
+
+	// ✅ VALIDACIÓN 3: TIEMPO MÍNIMO (5 minutos en lugar de 15)
+	const timeDiff = selectedTime.diff(now, 'minutes');
+	if (timeDiff < 5) {
+		return { 
+			valid: false, 
+			message: `❌ El tiempo mínimo para agendar es 5 minutos. Hora más temprana permitida: ${now.add(5, 'minutes').format('DD/MM/YYYY HH:mm')}` 
+		};
+	}
+
+	// ✅ VALIDACIÓN 4: TIEMPO MÁXIMO (1 año)
+	if (timeDiff > 525600) { // 365 días * 24 horas * 60 minutos
+		return { 
+			valid: false, 
+			message: "❌ No puedes agendar para más de 1 año en el futuro" 
+		};
+	}
+
+	// ✅ VALIDACIÓN 5: FECHA INVÁLIDA (30 de febrero, 31 de abril, etc.)
+	const day = selectedTime.date();
+	const month = selectedTime.month() + 1;
+	const year = selectedTime.year();
+	
+	// Verificar fechas inválidas específicas
+	if (month === 2 && day > 29) {
+		return { valid: false, message: "❌ Febrero no puede tener más de 29 días" };
+	}
+	if (month === 2 && day === 29 && !moment([year]).isLeapYear()) {
+		return { valid: false, message: "❌ 29 de febrero solo existe en años bisiestos" };
+	}
+	if ([4, 6, 9, 11].includes(month) && day > 30) {
+		return { valid: false, message: `❌ El mes ${month} no puede tener más de 30 días` };
+	}
+
+	return { valid: true, message: "" };
+};
+
+// ✅ FUNCIÓN DE VALIDACIÓN DE MENSAJE (MÁS FLEXIBLE)
+const validateMessage = (body) => {
+	if (!body || body.trim().length === 0) {
+		return { valid: false, message: "Obligatorio" };
+	}
+	
+	if (body.trim().length < 3) {
+		return { valid: false, message: "❌ El mensaje debe tener al menos 3 caracteres" };
+	}
+	
+	// Verificar si solo tiene espacios o caracteres especiales
+	const cleanMessage = body.trim().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+	if (cleanMessage.length < 2) {
+		return { valid: false, message: "❌ El mensaje debe contener al menos 2 caracteres válidos" };
+	}
+	
+	return { valid: true, message: "" };
+};
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -91,6 +167,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const [confirmationOpen, setConfirmationOpen] = useState(false);
 	const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
 	const messageInputRef = useRef();
+	
+	// ✅ ESTADO PARA MODAL DE CONFIRMACIÓN DE AGENDAMIENTO
+	const [scheduleConfirmationOpen, setScheduleConfirmationOpen] = useState(false);
+	const [scheduleToConfirm, setScheduleToConfirm] = useState(null);
 
 	useEffect(() => {
 		if (contactId && contacts.length) {
@@ -185,6 +265,9 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		onClose();
 		setAttachment(null);
 		setSchedule(initialState);
+		// ✅ LIMPIAR ESTADOS DE CONFIRMACIÓN
+		setScheduleConfirmationOpen(false);
+		setScheduleToConfirm(null);
 	};
 
 	const handleAttachmentFile = (e) => {
@@ -202,7 +285,21 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				return;
 			}
 
-			// ✅ VALIDACIÓN 2: CAMBIO MÍNIMO DE 30 MINUTOS (solo para UPDATE)
+			// ✅ VALIDACIÓN 2: FECHA/HORA
+			const dateTimeValidation = validateScheduleDateTime(values.sendAt);
+			if (!dateTimeValidation.valid) {
+				toast.error(dateTimeValidation.message);
+				return;
+			}
+
+			// ✅ VALIDACIÓN 3: MENSAJE
+			const messageValidation = validateMessage(values.body);
+			if (!messageValidation.valid) {
+				toast.error(messageValidation.message);
+				return;
+			}
+
+			// ✅ VALIDACIÓN 4: CAMBIO MÍNIMO DE 30 MINUTOS (solo para UPDATE)
 			if (scheduleId) {
 				const originalSchedule = await api.get(`/schedules/${scheduleId}`);
 				const originalTime = moment(originalSchedule.data.sendAt);
@@ -217,6 +314,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				}
 			}
 
+			// ✅ MOSTRAR CONFIRMACIÓN ANTES DE GUARDAR
 			const scheduleData = {
 				contactId: values.contactId,
 				whatsappId: values.whatsappId,
@@ -225,17 +323,46 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				sentAt: null
 			};
 
+			// ✅ PREPARAR DATOS PARA CONFIRMACIÓN
+			const contact = contacts.find(c => c.id === values.contactId);
+			const whatsapp = whatsapps.find(w => w.id === values.whatsappId);
+			const formattedDateTime = moment(values.sendAt).format('DD/MM/YYYY HH:mm');
+
+			setScheduleToConfirm({
+				...scheduleData,
+				contactName: contact ? contact.name : 'Contacto no encontrado',
+				whatsappName: whatsapp ? whatsapp.name : 'Conexión no encontrada',
+				formattedDateTime: formattedDateTime
+			});
+			setScheduleConfirmationOpen(true);
+
+		} catch (err) {
+			console.log("❌ [ERROR] Error en handleSaveSchedule:", err);
+			toastError(err);
+		}
+	};
+
+	// ✅ FUNCIÓN PARA GUARDAR DESPUÉS DE CONFIRMAR
+	const handleConfirmSchedule = async () => {
+		try {
+			if (!scheduleToConfirm) {
+				toast.error("❌ Error: No hay datos para guardar");
+				return;
+			}
+
+			const { contactName, whatsappName, formattedDateTime, ...scheduleData } = scheduleToConfirm;
+
 			if (scheduleId) {
 				await api.put(`/schedules/${scheduleId}`, scheduleData);
-				
-				// ✅ NOTIFICACIÓN DE ÉXITO
 				toast.success("✅ Agendamiento actualizado correctamente");
 			} else {
 				await api.post("/schedules", scheduleData);
-				
-				// ✅ NOTIFICACIÓN DE ÉXITO
 				toast.success("✅ Agendamiento creado correctamente");
 			}
+			
+			// ✅ CERRAR MODAL Y LIMPIAR
+			setScheduleConfirmationOpen(false);
+			setScheduleToConfirm(null);
 			
 			// ✅ DELAY PARA QUE EL USUARIO VEA LA NOTIFICACIÓN
 			setTimeout(() => {
@@ -243,12 +370,11 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				if (typeof reload === 'function') {
 					reload();
 				} else {
-					// Si no hay función reload, recargar la página
 					window.location.reload();
 				}
-			}, 1000); // 1 segundo de delay
+			}, 1000);
 		} catch (err) {
-			console.log("❌ [ERROR] Error en handleSaveSchedule:", err);
+			console.log("❌ [ERROR] Error en handleConfirmSchedule:", err);
 			toastError(err);
 		}
 	};
@@ -308,6 +434,39 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 			>
 				¿Está seguro que desea cancelar esta reunión? Se enviará un mensaje de cancelación al contacto.
 			</ConfirmationModal>
+			
+			{/* ✅ MODAL DE CONFIRMACIÓN DE AGENDAMIENTO */}
+			<ConfirmationModal
+				title="¿ESTÁ SEGURO DE AGENDAR CITA?"
+				open={scheduleConfirmationOpen}
+				onClose={() => {
+					setScheduleConfirmationOpen(false);
+					setScheduleToConfirm(null);
+				}}
+				onConfirm={handleConfirmSchedule}
+			>
+				{scheduleToConfirm && (
+					<div style={{ textAlign: 'left', lineHeight: '1.6' }}>
+						<p><strong><span role="img" aria-label="calendar">📅</span> Fecha y Hora:</strong> {scheduleToConfirm.formattedDateTime}</p>
+						<p><strong><span role="img" aria-label="person">👤</span> Contacto:</strong> {scheduleToConfirm.contactName}</p>
+						<p><strong><span role="img" aria-label="mobile">📱</span> Conexión:</strong> {scheduleToConfirm.whatsappName}</p>
+						<p><strong><span role="img" aria-label="message">💬</span> Mensaje:</strong></p>
+						<div style={{ 
+							background: '#f5f5f5', 
+							padding: '10px', 
+							borderRadius: '5px', 
+							marginTop: '5px',
+							maxHeight: '100px',
+							overflowY: 'auto'
+						}}>
+							{scheduleToConfirm.body}
+						</div>
+						<p style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
+							<i>¿Confirma que desea agendar esta cita con los datos mostrados?</i>
+						</p>
+					</div>
+				)}
+			</ConfirmationModal>
 			<Dialog
 				open={open}
 				onClose={handleClose}
@@ -342,6 +501,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					}}
 				>
 					{({ touched, errors, isSubmitting, values, setFieldValue, handleSubmit }) => {
+						// ✅ VERIFICAR SI HAY ERRORES DE VALIDACIÓN (solo campos obligatorios)
+						const hasValidationErrors = Boolean(
+							!values.contactId || 
+							!values.whatsappId || 
+							!values.body || 
+							!values.sendAt
+						);
+						
 						return (
 							<Form onSubmit={handleSubmit}>
 							<DialogContent dividers>
@@ -492,27 +659,27 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								>
 									SALIR
 								</Button>
-													{scheduleId ? (
-						<Button
-							type="submit"
-							color="primary"
-							disabled={isSubmitting}
-							variant="contained"
-							className={classes.btnWrapper}
-						>
-							{i18n.t("scheduleModal.buttons.okEdit")}
-							{isSubmitting && (
-								<CircularProgress
-									size={24}
-									className={classes.buttonProgress}
-								/>
-							)}
-						</Button>
+								{scheduleId ? (
+									<Button
+										type="submit"
+										color="primary"
+										disabled={isSubmitting || hasValidationErrors}
+										variant="contained"
+										className={classes.btnWrapper}
+									>
+										{i18n.t("scheduleModal.buttons.okEdit")}
+										{isSubmitting && (
+											<CircularProgress
+												size={24}
+												className={classes.buttonProgress}
+											/>
+										)}
+									</Button>
 								) : (
 									<Button
 										type="submit"
 										color="primary"
-										disabled={isSubmitting}
+										disabled={isSubmitting || hasValidationErrors}
 										variant="contained"
 										className={classes.btnWrapper}
 									>
