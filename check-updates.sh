@@ -25,6 +25,28 @@ check_git_repo() {
     fi
 }
 
+# Función para verificar la configuración de autenticación
+check_auth_config() {
+    print_message "🔐 Verificando configuración de autenticación..." $BLUE
+    
+    # Verificar si hay un remote configurado
+    if ! git remote get-url origin > /dev/null 2>&1; then
+        print_message "❌ Error: No se encontró un remote 'origin' configurado" $RED
+        exit 1
+    fi
+    
+    REMOTE_URL=$(git remote get-url origin)
+    print_message "📍 Remote URL: ${REMOTE_URL:0:50}..." $BLUE
+    
+    # Verificar si la URL contiene un token (para repositorios privados)
+    if [[ $REMOTE_URL == *"github_pat_"* ]] || [[ $REMOTE_URL == *"ghp_"* ]]; then
+        print_message "✅ Token de autenticación detectado" $GREEN
+    else
+        print_message "⚠️  No se detectó token de autenticación" $YELLOW
+        print_message "   Para repositorios privados, asegúrate de configurar un token de acceso personal" $YELLOW
+    fi
+}
+
 # Función para verificar el estado actual
 check_current_status() {
     print_message "🔍 Verificando estado actual del repositorio..." $BLUE
@@ -52,8 +74,12 @@ check_current_status() {
 check_updates() {
     print_message "🔄 Verificando actualizaciones disponibles..." $YELLOW
     
-    # Fetch de cambios remotos
-    git fetch origin > /dev/null 2>&1
+    # Fetch de cambios remotos con manejo de errores
+    if ! git fetch origin > /dev/null 2>&1; then
+        print_message "❌ Error: No se pudo conectar al repositorio remoto" $RED
+        print_message "   Verifica tu conexión a internet y la configuración de autenticación" $RED
+        exit 1
+    fi
     
     # Contar commits por delante
     COMMITS_AHEAD=$(git rev-list HEAD..origin/$CURRENT_BRANCH --count)
@@ -95,6 +121,11 @@ main() {
     
     # Verificar si estamos en un repositorio git
     check_git_repo
+    
+    # Verificar configuración de autenticación
+    check_auth_config
+    
+    echo ""
     
     # Verificar estado actual
     check_current_status
