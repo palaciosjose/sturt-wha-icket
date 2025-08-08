@@ -1436,6 +1436,25 @@ const messages = {
       kanban: {
         open: "En Abierto",
       },
+      updateVersion: {
+        title: "Actualizar Versión",
+        buttons: {
+          check: "Verificar",
+          close: "Cerrar",
+        },
+        status: {
+          checking: "Verificando actualizaciones...",
+          upToDate: "Sistema actualizado",
+          updatesAvailable: "Nuevas actualizaciones disponibles",
+          error: "Error al verificar actualizaciones",
+        },
+        messages: {
+          currentVersion: "Versión actual:",
+          latestVersion: "Última versión disponible:",
+          commitsAhead: "Hay {count} nuevos commits disponibles.",
+          checkUpdates: "Haz clic en 'Verificar' para comprobar si hay actualizaciones disponibles.",
+        },
+      },
     },
   },
 };

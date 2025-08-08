@@ -26,6 +26,7 @@ import NotificationsVolume from "../components/NotificationsVolume";
 import UserModal from "../components/UserModal";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
+import { Can } from "../components/Can";
 
 import { i18n } from "../translate/i18n";
 import toastError from "../errors/toastError";
@@ -42,6 +43,7 @@ import Brightness4Icon from '@material-ui/icons/Brightness4';
 import Brightness7Icon from '@material-ui/icons/Brightness7';
 import LoggerConfig from "../components/LoggerConfig";
 import SettingsIcon from '@material-ui/icons/Settings';
+import UpdateVersionModal from "../components/UpdateVersionModal";
 
 const drawerWidth = 240;
 
@@ -179,6 +181,7 @@ const useStyles = makeStyles((theme) => ({
 const LoggedInLayout = ({ children, themeToggle }) => {
   const classes = useStyles();
   const [userModalOpen, setUserModalOpen] = useState(false);
+  const [updateVersionModalOpen, setUpdateVersionModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggerConfigOpen, setLoggerConfigOpen] = useState(false);
@@ -468,6 +471,15 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               <MenuItem onClick={handleOpenUserModal}>
                 {i18n.t("mainDrawer.appBar.user.profile")}
               </MenuItem>
+              <Can
+                role={user.profile}
+                perform="update-version"
+                yes={() => (
+                  <MenuItem onClick={() => setUpdateVersionModalOpen(true)}>
+                    {i18n.t("updateVersion.title")}
+                  </MenuItem>
+                )}
+              />
             </Menu>
           </div>
         </Toolbar>
@@ -477,6 +489,10 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
         {children ? children : null}
       </main>
+      <UpdateVersionModal
+        open={updateVersionModalOpen}
+        onClose={() => setUpdateVersionModalOpen(false)}
+      />
     </div>
   );
 };
