@@ -7,5 +7,6 @@ import * as SystemController from "../controllers/SystemController";
 const systemRoutes = express.Router();
 
 systemRoutes.get("/check-updates", isAuth, isSuper, SystemController.checkUpdates);
+systemRoutes.post("/perform-update", isAuth, isSuper, SystemController.performUpdate);
 
 export default systemRoutes;

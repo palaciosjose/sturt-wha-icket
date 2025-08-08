@@ -8,7 +8,8 @@ import {
   Typography,
   CircularProgress,
   Box,
-  Paper
+  Paper,
+  LinearProgress
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { i18n } from "../../translate/i18n";
@@ -27,6 +28,7 @@ const useStyles = makeStyles((theme) => ({
   },
   progressContainer: {
     display: "flex",
+    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
     padding: theme.spacing(3),
@@ -47,13 +49,26 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.info.light,
     color: theme.palette.info.contrastText,
   },
+  successAlert: {
+    backgroundColor: theme.palette.success.light,
+    color: theme.palette.success.contrastText,
+  },
+  updateButton: {
+    marginTop: theme.spacing(2),
+  },
+  progressBar: {
+    width: "100%",
+    marginTop: theme.spacing(2),
+  },
 }));
 
 const UpdateVersionModal = ({ open, onClose }) => {
   const classes = useStyles();
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState(null);
   const [error, setError] = useState(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
 
   const handleCheckUpdates = async () => {
     setLoading(true);
@@ -71,10 +86,66 @@ const UpdateVersionModal = ({ open, onClose }) => {
     }
   };
 
-  const handleClose = () => {
-    setUpdateStatus(null);
+  const handlePerformUpdate = async () => {
+    if (!updateStatus?.hasUpdates) {
+      setError("No hay actualizaciones disponibles");
+      return;
+    }
+
+    setUpdating(true);
     setError(null);
-    onClose();
+    setUpdateProgress(0);
+
+    try {
+      // Simular progreso
+      const progressInterval = setInterval(() => {
+        setUpdateProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 500);
+
+      const { data } = await api.post("/system/perform-update", {
+        previousVersion: updateStatus.currentVersion
+      });
+
+      clearInterval(progressInterval);
+      setUpdateProgress(100);
+
+      // Mostrar éxito
+      setUpdateStatus({
+        ...updateStatus,
+        updateCompleted: true,
+        newVersion: data.newVersion,
+        newMessage: data.newMessage,
+        newAuthor: data.newAuthor,
+        newDate: data.newDate
+      });
+
+      // Recargar la página después de 3 segundos
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+
+    } catch (err) {
+      setError(err.response?.data?.error || "Error durante la actualización");
+      toastError(err);
+      setUpdateProgress(0);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!updating) {
+      setUpdateStatus(null);
+      setError(null);
+      setUpdateProgress(0);
+      onClose();
+    }
   };
 
   const renderContent = () => {
@@ -83,7 +154,26 @@ const UpdateVersionModal = ({ open, onClose }) => {
         <Box className={classes.progressContainer}>
           <CircularProgress />
           <Typography className={classes.statusText}>
-            Verificando actualizaciones...
+            {i18n.t("updateVersion.status.checking")}
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (updating) {
+      return (
+        <Box className={classes.progressContainer}>
+          <CircularProgress />
+          <Typography className={classes.statusText}>
+            Actualizando sistema...
+          </Typography>
+          <LinearProgress 
+            variant="determinate" 
+            value={updateProgress} 
+            className={classes.progressBar}
+          />
+          <Typography variant="body2" className={classes.statusText}>
+            {updateProgress}% completado
           </Typography>
         </Box>
       );
@@ -92,7 +182,34 @@ const UpdateVersionModal = ({ open, onClose }) => {
     if (error) {
       return (
         <Paper className={`${classes.alert} ${classes.errorAlert}`}>
-          {error}
+          <Typography variant="h6" gutterBottom>
+            Error
+          </Typography>
+          <Typography variant="body2">
+            {error}
+          </Typography>
+        </Paper>
+      );
+    }
+
+    if (updateStatus?.updateCompleted) {
+      return (
+        <Paper className={`${classes.alert} ${classes.successAlert}`}>
+          <Typography variant="h6" gutterBottom>
+            <span role="img" aria-label="success">✅</span> Actualización Completada
+          </Typography>
+          <Typography variant="body2" paragraph>
+            <strong>Nueva versión:</strong> {updateStatus.newVersion}
+          </Typography>
+          <Typography variant="body2" paragraph>
+            <strong>Mensaje:</strong> {updateStatus.newMessage}
+          </Typography>
+          <Typography variant="body2" paragraph>
+            <strong>Autor:</strong> {updateStatus.newAuthor}
+          </Typography>
+          <Typography variant="body2">
+            La página se recargará automáticamente en unos segundos...
+          </Typography>
         </Paper>
       );
     }
@@ -104,26 +221,37 @@ const UpdateVersionModal = ({ open, onClose }) => {
             Estado de Actualizaciones
           </Typography>
           <Typography variant="body1" paragraph>
-            <strong>Versión actual:</strong> {updateStatus.currentVersion}
+            <strong>{i18n.t("updateVersion.messages.currentVersion")}</strong> {updateStatus.currentVersion}
           </Typography>
           <Typography variant="body1" paragraph>
-            <strong>Última versión disponible:</strong> {updateStatus.latestVersion}
+            <strong>{i18n.t("updateVersion.messages.latestVersion")}</strong> {updateStatus.latestVersion}
           </Typography>
           <Typography variant="body1" paragraph>
             <strong>Estado:</strong>{" "}
             {updateStatus.hasUpdates ? (
               <span style={{ color: "green", fontWeight: "bold" }}>
-                <span role="img" aria-label="check">✅</span> Nuevas actualizaciones disponibles
+                <span role="img" aria-label="check">✅</span> {i18n.t("updateVersion.status.updatesAvailable")}
               </span>
             ) : (
               <span style={{ color: "blue", fontWeight: "bold" }}>
-                <span role="img" aria-label="check">✅</span> Sistema actualizado
+                <span role="img" aria-label="check">✅</span> {i18n.t("updateVersion.status.upToDate")}
               </span>
             )}
           </Typography>
           {updateStatus.hasUpdates && (
             <Paper className={`${classes.alert} ${classes.infoAlert}`}>
-              Hay {updateStatus.commitsAhead} nuevos commits disponibles.
+              <Typography variant="body2">
+                {i18n.t("updateVersion.messages.commitsAhead", { count: updateStatus.commitsAhead })}
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handlePerformUpdate}
+                className={classes.updateButton}
+                fullWidth
+              >
+                <span role="img" aria-label="update">🚀</span> Actualizar Sistema
+              </Button>
             </Paper>
           )}
         </Box>
@@ -132,7 +260,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
 
     return (
       <Typography variant="body1">
-        Haz clic en "Verificar" para comprobar si hay actualizaciones disponibles.
+        {i18n.t("updateVersion.messages.checkUpdates")}
       </Typography>
     );
   };
@@ -146,10 +274,10 @@ const UpdateVersionModal = ({ open, onClose }) => {
         {renderContent()}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="secondary">
+        <Button onClick={handleClose} color="secondary" disabled={updating}>
           {i18n.t("updateVersion.buttons.close")}
         </Button>
-        {!loading && !updateStatus && (
+        {!loading && !updateStatus && !updating && (
           <Button onClick={handleCheckUpdates} color="primary" variant="contained">
             {i18n.t("updateVersion.buttons.check")}
           </Button>
