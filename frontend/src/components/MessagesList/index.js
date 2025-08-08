@@ -315,12 +315,6 @@ const reducer = (state, action) => {
     const messageIndex = state.findIndex((m) => m.id === messageToUpdate.id);
 
     if (messageIndex !== -1) {
-      console.log("🔄 ACTUALIZANDO MENSAJE EN ESTADO:", {
-        messageId: messageToUpdate.id,
-        ackAnterior: state[messageIndex].ack,
-        ackNuevo: messageToUpdate.ack,
-        fromMe: messageToUpdate.fromMe
-      });
       state[messageIndex] = messageToUpdate;
     }
 
@@ -393,37 +387,16 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
     const socket = socketManager.getSocket(companyId);
 
     socket.on("ready", () => {
-      console.log("🔌 SOCKET READY - Uniéndose a chatBox:", ticket.id);
       socket.emit("joinChatBox", `${ticket.id}`);
     });
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
-      // ✅ DEBUG: Verificar TODOS los eventos recibidos
-      console.log("📡 EVENTO APP MESSAGE RECIBIDO:", {
-        action: data.action,
-        messageId: data.message?.id,
-        ticketId: data.message?.ticketId,
-        currentTicketId: currentTicketId.current,
-        ack: data.message?.ack,
-        fromMe: data.message?.fromMe,
-        // ✅ DEBUG: Verificar si es el canal correcto
-        canal: `company-${companyId}-appMessage`,
-        companyId: companyId
-      });
-      
       if (!isMounted.current) {
         return;
       }
       
-      // ✅ PROCESAR AMBOS TIPOS DE EVENTOS
       if (data.message?.ticketId === currentTicketId.current) {
         if (data.action === "update") {
-          console.log("🔄 ACTUALIZACIÓN ACK RECIBIDA:", {
-            messageId: data.message.id,
-            ack: data.message.ack,
-            fromMe: data.message.fromMe
-          });
-          
           dispatch({
             type: "UPDATE_MESSAGE",
             payload: data.message,
@@ -437,27 +410,12 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
       }
     });
 
-    // ✅ LISTENER ESPECÍFICO PARA EVENTOS UPDATE
     socket.on(`company-${companyId}-appMessage-update`, (data) => {
-      console.log("🔍 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
-        messageId: data.message?.id,
-        ticketId: data.message?.ticketId,
-        currentTicketId: currentTicketId.current,
-        ack: data.message?.ack,
-        fromMe: data.message?.fromMe
-      });
-      
       if (!isMounted.current) {
         return;
       }
       
       if (data.message?.ticketId === currentTicketId.current) {
-        console.log("🔄 PROCESANDO ACTUALIZACIÓN ESPECÍFICA:", {
-          messageId: data.message.id,
-          ack: data.message.ack,
-          fromMe: data.message.fromMe
-        });
-        
         dispatch({
           type: "UPDATE_MESSAGE",
           payload: data.message,
@@ -465,96 +423,12 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
       }
     });
 
-    // ✅ LISTENER ESPECÍFICO PARA EVENTOS UPDATE
-    socket.on(`company-${companyId}-appMessage-update`, (data) => {
-      console.log("🔄 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
-        messageId: data.message?.id,
-        ticketId: data.message?.ticketId,
-        currentTicketId: currentTicketId.current,
-        ack: data.message?.ack,
-        fromMe: data.message?.fromMe
-      });
-      
-      if (!isMounted.current) {
-        return;
-      }
-      
-      if (data.message?.ticketId === currentTicketId.current) {
-        console.log("🔄 PROCESANDO ACTUALIZACIÓN:", {
-          messageId: data.message.id,
-          ack: data.message.ack,
-          fromMe: data.message.fromMe
-        });
-        
-        dispatch({
-          type: "UPDATE_MESSAGE",
-          payload: data.message,
-        });
-      }
-    });
-
-    // ✅ LISTENER GENÉRICO PARA CAPTURAR TODOS LOS EVENTOS
-    socket.onAny = socket.onAny || function(eventName, data) {
-      console.log("🔍 EVENTO GENÉRICO CAPTURADO:", {
-        eventName: eventName,
-        data: data,
-        currentTicketId: currentTicketId.current,
-        ticketId: ticket.id
-      });
-    };
-
-    // ✅ LISTENER DE DEBUG PARA CAPTURAR TODOS LOS EVENTOS
-    // Agregar listeners específicos para cada canal
-    socket.on(`company-${companyId}-appMessage-update`, (data) => {
-      console.log("🔍 EVENTO UPDATE ESPECÍFICO RECIBIDO:", {
-        messageId: data.message?.id,
-        ticketId: data.message?.ticketId,
-        currentTicketId: currentTicketId.current,
-        ack: data.message?.ack,
-        fromMe: data.message?.fromMe
-      });
-      
-      if (!isMounted.current) {
-        return;
-      }
-      
-      if (data.message?.ticketId === currentTicketId.current) {
-        console.log("🔄 PROCESANDO ACTUALIZACIÓN ESPECÍFICA:", {
-          messageId: data.message.id,
-          ack: data.message.ack,
-          fromMe: data.message.fromMe
-        });
-        
-        dispatch({
-          type: "UPDATE_MESSAGE",
-          payload: data.message,
-        });
-      }
-    });
-
-    // ✅ AGREGAR LISTENER PARA EL CANAL DEL TICKET
     socket.on(`${ticket.id}`, (data) => {
-      console.log("📡 EVENTO TICKET RECIBIDO:", {
-        action: data.action,
-        messageId: data.message?.id,
-        ticketId: data.message?.ticketId,
-        currentTicketId: currentTicketId.current,
-        ack: data.message?.ack,
-        fromMe: data.message?.fromMe,
-        canal: `${ticket.id}`
-      });
-      
       if (!isMounted.current) {
         return;
       }
       
       if (data.action === "update" && data.message?.ticketId === currentTicketId.current) {
-        console.log("🔄 ACTUALIZACIÓN ACK RECIBIDA (TICKET):", {
-          messageId: data.message.id,
-          ack: data.message.ack,
-          fromMe: data.message.fromMe
-        });
-        
         dispatch({
           type: "UPDATE_MESSAGE",
           payload: data.message,
@@ -562,27 +436,7 @@ const MessagesList = ({ ticket, ticketId, isGroup }) => {
       }
     });
 
-
-
-    // ✅ DEBUG: Verificar si se une al canal del ticket
-    console.log("🔌 UNIÉNDOSE AL CANAL DEL TICKET:", ticket.id);
-    
-    // ✅ TEST MANUAL: Emitir evento de prueba
-    setTimeout(() => {
-      console.log("🧪 EMITIENDO EVENTO DE PRUEBA");
-      socket.emit("test-update", {
-        action: "update",
-        message: {
-          id: "test-message-id",
-          ticketId: ticket.id,
-          ack: 4,
-          fromMe: true
-        }
-      });
-    }, 2000);
-
     return () => {
-      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
       if (socket && typeof socket.off === 'function') {
         socket.off(`company-${companyId}-appMessage`);
         socket.off(`company-${companyId}-contact`);

@@ -269,7 +269,6 @@ const MessageInput = ({ ticketStatus }) => {
 			if (item.type.indexOf('image') !== -1) {
 				const file = item.getAsFile();
 				if (file) {
-					console.log("📋 Imagen pegada:", file.name || "imagen_pegada");
 					setMedias(prevMedias => [...prevMedias, file]);
 				}
 			}
@@ -280,14 +279,12 @@ const MessageInput = ({ ticketStatus }) => {
 	const handleDragOver = e => {
 		e.preventDefault();
 		e.stopPropagation();
-		console.log("🎯 DragOver detectado");
 		setIsDragOver(true);
 	};
 
 	const handleDragEnter = e => {
 		e.preventDefault();
 		e.stopPropagation();
-		console.log("🎯 DragEnter detectado");
 		setIsDragOver(true);
 	};
 
@@ -296,7 +293,6 @@ const MessageInput = ({ ticketStatus }) => {
 		e.stopPropagation();
 		// Solo cambiar si no estamos sobre un elemento hijo
 		if (!e.currentTarget.contains(e.relatedTarget)) {
-			console.log("🎯 DragLeave detectado");
 			setIsDragOver(false);
 		}
 	};
@@ -304,18 +300,14 @@ const MessageInput = ({ ticketStatus }) => {
 	const handleDrop = e => {
 		e.preventDefault();
 		e.stopPropagation();
-		console.log("🎯 Drop detectado");
 		setIsDragOver(false);
 		
 		const files = Array.from(e.dataTransfer.files);
-		console.log("📁 Archivos en drop:", files.length, files.map(f => f.name));
 		
 		if (files.length > 0) {
 			// Acumular archivos arrastrados
 			setMedias(prevMedias => {
 				const newMedias = [...prevMedias, ...files];
-				console.log("🖱️ Archivos arrastrados:", files.length, files.map(f => f.name));
-				console.log("📁 Total archivos:", newMedias.length, newMedias.map(f => f.name));
 				return newMedias;
 			});
 		}
@@ -359,7 +351,6 @@ const MessageInput = ({ ticketStatus }) => {
 				});
 
 				completedFiles++;
-				console.log(`✅ Archivo ${i + 1}/${totalFiles} enviado:`, media.name);
 			} catch (err) {
 				console.error(`❌ Error enviando archivo ${media.name}:`, err);
 				toastError(err);
@@ -369,7 +360,6 @@ const MessageInput = ({ ticketStatus }) => {
 		setLoading(false);
 		setMedias([]);
 		setUploadProgress({});
-		console.log(`🎉 Envío completado: ${completedFiles}/${totalFiles} archivos`);
 	};
 
 	const handleSendMessage = async () => {
@@ -465,7 +455,6 @@ const MessageInput = ({ ticketStatus }) => {
 	};
 
 	if (medias.length > 0) {
-		console.log("🎯 Renderizando archivos:", medias.length, medias.map(f => f.name));
 		return (
 			<Paper elevation={0} square className={classes.viewMediaInputWrapper}>
 				<div className={classes.mediaPreviewContainer}>

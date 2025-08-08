@@ -32,13 +32,8 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
 		try {
 			await api.delete(`/tickets/${ticket.id}`);
 			
-			// ✅ ACTUALIZAR PÁGINA DESPUÉS DE ELIMINAR TICKET
-			console.log("🗑️ [TICKET OPTIONS] Ticket eliminado, actualizando página...");
-			
-			// ✅ CERRAR MODAL DE CONFIRMACIÓN
 			setConfirmationOpen(false);
 			
-			// ✅ REDIRIGIR A LA PÁGINA PRINCIPAL DE TICKETS
 			window.location.href = "/tickets";
 			
 		} catch (err) {

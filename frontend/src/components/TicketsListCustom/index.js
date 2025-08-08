@@ -118,16 +118,12 @@ const reducer = (state, action) => {
     }
 
     // ✅ REORDENAR POR updatedAt EN ORDEN DESCENDENTE
-    console.log("🔄 [TICKETS LIST CUSTOM] Reordenando tickets por UPDATE_TICKET - Ticket:", ticket.id);
-    
-    // ✅ FORZAR REORDENAMIENTO DE TODOS LOS TICKETS
     const sortedTickets = [...state].sort((a, b) => {
       const dateA = new Date(a.updatedAt);
       const dateB = new Date(b.updatedAt);
       return dateB - dateA; // DESC: más reciente primero
     });
     
-    console.log("✅ [TICKETS LIST CUSTOM] Reordenamiento completado. Tickets ordenados:", sortedTickets.map(t => `${t.id} (${t.updatedAt})`));
     return sortedTickets;
   }
 
@@ -143,16 +139,12 @@ const reducer = (state, action) => {
     }
 
     // ✅ REORDENAR POR updatedAt EN ORDEN DESCENDENTE
-    console.log("🔄 [TICKETS LIST CUSTOM] Reordenando tickets por UPDATE_TICKET_UNREAD_MESSAGES - Ticket:", ticket.id);
-    
-    // ✅ FORZAR REORDENAMIENTO DE TODOS LOS TICKETS
     const sortedTickets = [...state].sort((a, b) => {
       const dateA = new Date(a.updatedAt);
       const dateB = new Date(b.updatedAt);
       return dateB - dateA; // DESC: más reciente primero
     });
     
-    console.log("✅ [TICKETS LIST CUSTOM] Reordenamiento completado. Tickets ordenados:", sortedTickets.map(t => `${t.id} (${t.updatedAt})`));
     return sortedTickets;
   }
 
@@ -190,14 +182,10 @@ const reducer = (state, action) => {
 
   if (action.type === "DELETE_TICKET") {
     const ticketId = action.payload;
-    console.log("🗑️ [TICKETS LIST CUSTOM REDUCER] Eliminando ticket:", ticketId);
     
     const ticketIndex = state.findIndex((t) => t.id === ticketId);
     if (ticketIndex !== -1) {
-      console.log("✅ [TICKETS LIST CUSTOM REDUCER] Ticket encontrado y eliminado:", ticketId);
       state.splice(ticketIndex, 1);
-    } else {
-      console.log("⚠️ [TICKETS LIST CUSTOM REDUCER] Ticket no encontrado para eliminar:", ticketId);
     }
 
     return [...state];
@@ -289,16 +277,7 @@ const TicketsListCustom = (props) => {
     });
 
     socket.on(`company-${companyId}-ticket`, (data) => {
-      
-      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
       if (!isMounted.current) return;
-      
-      console.log("📡 [TICKETS LIST CUSTOM] Evento recibido:", {
-        action: data.action,
-        ticketId: data.ticketId,
-        ticketStatus: data.ticket?.status,
-        currentStatus: status
-      });
       
       if (data.action === "create" && shouldUpdateTicket(data.ticket) && (status === undefined || data.ticket.status === status)) {
         dispatch({
@@ -325,15 +304,12 @@ const TicketsListCustom = (props) => {
         dispatch({ type: "DELETE_TICKET", payload: data.ticket.id });
       }
 
-      // ✅ MEJORAR MANEJO DE DELETE - PROCESAR SIEMPRE QUE SE RECIBA
       if (data.action === "delete") {
-        console.log("🗑️ [TICKETS LIST CUSTOM] Procesando DELETE_TICKET:", data.ticketId);
         dispatch({ type: "DELETE_TICKET", payload: data.ticketId });
       }
     });
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
-      // ✅ VERIFICAR SI EL COMPONENTE ESTÁ MONTADO ANTES DE DISPATCH
       if (!isMounted.current) return;
       
       const queueIds = queues.map((q) => q.id);
@@ -351,26 +327,17 @@ const TicketsListCustom = (props) => {
           payload: data.ticket,
         });
         
-        // ✅ SOLUCIÓN ALTERNATIVA: Reordenar también en eventos CREATE
-        console.log("🔄 [TICKET REORDER] Reordenando por evento CREATE:", data.ticket.id);
         dispatch({
           type: "UPDATE_TICKET",
           payload: data.ticket,
         });
       }
 
-      // ✅ NUEVO: PROCESAR EVENTOS UPDATE PARA REORDENAMIENTO
       if (data.action === "update" && data.ticket) {
-        console.log("🔄 [TICKET REORDER] Evento UPDATE recibido:", data);
-        
-        // ✅ SIEMPRE PROCESAR REORDENAMIENTO, SIN FILTROS
         dispatch({
           type: "UPDATE_TICKET",
           payload: data.ticket,
         });
-        
-        // ✅ DEBUG: Verificar que se procesa
-        console.log("✅ [TICKET REORDER] Procesando reordenamiento para ticket:", data.ticket.id);
       }
     });
 

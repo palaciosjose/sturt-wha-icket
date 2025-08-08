@@ -192,7 +192,6 @@ const SocketManager = {
         this.socketReady = false;
         this.onReady(() => {
           this.socketReady = true;
-          console.log("✅ Socket reconectado y listeners re-registrados");
         });
       });
 

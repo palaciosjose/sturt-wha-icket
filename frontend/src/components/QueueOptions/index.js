@@ -81,7 +81,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   const confirmDeleteTransfer = async () => {
     try {
       const option = optionToDeleteTransfer;
-      // console.log("✅ Usuario confirmó eliminación de transferencia");
       
       const optionToUpdate = { 
         ...option, 
@@ -94,7 +93,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
       if (optionIndex !== -1) {
         options[optionIndex] = optionToUpdate;
         updateOptions(); // ✅ ACTUALIZAR EL ESTADO
-        // console.log("✅ Transferencia eliminada temporalmente en memoria");
       }
       
       toastError("Transferencia eliminada correctamente");
@@ -108,7 +106,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   };
 
   const cancelDeleteTransfer = () => {
-    console.log("❌ Eliminación cancelada por el usuario");
     setDeleteTransferModalOpen(false);
     setOptionToDeleteTransfer(null);
   };
@@ -116,12 +113,8 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   // ✅ GUARDAR TRANSFERENCIA EN ESTADO TEMPORAL
   const handleSaveTransfer = async (transferQueueId) => {
     try {
-      console.log("🔗 handleSaveTransfer - transferQueueId:", transferQueueId);
-      console.log("🔗 handleSaveTransfer - selectedOptionForTransfer:", selectedOptionForTransfer);
-      
       // ✅ Buscar el departamento seleccionado para obtener sus datos completos
       const selectedQueue = queues.find(q => q.id === transferQueueId);
-      console.log("🔗 Departamento seleccionado:", selectedQueue);
       
       let optionToUpdate = { 
         ...selectedOptionForTransfer, 
@@ -134,7 +127,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
       if (optionIndex !== -1) {
         options[optionIndex] = optionToUpdate;
         updateOptions(); // ✅ ACTUALIZAR EL ESTADO
-        // console.log("✅ Transferencia guardada temporalmente en memoria");
       }
       
       // ✅ MOSTRAR MENSAJE DE CONFIRMACIÓN
@@ -180,12 +172,8 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   // ✅ GUARDAR OPCIÓN EN ESTADO TEMPORAL (NO EN DB)
   const handleSave = async (option) => {
     try {
-      // console.log("🔍 ANTES - option.queueId:", option.queueId);
-      // console.log("🔍 ANTES - queueId del componente:", queueId);
-      
       // ✅ Verificar que tengamos queueId válido
       if (!queueId) {
-        console.log("⚠️ No hay queueId - guardando temporalmente en memoria");
         option.edition = false;
         updateOptions();
         toastError("Opción guardada temporalmente. Guarde el departamento primero.");
@@ -195,20 +183,13 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
       // ✅ Asegurar que tenga queueId
       if (!option.queueId) {
         option.queueId = queueId;
-        console.log("🔧 Asignando queueId:", queueId);
       }
-      
-              // console.log("🔍 DESPUÉS - option.queueId:", option.queueId);
-        // console.log("🔍 DESPUÉS - option.transferQueueId:", option.transferQueueId);
-        // console.log("🔍 DESPUÉS - datos a enviar:", option);
       
       // ✅ Asegurar que transferQueueId se envíe correctamente
       const dataToSend = {
         ...option,
         transferQueueId: option.transferQueueId || null
       };
-      
-              // console.log("🔍 DATOS FINALES A ENVIAR:", dataToSend);
       
       if (option.id) {
         await api.request({
@@ -229,7 +210,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
       updateOptions();
       toastError("Opción guardada correctamente.");
     } catch (e) {
-      console.error("❌ Error al guardar:", e);
       toastError(e);
     }
   };
@@ -280,13 +260,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
 
   const renderTitle = (index) => {
     const option = options[index];
-    // console.log("🎨 renderTitle - option:", {
-    //   id: option.id,
-    //   title: option.title,
-    //   edition: option.edition,
-    //   transferQueueId: option.transferQueueId,
-    //   transferQueue: option.transferQueue
-    // });
     if (option.edition) {
       return (
         <>
@@ -371,10 +344,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
                 <>
                   {/* ✅ Usar directamente option.transferQueue del backend */}
                   {(() => {
-                                                                      // console.log("🔍 Usando transferQueue directo:", {
-                         //   optionTransferQueueId: option.transferQueueId,
-                         //   optionTransferQueue: option.transferQueue
-                         // });
                     return option.transferQueue ? (
                       <Typography
                         variant="body2"
@@ -614,24 +583,14 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
   const [options, setOptions] = useState([]);
 
   useEffect(() => {
-    // console.log("🔄 useEffect ejecutado - queueId:", queueId);
     if (queueId) {
       const fetchOptions = async () => {
         try {
-          // console.log("📡 Cargando opciones para queueId:", queueId);
           const { data } = await api.request({
             url: "/queue-options",
             method: "GET",
             params: { queueId, parentId: -1 },
           });
-          // console.log("📥 Opciones recibidas:", data);
-          // console.log("📥 Detalles de opciones:", data.map(opt => ({
-          //   id: opt.id,
-          //   title: opt.title,
-          //   transferQueueId: opt.transferQueueId,
-          //   transferQueue: opt.transferQueue,
-          //   edition: opt.edition
-          // })));
           const optionList = data.map((option) => {
             return {
               ...option,
@@ -639,7 +598,6 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
               edition: false,
             };
           });
-          console.log("✅ Opciones procesadas:", optionList);
           setOptions(optionList);
         } catch (e) {
           console.error("❌ Error al cargar opciones:", e);
@@ -665,13 +623,9 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
   };
 
   const saveAllOptions = useCallback(async (savedQueueId) => {
-    console.log("🔄 saveAllOptions - Guardando opciones temporales para queueId:", savedQueueId);
-    
-    // ✅ Guardar todas las opciones que no tienen ID (temporales)
     for (let option of options) {
       if (!option.id && option.title.trim() !== "") {
         try {
-          console.log("💾 Guardando opción temporal:", option.title);
           const { data } = await api.request({
             url: `/queue-options`,
             method: "POST",
@@ -681,14 +635,11 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
             },
           });
           option.id = data.id;
-          console.log("✅ Opción temporal guardada con ID:", data.id);
         } catch (e) {
           console.error("❌ Error al guardar opción temporal:", e);
         }
       }
     }
-    
-    console.log("✅ Todas las opciones temporales guardadas");
   }, [options]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateOptions = () => {
@@ -698,7 +649,6 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
 
 
   const addOption = () => {
-    console.log("➕ addOption - queueId:", queueId);
     
     const newOption = {
       title: "",
@@ -709,7 +659,6 @@ export const QueueOptions = forwardRef(({ queueId }, ref) => {
       parentId: null,
       children: [],
     };
-    console.log("➕ newOption creado:", newOption);
     setOptions([...options, newOption]);
   };
 

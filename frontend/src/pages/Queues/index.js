@@ -115,25 +115,17 @@ const Queues = () => {
     const companyId = localStorage.getItem("companyId");
     const socket = socketManager.getSocket(companyId);
 
-    console.log("🔌 CONFIGURANDO LISTENER QUEUE PARA COMPANY:", companyId);
-    console.log("🔌 SOCKET CONECTADO:", socket.connected);
-
     socket.on(`company-${companyId}-queue`, (data) => {
-      console.log("📡 EVENTO QUEUE RECIBIDO:", data.action, data);
-      
       if (data.action === "update" || data.action === "create") {
-        console.log("🔄 ACTUALIZANDO/CREANDO QUEUE:", data.queue.id);
         dispatch({ type: "UPDATE_QUEUES", payload: data.queue });
       }
 
       if (data.action === "delete") {
-        console.log("🗑️ ELIMINANDO QUEUE:", data.queueId);
         dispatch({ type: "DELETE_QUEUE", payload: data.queueId });
       }
     });
 
     return () => {
-      // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
       if (socket && typeof socket.off === 'function') {
         socket.off(`company-${companyId}-queue`);
       }

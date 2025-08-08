@@ -231,7 +231,6 @@ const QueueModal = ({ open, onClose, queueId }) => {
       
       // ✅ GUARDAR TODAS LAS OPCIONES TEMPORALES
       if (queueOptionsRef.current && queueOptionsRef.current.saveAllOptions) {
-        console.log("🔄 Guardando opciones temporales desde QueueModal...");
         await queueOptionsRef.current.saveAllOptions(savedQueueId);
       }
       

@@ -125,12 +125,8 @@ const useWhatsApps = () => {
       const companyId = localStorage.getItem("companyId");
       const socket = socketManager.getSocket(companyId);
 
-      console.log("🔌 CONFIGURANDO LISTENER WHATSAPP PARA COMPANY:", companyId);
-      console.log("🔌 SOCKET CONECTADO:", socket.connected);
-
       socket.on(`company-${companyId}-whatsapp`, (data) => {
         if (isMounted.current) {
-          console.log("📡 EVENTO WHATSAPP RECIBIDO:", data.action, data);
           logger.whatsapp.debug("📡 EVENTO WHATSAPP RECIBIDO:", data.action);
           
           if (data.action === "create") {
@@ -148,7 +144,6 @@ const useWhatsApps = () => {
             dispatch({ type: "DELETE_WHATSAPPS", payload: data.whatsappId });
           }
           
-          // ✅ MANEJAR EVENTO DE REFRESCO
           if (data.action === "refresh") {
             logger.whatsapp.debug("🔄 EVENTO DE REFRESCO RECIBIDO");
             refreshWhatsApps();
@@ -167,7 +162,6 @@ const useWhatsApps = () => {
 
       return () => {
         if (isMounted.current) {
-          // ✅ SOLO REMOVER LISTENERS, NO DESCONECTAR EL SOCKET COMPARTIDO
           if (socket && typeof socket.off === 'function') {
             socket.off(`company-${companyId}-whatsapp`);
             socket.off(`company-${companyId}-whatsappSession`);
