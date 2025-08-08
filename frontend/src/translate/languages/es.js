@@ -1442,6 +1442,8 @@ const messages = {
           check: "Verificar",
           close: "Cerrar",
           update: "Actualizar Sistema",
+          basicUpdate: "Actualización Básica",
+          fullUpdate: "Actualización Completa",
         },
         status: {
           checking: "Verificando actualizaciones...",
@@ -1449,6 +1451,7 @@ const messages = {
           updatesAvailable: "Nuevas actualizaciones disponibles",
           error: "Error al verificar actualizaciones",
           updating: "Actualizando sistema...",
+          updatingFull: "Actualización completa en progreso...",
           completed: "Actualización completada",
         },
         messages: {
@@ -1462,6 +1465,11 @@ const messages = {
           newVersion: "Nueva versión:",
           updateMessage: "Mensaje:",
           updateAuthor: "Autor:",
+          updateOptions: "Opciones de Actualización:",
+          basicUpdateDesc: "Solo actualiza el código fuente",
+          fullUpdateDesc: "Actualiza código, dependencias, base de datos y recompila todo",
+          stepsCompleted: "Pasos completados:",
+          processMayTakeMinutes: "Este proceso puede tomar varios minutos...",
         },
         errors: {
           noUpdates: "No hay actualizaciones disponibles",

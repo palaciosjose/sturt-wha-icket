@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -9,18 +9,18 @@ import {
   CircularProgress,
   Box,
   Paper,
-  LinearProgress
+  LinearProgress,
+  Divider
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { i18n } from "../../translate/i18n";
-import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles((theme) => ({
   root: {
     "& .MuiDialog-paper": {
-      minWidth: 400,
+      minWidth: 500,
     },
   },
   content: {
@@ -55,10 +55,22 @@ const useStyles = makeStyles((theme) => ({
   },
   updateButton: {
     marginTop: theme.spacing(2),
+    marginRight: theme.spacing(1),
   },
   progressBar: {
     width: "100%",
     marginTop: theme.spacing(2),
+  },
+  stepsList: {
+    marginTop: theme.spacing(2),
+  },
+  stepItem: {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: theme.spacing(1),
+  },
+  stepIcon: {
+    marginRight: theme.spacing(1),
   },
 }));
 
@@ -69,6 +81,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [error, setError] = useState(null);
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateType, setUpdateType] = useState(null); // 'basic' or 'full'
 
   const handleCheckUpdates = async () => {
     setLoading(true);
@@ -86,7 +99,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
     }
   };
 
-  const handlePerformUpdate = async () => {
+  const handlePerformUpdate = async (type = 'basic') => {
     if (!updateStatus?.hasUpdates) {
       setError("No hay actualizaciones disponibles");
       return;
@@ -95,6 +108,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
     setUpdating(true);
     setError(null);
     setUpdateProgress(0);
+    setUpdateType(type);
 
     try {
       // Simular progreso
@@ -104,11 +118,12 @@ const UpdateVersionModal = ({ open, onClose }) => {
             clearInterval(progressInterval);
             return 90;
           }
-          return prev + 10;
+          return prev + 5;
         });
-      }, 500);
+      }, 300);
 
-      const { data } = await api.post("/system/perform-update", {
+      const endpoint = type === 'full' ? "/system/perform-full-update" : "/system/perform-update";
+      const { data } = await api.post(endpoint, {
         previousVersion: updateStatus.currentVersion
       });
 
@@ -122,13 +137,15 @@ const UpdateVersionModal = ({ open, onClose }) => {
         newVersion: data.newVersion,
         newMessage: data.newMessage,
         newAuthor: data.newAuthor,
-        newDate: data.newDate
+        newDate: data.newDate,
+        steps: data.steps || []
       });
 
-      // Recargar la página después de 3 segundos
+      // Recargar la página después de 5 segundos para actualización completa
+      const reloadDelay = type === 'full' ? 5000 : 3000;
       setTimeout(() => {
         window.location.reload();
-      }, 3000);
+      }, reloadDelay);
 
     } catch (err) {
       setError(err.response?.data?.error || "Error durante la actualización");
@@ -144,6 +161,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
       setUpdateStatus(null);
       setError(null);
       setUpdateProgress(0);
+      setUpdateType(null);
       onClose();
     }
   };
@@ -161,11 +179,15 @@ const UpdateVersionModal = ({ open, onClose }) => {
     }
 
     if (updating) {
+      const updateText = updateType === 'full' 
+        ? "Actualización completa en progreso..." 
+        : "Actualizando sistema...";
+      
       return (
         <Box className={classes.progressContainer}>
           <CircularProgress />
           <Typography className={classes.statusText}>
-            Actualizando sistema...
+            {updateText}
           </Typography>
           <LinearProgress 
             variant="determinate" 
@@ -175,6 +197,11 @@ const UpdateVersionModal = ({ open, onClose }) => {
           <Typography variant="body2" className={classes.statusText}>
             {updateProgress}% completado
           </Typography>
+          {updateType === 'full' && (
+            <Typography variant="body2" className={classes.statusText}>
+              Este proceso puede tomar varios minutos...
+            </Typography>
+          )}
         </Box>
       );
     }
@@ -207,6 +234,19 @@ const UpdateVersionModal = ({ open, onClose }) => {
           <Typography variant="body2" paragraph>
             <strong>Autor:</strong> {updateStatus.newAuthor}
           </Typography>
+          {updateStatus.steps && updateStatus.steps.length > 0 && (
+            <Box className={classes.stepsList}>
+              <Typography variant="h6" gutterBottom>
+                Pasos completados:
+              </Typography>
+              {updateStatus.steps.map((step, index) => (
+                <Box key={index} className={classes.stepItem}>
+                  <span role="img" aria-label="check" className={classes.stepIcon}>✅</span>
+                  <Typography variant="body2">{step}</Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
           <Typography variant="body2">
             La página se recargará automáticamente en unos segundos...
           </Typography>
@@ -243,15 +283,34 @@ const UpdateVersionModal = ({ open, onClose }) => {
               <Typography variant="body2">
                 {i18n.t("updateVersion.messages.commitsAhead", { count: updateStatus.commitsAhead })}
               </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handlePerformUpdate}
-                className={classes.updateButton}
-                fullWidth
-              >
-                <span role="img" aria-label="update">🚀</span> Actualizar Sistema
-              </Button>
+              <Divider style={{ margin: "16px 0" }} />
+              <Typography variant="h6" gutterBottom>
+                Opciones de Actualización:
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Actualización Básica:</strong> Solo actualiza el código fuente
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Actualización Completa:</strong> Actualiza código, dependencias, base de datos y recompila todo
+              </Typography>
+              <Box style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handlePerformUpdate('basic')}
+                  className={classes.updateButton}
+                >
+                  <span role="img" aria-label="update">🚀</span> Actualización Básica
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => handlePerformUpdate('full')}
+                  className={classes.updateButton}
+                >
+                  <span role="img" aria-label="update">⚡</span> Actualización Completa
+                </Button>
+              </Box>
             </Paper>
           )}
         </Box>
