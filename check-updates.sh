@@ -32,6 +32,7 @@ check_auth_config() {
     # Verificar si hay un remote configurado
     if ! git remote get-url origin > /dev/null 2>&1; then
         print_message "❌ Error: No se encontró un remote 'origin' configurado" $RED
+        print_message "   Ejecuta: git remote add origin <URL_DEL_REPOSITORIO>" $RED
         exit 1
     fi
     
@@ -41,9 +42,18 @@ check_auth_config() {
     # Verificar si la URL contiene un token (para repositorios privados)
     if [[ $REMOTE_URL == *"github_pat_"* ]] || [[ $REMOTE_URL == *"ghp_"* ]]; then
         print_message "✅ Token de autenticación detectado" $GREEN
+        AUTH_CONFIGURED=true
     else
         print_message "⚠️  No se detectó token de autenticación" $YELLOW
-        print_message "   Para repositorios privados, asegúrate de configurar un token de acceso personal" $YELLOW
+        print_message "   Para repositorios privados, necesitas configurar un token de acceso personal" $YELLOW
+        print_message "" $YELLOW
+        print_message "📋 INSTRUCCIONES PARA CONFIGURAR TOKEN:" $YELLOW
+        print_message "   1. Ve a GitHub.com → Settings → Developer settings → Personal access tokens" $YELLOW
+        print_message "   2. Genera un nuevo token con permisos 'repo'" $YELLOW
+        print_message "   3. Ejecuta: git remote set-url origin https://TOKEN@github.com/USER/REPO.git" $YELLOW
+        print_message "   4. O configura el token en las credenciales de Git" $YELLOW
+        print_message "" $YELLOW
+        AUTH_CONFIGURED=false
     fi
 }
 
@@ -74,10 +84,32 @@ check_current_status() {
 check_updates() {
     print_message "🔄 Verificando actualizaciones disponibles..." $YELLOW
     
+    # Si no hay autenticación configurada, mostrar advertencia
+    if [ "$AUTH_CONFIGURED" = false ]; then
+        print_message "⚠️  ADVERTENCIA: No se puede verificar actualizaciones sin autenticación" $YELLOW
+        print_message "   El repositorio es privado y requiere un token de acceso personal" $YELLOW
+        print_message "" $YELLOW
+        print_message "🔧 SOLUCIÓN RÁPIDA:" $YELLOW
+        print_message "   Ejecuta este comando reemplazando TOKEN, USER y REPO:" $YELLOW
+        print_message "   git remote set-url origin https://TOKEN@github.com/USER/REPO.git" $YELLOW
+        print_message "" $YELLOW
+        print_message "   Ejemplo:" $YELLOW
+        print_message "   git remote set-url origin https://ghp_1234567890abcdef@github.com/leopoldohuacasiv/watoolxoficial.git" $YELLOW
+        return 1
+    fi
+    
     # Fetch de cambios remotos con manejo de errores
     if ! git fetch origin > /dev/null 2>&1; then
         print_message "❌ Error: No se pudo conectar al repositorio remoto" $RED
-        print_message "   Verifica tu conexión a internet y la configuración de autenticación" $RED
+        print_message "   Posibles causas:" $RED
+        print_message "   - Token de acceso expirado o inválido" $RED
+        print_message "   - Sin conexión a internet" $RED
+        print_message "   - Repositorio privado sin permisos" $RED
+        print_message "" $RED
+        print_message "🔧 SOLUCIÓN:" $RED
+        print_message "   1. Verifica tu conexión a internet" $RED
+        print_message "   2. Regenera el token de acceso personal en GitHub" $RED
+        print_message "   3. Actualiza la URL del remote con el nuevo token" $RED
         exit 1
     fi
     
