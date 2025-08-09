@@ -163,6 +163,10 @@ const UpdateVersionModal = ({ open, onClose }) => {
       setUpdateProgress(0);
       setUpdateType(null);
       onClose();
+      // Actualizar toda la página después de cerrar el modal
+      setTimeout(() => {
+        window.location.reload();
+      }, 300); // Pequeño delay para que se cierre el modal primero
     }
   };
 
