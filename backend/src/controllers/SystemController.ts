@@ -31,7 +31,7 @@ export const checkUpdates = async (req: Request, res: Response): Promise<Respons
 
     // Verificar si hay commits remotos nuevos
     await run("git fetch origin");
-    const { stdout: commitsAhead } = await run(`git rev-list HEAD..origin/${currentBranch} --count`);
+    const { stdout: commitsAhead } = await run("git rev-list HEAD..origin/" + currentBranch + " --count");
 
     const hasUpdates = parseInt(commitsAhead) > 0;
 
@@ -40,7 +40,7 @@ export const checkUpdates = async (req: Request, res: Response): Promise<Respons
     let latestCommitInfo = null;
 
     if (hasUpdates) {
-      const { stdout: latestCommit } = await run(`git log origin/${currentBranch} -1 --pretty=format:"%H|%s|%an|%ad" --date=short`);
+      const { stdout: latestCommit } = await run("git log origin/" + currentBranch + " -1 --pretty=format:\"%H|%s|%an|%ad\" --date=short");
       latestCommitInfo = latestCommit.split("|");
       latestVersion = latestCommitInfo[0];
     }
@@ -85,7 +85,7 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
     // 2. Verificar si hay actualizaciones disponibles
     await run("git fetch origin");
     const { stdout: currentBranch } = await run("git branch --show-current");
-    const { stdout: commitsAhead } = await run(`git rev-list HEAD..origin/${currentBranch} --count`);
+    const { stdout: commitsAhead } = await run("git rev-list HEAD..origin/" + currentBranch + " --count");
     
     if (parseInt(commitsAhead) === 0) {
       return res.status(400).json({
@@ -157,7 +157,7 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     // 2. Verificar si hay actualizaciones disponibles
     await run("git fetch origin");
     const { stdout: currentBranch } = await run("git branch --show-current");
-    const { stdout: commitsAhead } = await run(`git rev-list HEAD..origin/${currentBranch} --count`);
+    const { stdout: commitsAhead } = await run("git rev-list HEAD..origin/" + currentBranch + " --count");
     
     if (parseInt(commitsAhead) === 0) {
       return res.status(400).json({
