@@ -137,10 +137,8 @@ const UpdateVersionModal = ({ open, onClose }) => {
         steps: data.steps || ["✅ Frontend recompilado", "✅ Servicios reiniciados"]
       });
 
-      // Recargar la página después de 5 segundos
-      setTimeout(() => {
-        window.location.reload();
-      }, 5000);
+      // Ya no recargamos automáticamente, el usuario decide cuándo
+      // La recarga se realizará cuando presione "CERRAR"
 
     } catch (err) {
       // Manejo especial para errores de conexión durante reinicio
@@ -161,9 +159,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
               steps: ["✅ Actualización aplicada", "✅ Servicios reiniciados", "✅ Conexión restaurada"]
             });
             
-            setTimeout(() => {
-              window.location.reload();
-            }, 3000);
+            // Ya no recargamos automáticamente
           } catch (retryErr) {
             setError("Error de conexión durante la actualización. Recarga la página para verificar si se completó.");
             setUpdating(false);
@@ -221,11 +217,8 @@ const UpdateVersionModal = ({ open, onClose }) => {
         steps: data.steps || []
       });
 
-      // Recargar la página después de 5 segundos para actualización completa
-      const reloadDelay = type === 'full' ? 5000 : 3000;
-      setTimeout(() => {
-        window.location.reload();
-      }, reloadDelay);
+      // Ya no recargamos automáticamente, el usuario decide cuándo
+      // La recarga se realizará cuando presione "CERRAR"
 
     } catch (err) {
       // Manejo especial para errores de conexión durante reinicio
@@ -360,8 +353,8 @@ const UpdateVersionModal = ({ open, onClose }) => {
               ))}
             </Box>
           )}
-          <Typography variant="body2">
-            La página se recargará automáticamente en unos segundos...
+          <Typography variant="body2" style={{ color: "#2196f3", fontWeight: "bold" }}>
+            ✅ Actualización completada. Presiona "CERRAR" para recargar la página y ver los cambios.
           </Typography>
         </Paper>
       );
