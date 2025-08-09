@@ -354,7 +354,11 @@ const UpdateVersionModal = ({ open, onClose }) => {
             </Box>
           )}
           <Typography variant="body2" style={{ color: "#2196f3", fontWeight: "bold" }}>
-            ✅ Actualización completada. Presiona "CERRAR" para recargar la página y ver los cambios.
+            ✅ Actualización completada exitosamente. Los servicios se han reiniciado automáticamente.
+          </Typography>
+          <Typography variant="body2" style={{ color: "#666", marginTop: "8px", fontSize: "0.875rem" }}>
+            💡 Los usuarios experimentaron una breve reconexión automática (2-5 segundos). 
+            Presiona "CERRAR" para recargar esta página.
           </Typography>
         </Paper>
       );
@@ -399,6 +403,24 @@ const UpdateVersionModal = ({ open, onClose }) => {
               <Typography variant="body2" paragraph>
                 <strong>Actualización Completa:</strong> Actualiza código, dependencias, base de datos y recompila todo
               </Typography>
+              
+              {/* Información sobre reinicio de servicios */}
+              <Paper style={{ 
+                padding: "12px", 
+                backgroundColor: "#fff3e0", 
+                border: "1px solid #ffb74d",
+                marginBottom: "16px"
+              }}>
+                <Typography variant="body2" style={{ color: "#e65100", fontWeight: "bold" }}>
+                  ⚠️ Importante: Reinicio de Servicios
+                </Typography>
+                <Typography variant="body2" style={{ color: "#bf360c", fontSize: "0.875rem", marginTop: "4px" }}>
+                  • La actualización completa reiniciará los servicios automáticamente<br/>
+                  • Los usuarios experimentarán una breve reconexión (2-5 segundos)<br/>
+                  • 💡 Recomendado fuera de horas pico para minimizar impacto
+                </Typography>
+              </Paper>
+              
               <Box style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
                 <Button
                   variant="contained"

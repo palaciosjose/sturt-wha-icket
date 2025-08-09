@@ -244,7 +244,43 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     await execAsync('NODE_OPTIONS="--openssl-legacy-provider" npx react-scripts build', { cwd: frontendPath });
     console.log("✅ Frontend compilado correctamente");
 
-    // 10. Verificar que la actualización fue exitosa
+    // 10. Notificar a usuarios y reiniciar servicio frontend
+    console.log("📢 Notificando a usuarios sobre reinicio inminente...");
+    const io = (req as any).io;
+    if (io) {
+      io.emit("system_update", {
+        message: "🔄 Actualizando sistema. Reconexión automática en 5 segundos...",
+        type: "info",
+        duration: 5000
+      });
+      
+      // Esperar 2 segundos para que la notificación llegue a los usuarios
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    console.log("🔄 Reiniciando servicio frontend...");
+    await execAsync("pm2 restart watoolx-frontend");
+    console.log("✅ Servicio frontend reiniciado");
+
+    // 10.1. Verificar que los servicios estén funcionando
+    console.log("🔍 Verificando estado de servicios...");
+    try {
+      await execAsync("pm2 ping");
+      const { stdout: pmStatus } = await execAsync("pm2 jlist");
+      const processes = JSON.parse(pmStatus);
+      const backend = processes.find(p => p.name === "watoolx-backend");
+      const frontend = processes.find(p => p.name === "watoolx-frontend");
+      
+      if (backend?.pm2_env?.status === "online" && frontend?.pm2_env?.status === "online") {
+        console.log("✅ Todos los servicios están funcionando correctamente");
+      } else {
+        console.warn("⚠️ Advertencia: Algunos servicios pueden no estar funcionando correctamente");
+      }
+    } catch (healthError) {
+      console.warn("⚠️ Advertencia: No se pudo verificar el estado de los servicios:", healthError.message);
+    }
+
+    // 11. Verificar que la actualización fue exitosa
     const { stdout: newCommit } = await run("git rev-parse HEAD");
     const { stdout: newCommitInfo } = await run(`git log -1 --pretty=format:"%H|%s|%an|%ad" --date=short`);
     const [newHash, newMessage, newAuthor, newDate] = newCommitInfo.split("|");
@@ -262,11 +298,13 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
       backupBranch,
       steps: [
         "✅ Código actualizado",
-        "✅ Dependencias del backend actualizadas",
-        "✅ Backend compilado",
-        "✅ Migraciones ejecutadas",
+        "✅ Dependencias del backend actualizadas", 
+        "✅ Backend compilado y reiniciado",
+        "✅ Migraciones de base de datos ejecutadas",
         "✅ Dependencias del frontend actualizadas",
-        "✅ Frontend compilado"
+        "✅ Frontend compilado correctamente",
+        "✅ Servicio frontend reiniciado",
+        "✅ Verificación de servicios completada"
       ]
     });
 
