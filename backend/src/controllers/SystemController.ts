@@ -41,7 +41,7 @@ export const checkUpdates = async (req: Request, res: Response): Promise<Respons
     let latestCommitInfo = null;
 
     if (hasUpdates) {
-      const { stdout: latestCommit } = await run("git log origin/" + currentBranch + " -1 --pretty=format:\"%H|%s|%an|%ad\" --date=short");
+      const { stdout: latestCommit } = await run("git log origin/" + branch + " -1 --pretty=format:\"%H|%s|%an|%ad\" --date=short");
       latestCommitInfo = latestCommit.split("|");
       latestVersion = latestCommitInfo[0];
     }
