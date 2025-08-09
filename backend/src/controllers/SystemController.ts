@@ -207,6 +207,12 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     // 6. Compilar el backend
     console.log("🔨 Compilando backend...");
     await execAsync("npm run build", { cwd: backendPath });
+    console.log("✅ Backend compilado correctamente");
+
+    // 6.1. Reiniciar servicio backend para aplicar cambios compilados
+    console.log("🔄 Reiniciando servicio backend...");
+    await execAsync("pm2 restart watoolx-backend");
+    console.log("✅ Servicio backend reiniciado");
 
     // 7. Ejecutar migraciones de base de datos
     console.log("🗄️ Ejecutando migraciones de base de datos...");
