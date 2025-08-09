@@ -252,7 +252,15 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
         // Intentar con --force también
         console.log("🔄 Reintentando instalación con --force...");
         await execAsync("npm install cross-env --save-dev --legacy-peer-deps --force", { cwd: frontendPath });
-        console.log("✅ cross-env instalado con --force");
+        
+        // Verificar que realmente se instaló después del --force
+        try {
+          await execAsync("npm list cross-env", { cwd: frontendPath });
+          console.log("✅ cross-env instalado con --force y verificado");
+        } catch (verifyError) {
+          console.error("❌ CRITICAL: cross-env NO se pudo instalar después de múltiples intentos");
+          throw new Error("No se puede continuar sin cross-env. Instalación manual requerida.");
+        }
       }
     }
     
@@ -260,8 +268,15 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
 
     // 9. Compilar el frontend
     console.log("🔨 Compilando frontend...");
-    await execAsync("npm run build", { cwd: frontendPath });
-    console.log("✅ Frontend compilado correctamente");
+    try {
+      await execAsync("npm run build", { cwd: frontendPath });
+      console.log("✅ Frontend compilado correctamente");
+    } catch (buildError) {
+      console.warn("⚠️ Error con npm run build, intentando con npx...");
+      // Intentar con npx cross-env directamente
+      await execAsync('npx cross-env "NODE_OPTIONS=--max-old-space-size=8192 --openssl-legacy-provider" react-app-rewired build', { cwd: frontendPath });
+      console.log("✅ Frontend compilado correctamente usando npx");
+    }
 
     // 10. Verificar que la actualización fue exitosa
     const { stdout: newCommit } = await run("git rev-parse HEAD");
