@@ -46,6 +46,15 @@ const useStyles = makeStyles(theme => ({
 		borderRadius:0,
 	},
 
+	ticketsContainer: {
+		flex: 1,
+		display: "flex",
+		flexDirection: "column",
+		height: "100%",
+		minHeight: 0, // Importante para que flex funcione correctamente
+		overflow: "hidden",
+	},
+
 
 	tabsHeader: {
 		flex: "none",
@@ -477,9 +486,15 @@ const TicketsManagerTabs = () => {
             value={"pending"}
           />
         </Tabs>
-        <Paper className={classes.ticketsWrapper}>
+        <div className={classes.ticketsContainer}>
           {/* ✅ RENDERIZAR SIEMPRE AMBOS COMPONENTES PARA MANTENER CONTADORES ACTUALIZADOS */}
-          <div style={{ display: tabOpen === "open" ? "block" : "none" }}>
+          <div style={{ 
+            display: tabOpen === "open" ? "flex" : "none",
+            flex: 1,
+            height: "100%",
+            flexDirection: "column",
+            minHeight: 0
+          }}>
             <TicketsList
               status="open"
               showAll={true}
@@ -488,7 +503,13 @@ const TicketsManagerTabs = () => {
               style={applyPanelStyle("open")}
             />
           </div>
-          <div style={{ display: tabOpen === "pending" ? "block" : "none" }}>
+          <div style={{ 
+            display: tabOpen === "pending" ? "flex" : "none",
+            flex: 1,
+            height: "100%",
+            flexDirection: "column",
+            minHeight: 0
+          }}>
             <TicketsList
               status="pending"
               selectedQueueIds={selectedQueueIds}
@@ -496,7 +517,7 @@ const TicketsManagerTabs = () => {
               style={applyPanelStyle("pending")}
             />
           </div>
-        </Paper>
+        </div>
       </TabPanel>
       <TabPanel value={tab} name="closed" className={classes.ticketsWrapper}>
         <TicketsList

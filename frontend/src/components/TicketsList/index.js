@@ -27,13 +27,17 @@ const useStyles = makeStyles((theme) => ({
 		borderTopRightRadius: 0,
 		marginRight: -8,
 		borderBottomRightRadius: 0,
+		minHeight: 0, // Importante para flexbox
 	},
 
 	ticketsList: {
 		flex: 1,
-		overflowY: "scroll",
+		overflowY: "auto", // Cambiado de "scroll" a "auto" para mejor comportamiento
+		overflowX: "hidden", // Evitar scroll horizontal
 		...theme.scrollbarStyles,
 		borderTop: "2px solid rgba(0, 0, 0, 0.12)",
+		maxHeight: "100%", // Asegurar que no exceda el contenedor
+		minHeight: 0, // Importante para flexbox
 	},
 
 	ticketsListHeader: {
