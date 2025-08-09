@@ -293,9 +293,12 @@ const TicketsManagerTabs = () => {
   };
 
   const applyPanelStyle = (status) => {
-    if (tabOpen !== status) {
-      return { width: 0, height: 0 };
-    }
+    // ✅ Permitir que siempre mantengan su tamaño natural para el scroll
+    // Solo controlar la visibilidad con display en el div padre
+    return {
+      height: "100%",
+      width: "100%"
+    };
   };
 
   const handleCloseOrOpenTicket = (ticket) => {
