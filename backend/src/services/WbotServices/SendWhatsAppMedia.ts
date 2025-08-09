@@ -8,6 +8,7 @@ import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import Ticket from "../../models/Ticket";
 import mime from "mime-types";
+import multer from "multer";
 import formatBody from "../../helpers/Mustache";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 

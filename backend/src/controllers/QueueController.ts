@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import multer from "multer";
 import { getIO } from "../libs/socket";
 import CreateQueueService from "../services/QueueService/CreateQueueService";
 import DeleteQueueService from "../services/QueueService/DeleteQueueService";

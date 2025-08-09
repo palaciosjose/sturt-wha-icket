@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import multer from "multer";
 import authConfig from "../config/auth";
 import * as Yup from "yup";
 
