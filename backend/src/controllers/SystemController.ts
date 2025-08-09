@@ -224,16 +224,21 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     
     // Limpiar caché de npm para evitar problemas de dependencias
     try {
+      console.log("🧹 Limpiando caché de npm...");
       await execAsync("npm cache clean --force", { cwd: frontendPath });
+      console.log("✅ Caché npm limpiado correctamente");
     } catch (cacheError) {
       console.warn("⚠️ Advertencia: Error limpiando caché npm:", cacheError.message);
     }
     
+    console.log("📥 Instalando dependencias con --legacy-peer-deps --force...");
     await execAsync("npm install --legacy-peer-deps --force", { cwd: frontendPath });
+    console.log("✅ Dependencias del frontend instaladas correctamente");
 
     // 9. Compilar el frontend
     console.log("🔨 Compilando frontend...");
     await execAsync("npm run build", { cwd: frontendPath });
+    console.log("✅ Frontend compilado correctamente");
 
     // 10. Verificar que la actualización fue exitosa
     const { stdout: newCommit } = await run("git rev-parse HEAD");
