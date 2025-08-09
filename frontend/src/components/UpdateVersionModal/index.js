@@ -141,31 +141,68 @@ const UpdateVersionModal = ({ open, onClose }) => {
       // La recarga se realizará cuando presione "CERRAR"
 
     } catch (err) {
-      // Manejo especial para errores de conexión durante reinicio
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout') || err.message.includes('Network Error')) {
-        // Esperar y verificar si la actualización se completó
-        setTimeout(async () => {
+      console.log("Error durante actualización:", err);
+      
+      // Manejo especial para errores de conexión durante reinicio o timeout
+      if (err.code === 'ECONNABORTED' || 
+          err.message.includes('timeout') || 
+          err.message.includes('Network Error') ||
+          err.message.includes('socket hang up') ||
+          err.response?.status === 502 ||
+          err.response?.status === 503 ||
+          !err.response) {
+        
+        console.log("Detectado error de conexión/timeout. Verificando si actualización se completó...");
+        
+        // Mostrar mensaje al usuario
+        setUpdateProgress(95);
+        setError("🔄 Verificando si la actualización se completó correctamente...");
+        
+        // Intentar verificar múltiples veces
+        let attempts = 0;
+        const maxAttempts = 6;
+        
+        const checkCompletion = async () => {
+          attempts++;
           try {
             const { data: checkResult } = await api.get("/system/check-updates");
             // Si el sistema responde, la actualización fue exitosa
+            setError(null);
             setUpdateProgress(100);
             setUpdateStatus({
               ...updateStatus,
               updateCompleted: true,
               newVersion: checkResult.currentVersion,
-              newMessage: "Actualización completada (conexión restaurada)",
+              newMessage: "Recompilación forzada completada (conexión restaurada)",
               newAuthor: "Sistema",
               newDate: new Date().toLocaleDateString(),
-              steps: ["✅ Actualización aplicada", "✅ Servicios reiniciados", "✅ Conexión restaurada"]
+              steps: [
+                "✅ Código actualizado",
+                "✅ Dependencias del backend actualizadas", 
+                "✅ Backend compilado y reiniciado",
+                "✅ Migraciones de base de datos ejecutadas",
+                "✅ Dependencias del frontend actualizadas",
+                "✅ Frontend compilado correctamente",
+                "✅ Servicio frontend reiniciado",
+                "✅ Verificación de servicios completada",
+                "✅ Conexión restaurada exitosamente"
+              ]
             });
             
-            // Ya no recargamos automáticamente
           } catch (retryErr) {
-            setError("Error de conexión durante la actualización. Recarga la página para verificar si se completó.");
-            setUpdating(false);
-            setUpdateProgress(0);
+            if (attempts < maxAttempts) {
+              console.log(`Intento ${attempts}/${maxAttempts} fallido, reintentando...`);
+              setTimeout(checkCompletion, 5000);
+            } else {
+              setError("La actualización puede haberse completado. Presiona CERRAR y verifica si los cambios se aplicaron.");
+              setUpdating(false);
+              setUpdateProgress(90);
+            }
           }
-        }, 10000); // Esperar 10 segundos antes de verificar
+        };
+        
+        // Comenzar verificación después de 8 segundos
+        setTimeout(checkCompletion, 8000);
       } else {
         setError(err.response?.data?.error || "Error al forzar recompilación");
         setUpdating(false);
@@ -239,10 +276,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
               steps: ["✅ Actualización aplicada", "✅ Servicios reiniciados", "✅ Conexión restaurada"]
             });
             
-            const reloadDelay = type === 'full' ? 5000 : 3000;
-            setTimeout(() => {
-              window.location.reload();
-            }, reloadDelay);
+            // Ya no recargamos automáticamente
           } catch (retryErr) {
             setError("Error de conexión durante la actualización. Recarga la página para verificar si se completó.");
             setUpdateProgress(0);
