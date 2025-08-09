@@ -136,3 +136,4 @@ print_message "   🗄️ Migraciones de base de datos automáticas" $GREEN
 print_message "   🔨 Recompilación automática de backend y frontend" $GREEN
 print_message "   📊 Progreso visual durante la actualización" $GREEN
 print_message "   ✅ Validaciones de seguridad y permisos" $GREEN
+
