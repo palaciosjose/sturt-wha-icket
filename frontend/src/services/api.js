@@ -9,6 +9,11 @@ const api = axios.create({
 // ✅ INTERCEPTOR MEJORADO PARA MANEJO AUTOMÁTICO DE TOKENS
 api.interceptors.request.use(
   (config) => {
+    // Configuración especial para endpoints de actualización (timeout extendido)
+    if (config.url.includes('/system/perform-') || config.url.includes('/system/check-updates')) {
+      config.timeout = 300000; // 5 minutos para actualizaciones
+    }
+    
     // Solo verificar token si NO es una ruta de autenticación
     if (!config.url.includes('/auth/') && !config.url.includes('/login')) {
       // Verificar token antes de cada request

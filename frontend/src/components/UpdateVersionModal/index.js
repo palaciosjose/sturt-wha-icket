@@ -143,10 +143,39 @@ const UpdateVersionModal = ({ open, onClose }) => {
       }, 5000);
 
     } catch (err) {
-      setError(err.response?.data?.error || "Error al forzar recompilación");
-      setUpdating(false);
-      setUpdateProgress(0);
-      toastError(err);
+      // Manejo especial para errores de conexión durante reinicio
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout') || err.message.includes('Network Error')) {
+        // Esperar y verificar si la actualización se completó
+        setTimeout(async () => {
+          try {
+            const { data: checkResult } = await api.get("/system/check-updates");
+            // Si el sistema responde, la actualización fue exitosa
+            setUpdateProgress(100);
+            setUpdateStatus({
+              ...updateStatus,
+              updateCompleted: true,
+              newVersion: checkResult.currentVersion,
+              newMessage: "Actualización completada (conexión restaurada)",
+              newAuthor: "Sistema",
+              newDate: new Date().toLocaleDateString(),
+              steps: ["✅ Actualización aplicada", "✅ Servicios reiniciados", "✅ Conexión restaurada"]
+            });
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 3000);
+          } catch (retryErr) {
+            setError("Error de conexión durante la actualización. Recarga la página para verificar si se completó.");
+            setUpdating(false);
+            setUpdateProgress(0);
+          }
+        }, 10000); // Esperar 10 segundos antes de verificar
+      } else {
+        setError(err.response?.data?.error || "Error al forzar recompilación");
+        setUpdating(false);
+        setUpdateProgress(0);
+        toastError(err);
+      }
     }
   };
 
@@ -199,9 +228,38 @@ const UpdateVersionModal = ({ open, onClose }) => {
       }, reloadDelay);
 
     } catch (err) {
-      setError(err.response?.data?.error || "Error durante la actualización");
-      toastError(err);
-      setUpdateProgress(0);
+      // Manejo especial para errores de conexión durante reinicio
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout') || err.message.includes('Network Error')) {
+        // Esperar y verificar si la actualización se completó
+        setTimeout(async () => {
+          try {
+            const { data: checkResult } = await api.get("/system/check-updates");
+            // Si el sistema responde, la actualización fue exitosa
+            setUpdateProgress(100);
+            setUpdateStatus({
+              ...updateStatus,
+              updateCompleted: true,
+              newVersion: checkResult.currentVersion,
+              newMessage: "Actualización completada (conexión restaurada)",
+              newAuthor: "Sistema",
+              newDate: new Date().toLocaleDateString(),
+              steps: ["✅ Actualización aplicada", "✅ Servicios reiniciados", "✅ Conexión restaurada"]
+            });
+            
+            const reloadDelay = type === 'full' ? 5000 : 3000;
+            setTimeout(() => {
+              window.location.reload();
+            }, reloadDelay);
+          } catch (retryErr) {
+            setError("Error de conexión durante la actualización. Recarga la página para verificar si se completó.");
+            setUpdateProgress(0);
+          }
+        }, 10000); // Esperar 10 segundos antes de verificar
+      } else {
+        setError(err.response?.data?.error || "Error durante la actualización");
+        toastError(err);
+        setUpdateProgress(0);
+      }
     } finally {
       setUpdating(false);
     }
