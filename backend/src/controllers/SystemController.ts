@@ -233,6 +233,18 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     
     console.log("📥 Instalando dependencias con --legacy-peer-deps --force...");
     await execAsync("npm install --legacy-peer-deps --force", { cwd: frontendPath });
+    
+    // Instalar cross-env específicamente si no está disponible
+    console.log("🔧 Verificando e instalando cross-env...");
+    try {
+      await execAsync("npm list cross-env", { cwd: frontendPath });
+      console.log("✅ cross-env ya está instalado");
+    } catch (error) {
+      console.log("📥 Instalando cross-env específicamente...");
+      await execAsync("npm install cross-env --save-dev --legacy-peer-deps", { cwd: frontendPath });
+      console.log("✅ cross-env instalado correctamente");
+    }
+    
     console.log("✅ Dependencias del frontend instaladas correctamente");
 
     // 9. Compilar el frontend
