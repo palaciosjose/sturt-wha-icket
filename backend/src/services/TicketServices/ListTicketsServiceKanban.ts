@@ -57,7 +57,7 @@ const ListTicketsServiceKanban = async ({
     {
       model: Contact,
       as: "contact",
-      attributes: ["id", "name", "number", "email", "profilePicUrl"]
+      attributes: ["id", "name", "number", "email", "profilePicUrl", "isGroup"]
     },
     {
       model: Queue,
@@ -88,6 +88,13 @@ const ListTicketsServiceKanban = async ({
   whereCondition = {
     ...whereCondition,
     status: { [Op.or]: ["pending", "open"] }
+  };
+
+  // ✅ FILTRAR SOLO CONTACTOS INDIVIDUALES (NO GRUPOS DE WHATSAPP)
+  // Kanban está diseñado exclusivamente para contactos directos
+  whereCondition = {
+    ...whereCondition,
+    "$contact.isGroup$": false
   };
 
   if (searchParam) {

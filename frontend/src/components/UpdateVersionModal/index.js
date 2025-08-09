@@ -463,7 +463,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
           {updateStatus.hasUpdates && (
             <Paper className={`${classes.alert} ${classes.infoAlert}`}>
               <Typography variant="body2">
-                {i18n.t("updateVersion.messages.commitsAhead", { count: updateStatus.commitsAhead })}
+                Hay {updateStatus.commitsAhead} nuevos commits disponibles.
               </Typography>
               <Divider style={{ margin: "16px 0" }} />
               <Typography variant="h6" gutterBottom>
