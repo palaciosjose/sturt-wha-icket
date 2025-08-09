@@ -221,7 +221,15 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     // 8. Actualizar dependencias del frontend
     console.log("📦 Actualizando dependencias del frontend...");
     const frontendPath = path.join(projectRoot, "frontend");
-    await execAsync("npm install --legacy-peer-deps", { cwd: frontendPath });
+    
+    // Limpiar caché de npm para evitar problemas de dependencias
+    try {
+      await execAsync("npm cache clean --force", { cwd: frontendPath });
+    } catch (cacheError) {
+      console.warn("⚠️ Advertencia: Error limpiando caché npm:", cacheError.message);
+    }
+    
+    await execAsync("npm install --legacy-peer-deps --force", { cwd: frontendPath });
 
     // 9. Compilar el frontend
     console.log("🔨 Compilando frontend...");
