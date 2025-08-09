@@ -74,12 +74,18 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
   try {
     console.log("🚀 Iniciando actualización del sistema...");
 
-    // 1. Verificar si hay cambios locales sin commitear
+    // 1. Verificar si hay cambios locales sin commitear (ignorar archivos no trackeados)
     const { stdout: gitStatus } = await run("git status --porcelain");
-    if (gitStatus.trim()) {
+    // Filtrar solo archivos modificados/staged (M, A, D, R, C, U) ignorando archivos no trackeados (??)
+    const trackedChanges = gitStatus.split('\n')
+      .filter(line => line.trim() && !line.startsWith('??'))
+      .join('\n');
+    
+    if (trackedChanges.trim()) {
       return res.status(400).json({
         error: "Hay cambios locales sin commitear",
-        details: "Por favor, haz commit o stash de los cambios antes de actualizar"
+        details: "Por favor, haz commit o stash de los cambios antes de actualizar",
+        changes: trackedChanges
       });
     }
 
@@ -147,12 +153,18 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
   try {
     console.log("🚀 Iniciando actualización completa del sistema...");
 
-    // 1. Verificar si hay cambios locales sin commitear
+    // 1. Verificar si hay cambios locales sin commitear (ignorar archivos no trackeados)
     const { stdout: gitStatus } = await run("git status --porcelain");
-    if (gitStatus.trim()) {
+    // Filtrar solo archivos modificados/staged (M, A, D, R, C, U) ignorando archivos no trackeados (??)
+    const trackedChanges = gitStatus.split('\n')
+      .filter(line => line.trim() && !line.startsWith('??'))
+      .join('\n');
+    
+    if (trackedChanges.trim()) {
       return res.status(400).json({
         error: "Hay cambios locales sin commitear",
-        details: "Por favor, haz commit o stash de los cambios antes de actualizar"
+        details: "Por favor, haz commit o stash de los cambios antes de actualizar",
+        changes: trackedChanges
       });
     }
 
