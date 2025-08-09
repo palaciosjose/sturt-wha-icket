@@ -241,8 +241,19 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
       console.log("✅ cross-env ya está instalado");
     } catch (error) {
       console.log("📥 Instalando cross-env específicamente...");
-      await execAsync("npm install cross-env --save-dev --legacy-peer-deps", { cwd: frontendPath });
-      console.log("✅ cross-env instalado correctamente");
+      try {
+        await execAsync("npm install cross-env --save-dev --legacy-peer-deps", { cwd: frontendPath });
+        
+        // Verificar que realmente se instaló
+        await execAsync("npm list cross-env", { cwd: frontendPath });
+        console.log("✅ cross-env instalado y verificado correctamente");
+      } catch (installError) {
+        console.warn("⚠️ Error instalando cross-env:", installError.message);
+        // Intentar con --force también
+        console.log("🔄 Reintentando instalación con --force...");
+        await execAsync("npm install cross-env --save-dev --legacy-peer-deps --force", { cwd: frontendPath });
+        console.log("✅ cross-env instalado con --force");
+      }
     }
     
     console.log("✅ Dependencias del frontend instaladas correctamente");
