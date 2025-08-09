@@ -16,6 +16,12 @@ api.interceptors.request.use(
         // Si el token es inválido, cancelar el request
         return Promise.reject(new Error("Token inválido - redirigiendo al login"));
       }
+      // Adjuntar token al header Authorization si existe
+      const token = localStorage.getItem("token");
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers["Authorization"] = `Bearer ${token}`;
+      }
     }
     return config;
   },
