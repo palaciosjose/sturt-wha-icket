@@ -99,6 +99,57 @@ const UpdateVersionModal = ({ open, onClose }) => {
     }
   };
 
+  const handleForceUpdate = async (type = 'full') => {
+    setUpdating(true);
+    setError(null);
+    setUpdateProgress(0);
+    setUpdateType(type);
+
+    try {
+      // Simular progreso
+      const progressInterval = setInterval(() => {
+        setUpdateProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 5;
+        });
+      }, 300);
+
+      const endpoint = "/system/perform-full-update";
+      const { data } = await api.post(endpoint, {
+        previousVersion: updateStatus.currentVersion,
+        forceRecompile: true // Flag para indicar recompilación forzada
+      });
+
+      clearInterval(progressInterval);
+      setUpdateProgress(100);
+
+      // Mostrar éxito
+      setUpdateStatus({
+        ...updateStatus,
+        updateCompleted: true,
+        newVersion: data.newVersion || updateStatus.currentVersion,
+        newMessage: "Recompilación forzada completada",
+        newAuthor: "Sistema",
+        newDate: new Date().toLocaleDateString(),
+        steps: data.steps || ["✅ Frontend recompilado", "✅ Servicios reiniciados"]
+      });
+
+      // Recargar la página después de 5 segundos
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+
+    } catch (err) {
+      setError(err.response?.data?.error || "Error al forzar recompilación");
+      setUpdating(false);
+      setUpdateProgress(0);
+      toastError(err);
+    }
+  };
+
   const handlePerformUpdate = async (type = 'basic') => {
     if (!updateStatus?.hasUpdates) {
       setError("No hay actualizaciones disponibles");
@@ -313,6 +364,28 @@ const UpdateVersionModal = ({ open, onClose }) => {
                   className={classes.updateButton}
                 >
                   <span role="img" aria-label="update">⚡</span> Actualización Completa
+                </Button>
+              </Box>
+            </Paper>
+          )}
+          
+          {/* ✅ NUEVA SECCIÓN: Opciones de mantenimiento incluso cuando está actualizado */}
+          {!updateStatus.hasUpdates && (
+            <Paper className={`${classes.alert} ${classes.warningAlert}`} style={{ marginTop: "16px" }}>
+              <Typography variant="h6" gutterBottom>
+                <span role="img" aria-label="tools">🔧</span> Opciones de Mantenimiento
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Aunque el sistema está actualizado, puedes forzar una recompilación para aplicar cambios que no se hayan aplicado correctamente.
+              </Typography>
+              <Box style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => handleForceUpdate('full')}
+                  className={classes.updateButton}
+                >
+                  <span role="img" aria-label="rebuild">🔄</span> Forzar Recompilación
                 </Button>
               </Box>
             </Paper>

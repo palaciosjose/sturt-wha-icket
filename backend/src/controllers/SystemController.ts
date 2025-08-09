@@ -151,7 +151,13 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
 
 export const performFullUpdate = async (req: Request, res: Response): Promise<Response> => {
   try {
-    console.log("🚀 Iniciando actualización completa del sistema...");
+    const forceRecompile = req.body?.forceRecompile;
+    
+    if (forceRecompile) {
+      console.log("🔄 Iniciando recompilación forzada del sistema...");
+    } else {
+      console.log("🚀 Iniciando actualización completa del sistema...");
+    }
 
     // 1. Verificar si hay cambios locales sin commitear (ignorar archivos no trackeados)
     const { stdout: gitStatus } = await run("git status --porcelain");
@@ -168,17 +174,19 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
       });
     }
 
-    // 2. Verificar si hay actualizaciones disponibles
-    await run("git fetch origin");
-    const { stdout: currentBranch } = await run("git branch --show-current");
-    const branch = currentBranch.trim();
-    const { stdout: commitsAhead } = await run("git rev-list --count HEAD..origin/" + branch);
-    
-    if (parseInt(commitsAhead) === 0) {
-      return res.status(400).json({
-        error: "No hay actualizaciones disponibles",
-        details: "El sistema ya está actualizado"
-      });
+    // 2. Verificar si hay actualizaciones disponibles (salvo si es recompilación forzada)
+    if (!forceRecompile) {
+      await run("git fetch origin");
+      const { stdout: currentBranch } = await run("git branch --show-current");
+      const branch = currentBranch.trim();
+      const { stdout: commitsAhead } = await run("git rev-list --count HEAD..origin/" + branch);
+      
+      if (parseInt(commitsAhead) === 0) {
+        return res.status(400).json({
+          error: "No hay actualizaciones disponibles",
+          details: "El sistema ya está actualizado"
+        });
+      }
     }
 
     // 3. Crear backup antes de actualizar
