@@ -140,12 +140,14 @@ const Kanban = () => {
         return;
       }
       
-      // ✅ MANEJAR ETIQUETAS NORMALES (ATENCIÓN, CERRADO)
-      const targetTag = tags.find(tag => {
-        if (targetLaneId === 'atencion') return tag.name === 'Atención';
-        if (targetLaneId === 'cerrado') return tag.name === 'Cerrado';
-        return false;
-      });
+      // ✅ MANEJAR ETIQUETAS DINÁMICAS
+      let targetTag = null;
+      
+      // Si el targetLaneId es dinámico (formato: tag-123)
+      if (targetLaneId.startsWith('tag-')) {
+        const targetTagId = parseInt(targetLaneId.replace('tag-', ''));
+        targetTag = tags.find(tag => tag.id === targetTagId);
+      }
       
       if (!targetTag) {
         logger.dashboard.error("❌ Tag no encontrado para:", targetLaneId);
@@ -156,12 +158,12 @@ const Kanban = () => {
       // Solo eliminar el tag si existe en el origen
       if (sourceLaneId && sourceLaneId !== targetLaneId) {
         try {
-          // Encontrar el tag del origen
-          const sourceTag = tags.find(tag => {
-            if (sourceLaneId === 'atencion') return tag.name === 'Atención';
-            if (sourceLaneId === 'cerrado') return tag.name === 'Cerrado';
-            return false;
-          });
+          // Encontrar el tag del origen (dinámico)
+          let sourceTag = null;
+          if (sourceLaneId.startsWith('tag-')) {
+            const sourceTagId = parseInt(sourceLaneId.replace('tag-', ''));
+            sourceTag = tags.find(tag => tag.id === sourceTagId);
+          }
           
           if (sourceTag) {
             await api.delete(`/ticket-tags/${cardId}`);

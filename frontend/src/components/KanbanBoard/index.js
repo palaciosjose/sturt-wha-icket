@@ -179,51 +179,50 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
     setLocalTickets(tickets);
   }, [tickets]);
 
-  // Separar tickets por estado/etiquetas usando tickets locales
+  // ✅ LÓGICA DINÁMICA: Separar tickets por etiquetas que tienen kanban=true
   const ticketsSinEtiquetas = localTickets.filter(ticket => ticket.tags.length === 0);
   
-  // Usar las etiquetas reales de la base de datos
-  // Buscar etiquetas específicas por nombre exacto
-  const etiquetaAtencion = tags.find(tag => tag.name === 'Atención');
-  const etiquetaCerrado = tags.find(tag => tag.name === 'Cerrado');
+  // ✅ Filtrar solo etiquetas que tienen kanban activado
+  const etiquetasKanban = tags.filter(tag => tag.kanban === 1);
   
-  const ticketsAtencion = etiquetaAtencion 
-    ? localTickets.filter(ticket => ticket.tags.some(tag => tag.id === etiquetaAtencion.id))
-    : [];
-  
-  const ticketsCerrado = etiquetaCerrado 
-    ? localTickets.filter(ticket => ticket.tags.some(tag => tag.id === etiquetaCerrado.id))
-    : [];
+  // ✅ Crear un objeto para mapear etiquetas a sus tickets
+  const ticketsPorEtiqueta = {};
+  etiquetasKanban.forEach(tag => {
+    ticketsPorEtiqueta[tag.id] = localTickets.filter(ticket => 
+      ticket.tags.some(ticketTag => ticketTag.id === tag.id)
+    );
+  });
 
-  // ✅ Debug para verificar que los tickets locales se están usando
+  // ✅ Debug para verificar etiquetas kanban y tickets
   React.useEffect(() => {
-    logger.dashboard.debug('🔄 Tickets locales actualizados:', {
-      total: localTickets.length,
+    logger.dashboard.debug('🔄 Kanban dinámico actualizado:', {
+      totalTickets: localTickets.length,
       sinEtiquetas: ticketsSinEtiquetas.length,
-      atencion: ticketsAtencion.length,
-      cerrado: ticketsCerrado.length
+      etiquetasKanban: etiquetasKanban.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        kanban: tag.kanban,
+        tickets: ticketsPorEtiqueta[tag.id]?.length || 0
+      }))
     });
-  }, [localTickets, ticketsSinEtiquetas, ticketsAtencion, ticketsCerrado]);
+  }, [localTickets, etiquetasKanban, ticketsPorEtiqueta]);
 
+  // ✅ CREAR COLUMNAS DINÁMICAMENTE
   const columns = [
+    // Columna fija de ABIERTOS (tickets sin etiquetas)
     {
       id: "abiertos",
       title: "ABIERTOS",
       tickets: ticketsSinEtiquetas,
-      color: "#1976d2" // Color fijo para ABIERTOS
+      color: "#1976d2"
     },
-    {
-      id: "atencion",
-      title: "ATENCIÓN",
-      tickets: ticketsAtencion,
-      color: etiquetaAtencion ? etiquetaAtencion.color : "#ff9800" // Usar color real de la etiqueta
-    },
-    {
-      id: "cerrado", 
-      title: "CERRADO",
-      tickets: ticketsCerrado,
-      color: etiquetaCerrado ? etiquetaCerrado.color : "#4caf50" // Usar color real de la etiqueta
-    }
+    // Columnas dinámicas basadas en etiquetas con kanban=true
+    ...etiquetasKanban.map(tag => ({
+      id: `tag-${tag.id}`,
+      title: tag.name.toUpperCase(),
+      tickets: ticketsPorEtiqueta[tag.id] || [],
+      color: tag.color || "#666666"
+    }))
   ];
 
   const handleScheduleClick = (e, ticket) => {
@@ -273,22 +272,28 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         // Crear una copia del ticket con las etiquetas actualizadas
         const updatedTicket = { ...ticketToMove };
         
-        // Remover etiquetas del origen
-        if (sourceLaneId === 'atencion' && etiquetaAtencion) {
-          updatedTicket.tags = updatedTicket.tags.filter(tag => tag.id !== etiquetaAtencion.id);
-          logger.dashboard.debug('✅ Removida etiqueta Atención');
-        } else if (sourceLaneId === 'cerrado' && etiquetaCerrado) {
-          updatedTicket.tags = updatedTicket.tags.filter(tag => tag.id !== etiquetaCerrado.id);
-          logger.dashboard.debug('✅ Removida etiqueta Cerrado');
+        // ✅ LÓGICA DINÁMICA: Remover etiquetas del origen
+        if (sourceLaneId.startsWith('tag-')) {
+          const sourceTagId = parseInt(sourceLaneId.replace('tag-', ''));
+          const sourceTag = etiquetasKanban.find(tag => tag.id === sourceTagId);
+          if (sourceTag) {
+            updatedTicket.tags = updatedTicket.tags.filter(tag => tag.id !== sourceTag.id);
+            logger.dashboard.debug(`✅ Removida etiqueta: ${sourceTag.name}`);
+          }
         }
         
-        // Agregar etiquetas al destino
-        if (targetLaneId === 'atencion' && etiquetaAtencion) {
-          updatedTicket.tags = [...updatedTicket.tags, etiquetaAtencion];
-          logger.dashboard.debug('✅ Agregada etiqueta Atención');
-        } else if (targetLaneId === 'cerrado' && etiquetaCerrado) {
-          updatedTicket.tags = [...updatedTicket.tags, etiquetaCerrado];
-          logger.dashboard.debug('✅ Agregada etiqueta Cerrado');
+        // ✅ LÓGICA DINÁMICA: Agregar etiquetas al destino
+        if (targetLaneId.startsWith('tag-')) {
+          const targetTagId = parseInt(targetLaneId.replace('tag-', ''));
+          const targetTag = etiquetasKanban.find(tag => tag.id === targetTagId);
+          if (targetTag) {
+            // Verificar que la etiqueta no esté ya presente
+            const alreadyHasTag = updatedTicket.tags.some(tag => tag.id === targetTag.id);
+            if (!alreadyHasTag) {
+              updatedTicket.tags = [...updatedTicket.tags, targetTag];
+              logger.dashboard.debug(`✅ Agregada etiqueta: ${targetTag.name}`);
+            }
+          }
         }
         
         // Actualizar estado local inmediatamente
