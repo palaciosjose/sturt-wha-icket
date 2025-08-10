@@ -1,18 +1,18 @@
 import express from "express";
-import * as HubWebhookController from "../controllers/HubWebhookController";
+import * as WebhookHubController from "../controllers/WebhookHubController";
 import * as NotificaMeSendController from "../controllers/NotificaMeSendController";
 
 const routes = express.Router();
 
-// ✅ Ruta principal del webhook para NotificaMe
-// POST /{token}
-routes.post("/:token", HubWebhookController.handleWebhook);
+// ✅ Ruta principal del webhook para NotificaMe (ESTRUCTURA QUE FUNCIONABA)
+// POST /hub-webhook/{channelId}
+routes.post("/hub-webhook/:channelId", WebhookHubController.listen);
 
 // ✅ Ruta de prueba del webhook (opcional)
-routes.get("/test/:token", (req, res) => {
+routes.get("/hub-webhook/test/:channelId", (req, res) => {
   res.json({ 
     message: "Webhook funcionando correctamente",
-    token: req.params.token,
+    channelId: req.params.channelId,
     timestamp: new Date().toISOString()
   });
 });
