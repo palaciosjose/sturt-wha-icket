@@ -37,7 +37,7 @@ export default async function DashboardDataService(
               (HOUR(TIMEDIFF(COALESCE(tt.ratingAt, tt.finishedAt), tt.startedAt)) * 60) +
               (MINUTE(TIMEDIFF(COALESCE(tt.ratingAt, tt.finishedAt), tt.startedAt)))
             ), 0) as supportTime
-          FROM tickettraking tt
+          FROM TicketTraking tt
           WHERE tt.companyId = ? AND tt.finishedAt IS NOT NULL
         ) t WHERE t.supportTime > 0), 0),
         'avgWaitTime', COALESCE((SELECT AVG(waitTime) FROM (
@@ -47,13 +47,13 @@ export default async function DashboardDataService(
               (HOUR(TIMEDIFF(tt.startedAt, tt.queuedAt)) * 60) +
               (MINUTE(TIMEDIFF(tt.startedAt, tt.queuedAt)))
             ), 0) as waitTime
-          FROM tickettraking tt
+          FROM TicketTraking tt
           WHERE tt.companyId = ? AND tt.queuedAt IS NOT NULL AND tt.startedAt IS NOT NULL
         ) t WHERE t.waitTime > 0), 0),
         'supportHappening', (SELECT COUNT(*) FROM Tickets WHERE status = 'open' AND companyId = ?),
         'supportPending', (SELECT COUNT(*) FROM Tickets WHERE status = 'pending' AND companyId = ?),
-        'supportFinished', (SELECT COUNT(*) FROM tickettraking WHERE finishedAt IS NOT NULL AND companyId = ?),
-        'leads', (SELECT COUNT(DISTINCT ct.id) FROM tickettraking tt 
+        'supportFinished', (SELECT COUNT(*) FROM TicketTraking WHERE finishedAt IS NOT NULL AND companyId = ?),
+        'leads', (SELECT COUNT(DISTINCT ct.id) FROM TicketTraking tt 
                  LEFT JOIN Tickets t ON t.id = tt.ticketId 
                  LEFT JOIN Contacts ct ON ct.id = t.contactId 
                  WHERE tt.companyId = ? AND ct.id IS NOT NULL),
@@ -80,7 +80,7 @@ export default async function DashboardDataService(
         COUNT(tt.id) as tickets,
         COALESCE(AVG(ur.rate), 0) as rating
       FROM Users u1
-      LEFT JOIN tickettraking tt ON tt.userId = u1.id AND tt.companyId = ?
+      LEFT JOIN TicketTraking tt ON tt.userId = u1.id AND tt.companyId = ?
       LEFT JOIN UserRatings ur ON ur.userId = tt.userId AND DATE(ur.createdAt) = DATE(tt.finishedAt)
       GROUP BY u1.id
     ) att ON att.id = u.id
