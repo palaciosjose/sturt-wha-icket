@@ -70,8 +70,8 @@ routes.use(promptRoutes);
 routes.use(queueIntegrationRoutes);
 routes.use(forgotsRoutes);
 routes.use(versionRouter);
-routes.use(hubNotificaMeRoutes);
-routes.use(hubWebhookRoutes);
+routes.use("/hub-notificame", hubNotificaMeRoutes);
+routes.use("/webhook", hubWebhookRoutes);
 routes.use("/system", systemRoutes);
 
 export default routes;
