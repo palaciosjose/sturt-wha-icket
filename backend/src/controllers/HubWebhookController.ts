@@ -36,8 +36,7 @@ export const handleWebhook = async (
     }
 
     const { token } = req.params;
-    const webhookData: WebhookData = req.body;
-
+    
     // ✅ Validar token contra tabla HubNotificaMe
     const hubConfig = await HubNotificaMe.findOne({
       where: { token }
@@ -47,6 +46,17 @@ export const handleWebhook = async (
       logger.error(`Webhook token inválido: ${token}`);
       return res.status(401).json({ error: "Token inválido" });
     }
+
+    // ✅ Manejar petición de validación de NotificaMe Hub
+    if (req.method === 'GET' || req.query['hub.mode'] === 'subscribe') {
+      logger.info(`🔍 [NotificaMe] Validación de webhook recibida`);
+      return res.status(200).json({
+        success: true,
+        message: "Webhook validado correctamente"
+      });
+    }
+
+    const webhookData: WebhookData = req.body;
 
     // ✅ Log del webhook recibido
     logger.info(`📬 WEBHOOK RECIBIDO - Empresa: ${hubConfig.companyId}, Tipo: ${webhookData.type}`);
