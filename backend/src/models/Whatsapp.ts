@@ -103,6 +103,9 @@ class Whatsapp extends Model<Whatsapp> {
   company: Company;
 
   @Column
+  type: string;
+
+  @Column
   token: string;
 
   //@Default(0)
