@@ -209,7 +209,11 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     await execAsync("npm run build", { cwd: backendPath });
     console.log("✅ Backend compilado correctamente");
 
-    // 6.1. Reiniciar servicio backend para aplicar cambios compilados
+    // 6.1. Esperar que la compilación se complete totalmente
+    console.log("⏳ Esperando que la compilación se aplique completamente...");
+    await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos de espera
+
+    // 6.2. Reiniciar servicio backend para aplicar cambios compilados
     console.log("🔄 Reiniciando servicio backend...");
     await execAsync("pm2 restart watoolx-backend");
     console.log("✅ Servicio backend reiniciado");

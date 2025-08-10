@@ -33,7 +33,7 @@ export const TicketsAttendance = async ({ initialDate, finalDate, companyId }: R
     COUNT(*) AS quantidade,
     u.name AS nome
   from
-    tickettraking tt
+    TicketTraking tt
     left join Users u on u.id = tt.userId
   where
     tt.companyId = ${companyId}

@@ -30,7 +30,7 @@ export const TicketsDayService = async ({ initialDate, finalDate, companyId }: R
       HOUR(tick.createdAt) AS horario
       --DATE_FORMAT(DATE(tick.createdAt), '%d/%m/%Y') as horario
     FROM
-      tickettraking tick
+      TicketTraking tick
     WHERE
       tick.companyId = ${companyId}
       and DATE(tick.createdAt) >= '${initialDate} 00:00:00'
@@ -47,7 +47,7 @@ export const TicketsDayService = async ({ initialDate, finalDate, companyId }: R
     COUNT(*) AS total,
     DATE_FORMAT(DATE(tick.createdAt), '%d/%m/%Y') as data
   FROM
-    tickettraking tick
+    TicketTraking tick
   WHERE
     tick.companyId = ${companyId}
     and DATE(tick.createdAt) >= '${initialDate}'
