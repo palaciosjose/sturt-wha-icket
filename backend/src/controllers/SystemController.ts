@@ -213,10 +213,8 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
     console.log("⏳ Esperando que la compilación se aplique completamente...");
     await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos de espera
 
-    // 6.2. Reiniciar servicio backend para aplicar cambios compilados
-    console.log("🔄 Reiniciando servicio backend...");
-    await execAsync("pm2 restart watoolx-backend");
-    console.log("✅ Servicio backend reiniciado");
+    // 6.2. El reinicio del backend se programará después de enviar la respuesta
+    console.log("✅ Backend compilado y listo para reinicio diferido");
 
     // 7. Ejecutar migraciones de base de datos
     console.log("🗄️ Ejecutando migraciones de base de datos...");
@@ -297,6 +295,18 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
 
     console.log("✅ Actualización completa finalizada exitosamente");
 
+    // Programar reinicio diferido del backend después de enviar la respuesta
+    setTimeout(async () => {
+      try {
+        console.log("🔄 Ejecutando reinicio diferido del backend...");
+        const { execSync } = require('child_process');
+        execSync("pm2 restart watoolx-backend", { stdio: 'inherit' });
+        console.log("✅ Backend reiniciado exitosamente");
+      } catch (restartError) {
+        console.error("⚠️ Advertencia: Error en reinicio diferido del backend:", restartError.message);
+      }
+    }, 2000); // 2 segundos después de enviar la respuesta
+
     return res.status(200).json({
       success: true,
       message: "Actualización completa finalizada exitosamente",
@@ -309,7 +319,7 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
       steps: [
         "✅ Código actualizado",
         "✅ Dependencias del backend actualizadas", 
-        "✅ Backend compilado y reiniciado",
+        "✅ Backend compilado y listo para reinicio",
         "✅ Migraciones de base de datos ejecutadas",
         "✅ Dependencias del frontend actualizadas",
         "✅ Frontend compilado correctamente",
