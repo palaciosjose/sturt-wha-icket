@@ -23,19 +23,21 @@ const FindOrCreateTicketService = async (
   companyId: number,
   groupContact?: Contact
 ): Promise<Ticket> => {
+  // 🔧 MEJORAR: Buscar primero por contacto sin filtrar por whatsappId
+  // Esto evita crear tickets duplicados para el mismo contacto
   let ticket = await Ticket.findOne({
     where: {
       status: {
-        [Op.or]: ["open", "pending", "closed"]
+        [Op.or]: ["open", "pending"]  // ✅ Solo tickets activos (no cerrados)
       },
       contactId: groupContact ? groupContact.id : contact.id,
-      companyId,
-      whatsappId
+      companyId
+      // ✅ Removido whatsappId para permitir encontrar tickets existentes
     },
     include: [
       { model: Queue, as: 'queue', include: [{ model: Prompt, as: 'prompt' }] }
     ],
-    order: [["id", "DESC"]]
+    order: [["updatedAt", "DESC"]]  // ✅ Ordenar por última actividad
   });
 
   if (ticket) {
