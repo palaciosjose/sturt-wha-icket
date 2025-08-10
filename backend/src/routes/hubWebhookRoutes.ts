@@ -5,11 +5,11 @@ import * as NotificaMeSendController from "../controllers/NotificaMeSendControll
 const routes = express.Router();
 
 // ✅ Ruta principal del webhook para NotificaMe
-// POST /hub-webhook/{token}
-routes.post("/hub-webhook/:token", HubWebhookController.handleWebhook);
+// POST /{token}
+routes.post("/:token", HubWebhookController.handleWebhook);
 
 // ✅ Ruta de prueba del webhook (opcional)
-routes.get("/hub-webhook/test/:token", (req, res) => {
+routes.get("/test/:token", (req, res) => {
   res.json({ 
     message: "Webhook funcionando correctamente",
     token: req.params.token,
