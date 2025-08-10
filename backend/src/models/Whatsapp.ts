@@ -22,7 +22,9 @@ import Company from "./Company";
 import Prompt from "./Prompt";
 import QueueIntegrations from "./QueueIntegrations";
 
-@Table
+@Table({
+  tableName: "Whatsapps"
+})
 class Whatsapp extends Model<Whatsapp> {
   @PrimaryKey
   @AutoIncrement
