@@ -33,6 +33,7 @@ import queueIntegrationRoutes from "./queueIntegrationRoutes";
 import forgotsRoutes from "./forgotPasswordRoutes";
 import versionRouter from "./versionRoutes";
 import hubNotificaMeRoutes from "./hubNotificaMeRoutes";
+import hubWebhookRoutes from "./hubWebhookRoutes";
 import systemRoutes from "./systemRoutes";
 
 const routes = Router();
@@ -70,6 +71,7 @@ routes.use(queueIntegrationRoutes);
 routes.use(forgotsRoutes);
 routes.use(versionRouter);
 routes.use(hubNotificaMeRoutes);
+routes.use(hubWebhookRoutes);
 routes.use("/system", systemRoutes);
 
 export default routes;

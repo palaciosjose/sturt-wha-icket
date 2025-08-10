@@ -8,9 +8,13 @@ import { startQueueProcess } from "./queues";
 import { TransferTicketQueue } from "./wbotTransferTicketQueue";
 import cron from "node-cron";
 import { diagnoseCampaignSystem } from "./utils/campaignDiagnostic";
+import { initializeConfigurations } from "./config/init";
 
 const server = app.listen(process.env.PORT, async () => {
   try {
+    // ✅ Inicializar configuraciones del sistema
+    initializeConfigurations();
+    
     const companies = await Company.findAll();
     const sessionPromises = [];
 
