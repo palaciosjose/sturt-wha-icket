@@ -41,7 +41,13 @@ const FindOrCreateTicketService = async (
   });
 
   if (ticket) {
-    await ticket.update({ unreadMessages, whatsappId });
+    const updateData: Partial<TicketData & { whatsappId?: number | null }> = {
+      unreadMessages
+    };
+    if (whatsappId && whatsappId > 0) {
+      updateData.whatsappId = whatsappId;
+    }
+    await ticket.update(updateData as any);
   }
   
   if (ticket?.status === "closed") {
@@ -112,9 +118,9 @@ const FindOrCreateTicketService = async (
     }
   }
   
-    const whatsapp = await Whatsapp.findOne({
-    where: { id: whatsappId }
-  });
+  const whatsapp = whatsappId && whatsappId > 0
+    ? await Whatsapp.findOne({ where: { id: whatsappId } })
+    : null;
 
   let wasCreated = false;
 
@@ -124,8 +130,8 @@ const FindOrCreateTicketService = async (
       status: "pending",
       isGroup: !!groupContact,
       unreadMessages,
-      whatsappId,
-      whatsapp,
+      whatsappId: whatsapp ? whatsapp.id : null,
+      whatsapp: whatsapp || undefined,
       companyId
     });
     await FindOrCreateATicketTrakingService({
