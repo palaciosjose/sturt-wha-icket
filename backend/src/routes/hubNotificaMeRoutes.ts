@@ -5,15 +5,15 @@ import * as HubNotificaMeController from "../controllers/HubNotificaMeController
 const routes = express.Router();
 
 // Ruta para listar HubNotificaMe (solo registros del usuario y empresa de la sesión)
-routes.get("/hub-notificame/list", isAuth, HubNotificaMeController.findList);
+routes.get("/list", isAuth, HubNotificaMeController.findList);
 
 // Ruta para crear un nuevo HubNotificaMe
-routes.post("/hub-notificame", isAuth, HubNotificaMeController.store);
+routes.post("/", isAuth, HubNotificaMeController.store);
 
 // Ruta para actualizar un HubNotificaMe existente
-routes.put("/hub-notificame/:id", isAuth, HubNotificaMeController.update);
+routes.put("/:id", isAuth, HubNotificaMeController.update);
 
 // Ruta para eliminar un HubNotificaMe
-routes.delete("/hub-notificame/:id", isAuth, HubNotificaMeController.remove);
+routes.delete("/:id", isAuth, HubNotificaMeController.remove);
 
 export default routes; 
