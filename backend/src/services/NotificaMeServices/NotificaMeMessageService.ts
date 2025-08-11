@@ -44,13 +44,14 @@ class NotificaMeMessageService {
   // ✅ Procesar mensaje entrante de NotificaMe
   static async processIncomingMessage({
     message,
-    hubConfig
-  }: ProcessMessageRequest): Promise<void> {
+    hubConfig,
+    webhookData
+  }: ProcessMessageRequest & { webhookData?: any }): Promise<void> {
     try {
       logger.info(`📨 [NotificaMe] Procesando mensaje de ${message.from} en canal ${message.channel}`);
 
       // ✅ 1. Crear/actualizar contacto
-      const contact = await this.createOrUpdateContact(message, hubConfig);
+      const contact = await this.createOrUpdateContact(message, hubConfig, webhookData);
       if (!contact) {
         logger.error(`[NotificaMe] No se pudo crear/actualizar contacto para ${message.from}`);
         return;
@@ -64,7 +65,7 @@ class NotificaMeMessageService {
       }
 
       // ✅ 3. Crear mensaje en el ticket
-      await this.createMessage(message, ticket, contact, hubConfig);
+      await this.createMessage(message, ticket, contact, hubConfig, webhookData);
 
       logger.info(`✅ [NotificaMe] Mensaje procesado correctamente - Ticket: ${ticket.id}, Contacto: ${contact.name}`);
 
@@ -96,17 +97,18 @@ class NotificaMeMessageService {
   // ✅ Crear/actualizar contacto desde mensaje
   private static async createOrUpdateContact(
     message: NotificaMeMessage,
-    hubConfig: HubNotificaMe
+    hubConfig: HubNotificaMe,
+    webhookData?: any // Agregar webhookData completo para acceder a visitor
   ) {
     try {
       const direction = (message.direction || "in").toLowerCase();
       // Para OUT, el "contacto" es el destinatario (to). Para IN, es el remitente (from)
       const externalId = direction === "out" ? message.to : message.from;
       
-      // ✅ Extraer nombre real del visitor si está disponible
-      const visitorName = (message as any).visitor?.name || 
-                         (message as any).visitor?.firstName || 
-                         externalId;
+      // ✅ Extraer nombre real del visitor desde webhookData (no desde message)
+      const visitorName = webhookData?.visitor?.name || 
+                         webhookData?.visitor?.firstName || 
+                         "Usuario Instagram"; // Nombre por defecto más amigable
 
       const contactData = {
         name: visitorName,
@@ -115,11 +117,11 @@ class NotificaMeMessageService {
         companyId: hubConfig.companyId,
         isGroup: false, // NotificaMe no maneja grupos
         channel: message.channel,
-        profilePicUrl: (message as any).visitor?.picture || ""
+        profilePicUrl: webhookData?.visitor?.picture || ""
       };
 
       const contact = await CreateOrUpdateContactService(contactData);
-      logger.info(`✅ [NotificaMe] Contacto creado/actualizado: ${contact.name}`);
+      logger.info(`✅ [NotificaMe] Contacto creado/actualizado: ${contact.name} (${externalId})`);
 
       return contact;
     } catch (error) {
@@ -188,14 +190,25 @@ class NotificaMeMessageService {
     message: NotificaMeMessage,
     ticket: any,
     contact: any,
-    hubConfig: HubNotificaMe
+    hubConfig: HubNotificaMe,
+    webhookData?: any
   ) {
     try {
       const direction = (message.direction || "in").toLowerCase();
-      const messageText = message.text || 
-                         (Array.isArray((message as any).contents) 
-                           ? (message as any).contents.find((c: any) => c?.type === "text")?.text || ""
-                           : "");
+      
+      // ✅ Extraer texto del mensaje desde webhookData.message.contents
+      let messageText = "";
+      if (webhookData?.message?.contents && Array.isArray(webhookData.message.contents)) {
+        const textContent = webhookData.message.contents.find((c: any) => c?.type === "text");
+        messageText = textContent?.text || "";
+      } else if (message.text) {
+        messageText = message.text;
+      }
+      
+      // Si no hay texto, usar un mensaje por defecto
+      if (!messageText.trim()) {
+        messageText = direction === "in" ? "Mensaje recibido" : "Mensaje enviado";
+      }
       
       const messageData = {
         id: `notificame_${message.id}`, // ID único para NotificaMe
@@ -213,7 +226,7 @@ class NotificaMeMessageService {
         companyId: hubConfig.companyId
       });
 
-      logger.info(`✅ [NotificaMe] Mensaje creado: ${createdMessage.id} en ticket ${ticket.id}`);
+      logger.info(`✅ [NotificaMe] Mensaje creado: ${createdMessage.id} en ticket ${ticket.id} - Texto: "${messageText}"`);
 
       return createdMessage;
     } catch (error) {

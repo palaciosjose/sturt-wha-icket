@@ -47,12 +47,7 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
       // Soportar ambos formatos: antiguo (type: "message", data.message) y nuevo (type: "MESSAGE", message)
       const typeLower = (webhookData.type || "").toString().toLowerCase();
 
-      if (typeLower === "message" && webhookData?.data?.message) {
-        await NotificaMeMessageService.processIncomingMessage({
-          message: webhookData.data.message,
-          hubConfig
-        });
-      } else if (typeLower === "message" && webhookData?.message) {
+      if (typeLower === "message" && webhookData?.message) {
         // Formato nuevo: normalizar a la estructura esperada por el servicio
         const rawMsg = webhookData.message;
         const textFromContents = Array.isArray(rawMsg.contents)
@@ -66,14 +61,13 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
           to: rawMsg.to,
           timestamp: Date.parse(rawMsg.timestamp) || Date.now(),
           channel: rawMsg.channel,
-          direction: rawMsg.direction,
-          visitor: rawMsg.visitor,
-          contents: rawMsg.contents
+          direction: rawMsg.direction
         };
 
         await NotificaMeMessageService.processIncomingMessage({
           message: normalizedMessage as any,
-          hubConfig
+          hubConfig,
+          webhookData // ✅ Pasar webhookData completo para acceder a visitor y contents
         });
       } else if (typeLower === "contact" && (webhookData?.data?.contact || webhookData?.contact)) {
         const contact = webhookData?.data?.contact || webhookData?.contact;

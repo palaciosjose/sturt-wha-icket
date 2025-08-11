@@ -26,6 +26,7 @@ import path from "path";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import EditWhatsAppMessage from "../services/WbotServices/EditWhatsAppMessage";
 import ShowMessageService, { GetWhatsAppFromMessage } from "../services/MessageServices/ShowMessageService";
+import { logger } from "../utils/logger";
 type IndexQuery = {
   pageNumber: string;
 };
@@ -417,3 +418,44 @@ export const edit = async (req: Request, res: Response): Promise<Response> => {
 
   return res.send();
 }
+
+// ✅ Eliminar mensaje individual (especialmente para NotificaMe)
+export const deleteMessage = async (req: Request, res: Response): Promise<Response> => {
+  const { id } = req.params;
+  const { companyId } = req.user;
+
+  try {
+    const message = await Message.findOne({
+      where: { id, companyId },
+      include: [{ model: Ticket, as: "ticket" }]
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: "Mensaje no encontrado" });
+    }
+
+    // ✅ Verificar permisos (solo mensajes de la empresa del usuario)
+    if (message.companyId !== companyId) {
+      return res.status(403).json({ error: "No autorizado para eliminar este mensaje" });
+    }
+
+    // ✅ Eliminar mensaje
+    await message.destroy();
+
+    // ✅ Emitir evento de socket para actualizar UI
+    const io = getIO();
+    io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-message`, {
+      action: "delete",
+      messageId: id,
+      ticketId: message.ticketId
+    });
+
+    logger.info(`✅ Mensaje ${id} eliminado correctamente`);
+
+    return res.status(200).json({ success: true, message: "Mensaje eliminado correctamente" });
+
+  } catch (error: any) {
+    logger.error(`❌ Error eliminando mensaje: ${error}`);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
