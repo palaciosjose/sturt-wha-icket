@@ -77,7 +77,7 @@ const UpdateTicketService = async ({
     const ticketTraking = await FindOrCreateATicketTrakingService({
       ticketId,
       companyId,
-      whatsappId: ticket.whatsappId
+      whatsappId: ticket.whatsappId || null // ✅ Permitir null para NotificaMe
     });
 
     if (isNil(whatsappId)) {

@@ -76,7 +76,7 @@ const FindOrCreateTicketService = async (
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
         companyId,
-        whatsappId: ticket.whatsappId,
+        whatsappId: ticket.whatsappId || null, // ✅ Permitir null para NotificaMe
         userId: ticket.userId
       });
     }
@@ -112,7 +112,7 @@ const FindOrCreateTicketService = async (
       await FindOrCreateATicketTrakingService({
         ticketId: ticket.id,
         companyId,
-        whatsappId: ticket.whatsappId,
+        whatsappId: whatsappId || null, // ✅ Permitir null para NotificaMe
         userId: ticket.userId
       });
     }
