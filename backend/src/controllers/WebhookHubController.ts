@@ -48,6 +48,11 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
       const typeLower = (webhookData.type || "").toString().toLowerCase();
 
       if (typeLower === "message" && webhookData?.message) {
+        // ✅ Log detallado para debug
+        logger.info(`🔍 [NotificaMe] Procesando webhook - Tipo: ${webhookData.type}, Direction: ${webhookData.message.direction}`);
+        logger.info(`🔍 [NotificaMe] Visitor data:`, JSON.stringify(webhookData.visitor, null, 2));
+        logger.info(`🔍 [NotificaMe] Message contents:`, JSON.stringify(webhookData.message.contents, null, 2));
+        
         // Formato nuevo: normalizar a la estructura esperada por el servicio
         const rawMsg = webhookData.message;
         const textFromContents = Array.isArray(rawMsg.contents)
@@ -63,6 +68,8 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
           channel: rawMsg.channel,
           direction: rawMsg.direction
         };
+
+        logger.info(`🔍 [NotificaMe] Mensaje normalizado:`, JSON.stringify(normalizedMessage, null, 2));
 
         await NotificaMeMessageService.processIncomingMessage({
           message: normalizedMessage as any,

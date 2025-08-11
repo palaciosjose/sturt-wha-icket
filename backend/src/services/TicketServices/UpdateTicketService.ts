@@ -81,7 +81,8 @@ const UpdateTicketService = async ({
     });
 
     if (isNil(whatsappId)) {
-      whatsappId = ticket.whatsappId.toString();
+      // ✅ Verificar que whatsappId no sea null antes de convertir a string
+      whatsappId = ticket.whatsappId ? ticket.whatsappId.toString() : null;
     }
 
     await SetTicketMessagesAsRead(ticket);
@@ -116,41 +117,45 @@ const UpdateTicketService = async ({
     }
 
     if (status !== undefined && ["closed"].indexOf(status) > -1) {
-      const { complationMessage, ratingMessage } = await ShowWhatsAppService(
-        ticket.whatsappId,
-        companyId
-      );
+      // ✅ Verificar que whatsappId no sea null antes de llamar a ShowWhatsAppService
+      if (ticket.whatsappId) {
+        const { complationMessage, ratingMessage } = await ShowWhatsAppService(
+          ticket.whatsappId,
+          companyId
+        );
 
-      if (setting?.value === "enabled") {
-        if (ticketTraking.ratingAt == null) {
-          const ratingTxt = ratingMessage || "";
-          let bodyRatingMessage = `\u200e${ratingTxt}\n\n`;
-          bodyRatingMessage +=
-            "Digite de 1 à 3 para qualificar nosso atendimento:\n*1* - _Insatisfeito_\n*2* - _Satisfeito_\n*3* - _Muito Satisfeito_\n\n";
-          await SendWhatsAppMessage({ body: bodyRatingMessage, ticket });
+        if (setting?.value === "enabled") {
+          if (ticketTraking.ratingAt == null) {
+            const ratingTxt = ratingMessage || "";
+            let bodyRatingMessage = `\u200e${ratingTxt}\n\n`;
+            bodyRatingMessage +=
+              "Digite de 1 à 3 para qualificar nosso atendimento:\n*1* - _Insatisfeito_\n*2* - _Satisfeito_\n*3* - _Muito Satisfeito_\n\n";
+            await SendWhatsAppMessage({ body: bodyRatingMessage, ticket });
 
-          await ticketTraking.update({
-            ratingAt: moment().toDate()
-          });
-
-          io.to(`company-${ticket.companyId}-open`)
-            .to(`queue-${ticket.queueId}-open`)
-            .to(ticketId.toString())
-            .emit(`company-${ticket.companyId}-ticket`, {
-              action: "delete",
-              ticketId: ticket.id
+            await ticketTraking.update({
+              ratingAt: moment().toDate()
             });
 
-          return { ticket, oldStatus, oldUserId };
-        }
-        ticketTraking.ratingAt = moment().toDate();
-        ticketTraking.rated = false;
-      }
+            io.to(`company-${ticket.companyId}-open`)
+              .to(`queue-${ticket.queueId}-open`)
+              .to(ticketId.toString())
+              .emit(`company-${ticket.companyId}-ticket`, {
+                action: "delete",
+                ticketId: ticket.id
+              });
 
-      if (!isNil(complationMessage) && complationMessage !== "") {
-        const body = `\u200e${complationMessage}`;
-        await SendWhatsAppMessage({ body, ticket });
+            return { ticket, oldStatus, oldUserId };
+          }
+          ticketTraking.ratingAt = moment().toDate();
+          ticketTraking.rated = false;
+        }
+
+        if (!isNil(complationMessage) && complationMessage !== "") {
+          const body = `\u200e${complationMessage}`;
+          await SendWhatsAppMessage({ body, ticket });
+        }
       }
+      
       await ticket.update({
         promptId: null,
         integrationId: null,

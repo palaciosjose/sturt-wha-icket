@@ -105,10 +105,16 @@ class NotificaMeMessageService {
       // Para OUT, el "contacto" es el destinatario (to). Para IN, es el remitente (from)
       const externalId = direction === "out" ? message.to : message.from;
       
-      // ✅ Extraer nombre real del visitor desde webhookData (no desde message)
-      const visitorName = webhookData?.visitor?.name || 
-                         webhookData?.visitor?.firstName || 
-                         "Usuario Instagram"; // Nombre por defecto más amigable
+      // ✅ Extraer visitor desde el lugar correcto del payload
+      const visitor = webhookData?.message?.visitor || webhookData?.visitor || {};
+
+      // ✅ Extraer nombre real del visitor desde webhookData.message.visitor
+      let visitorName = "Usuario Instagram"; // Nombre por defecto
+      if (visitor?.name && String(visitor.name).trim()) {
+        visitorName = String(visitor.name).trim();
+      } else if (visitor?.firstName && String(visitor.firstName).trim()) {
+        visitorName = String(visitor.firstName).trim();
+      }
 
       const contactData = {
         name: visitorName,
@@ -117,11 +123,11 @@ class NotificaMeMessageService {
         companyId: hubConfig.companyId,
         isGroup: false, // NotificaMe no maneja grupos
         channel: message.channel,
-        profilePicUrl: webhookData?.visitor?.picture || ""
+        profilePicUrl: visitor?.picture || ""
       };
 
       const contact = await CreateOrUpdateContactService(contactData);
-      logger.info(`✅ [NotificaMe] Contacto creado/actualizado: ${contact.name} (${externalId})`);
+      logger.info(`✅ [NotificaMe] Contacto creado/actualizado: ${contact.name} (ID: ${externalId})`);
 
       return contact;
     } catch (error) {
