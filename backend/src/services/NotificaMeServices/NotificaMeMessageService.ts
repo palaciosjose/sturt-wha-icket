@@ -6,11 +6,12 @@ import HubNotificaMe from "../../models/HubNotificaMe";
 
 interface NotificaMeMessage {
   id: string;
-  text: string;
+  text?: string;
   from: string;
   to: string;
-  timestamp: number;
+  timestamp?: number;
   channel: string;
+  direction?: string;
 }
 
 interface NotificaMeContact {
@@ -88,9 +89,13 @@ class NotificaMeMessageService {
     hubConfig: HubNotificaMe
   ) {
     try {
+      const direction = (message.direction || "in").toLowerCase();
+      // Para OUT, el "contacto" es el destinatario (to). Para IN, es el remitente (from)
+      const externalId = direction === "out" ? message.to : message.from;
+
       const contactData = {
-        name: message.from, // Usar el remitente como nombre temporal
-        number: message.from,
+        name: externalId,
+        number: externalId,
         email: "",
         companyId: hubConfig.companyId,
         isGroup: false, // NotificaMe no maneja grupos
@@ -139,6 +144,8 @@ class NotificaMeMessageService {
     hubConfig: HubNotificaMe
   ) {
     try {
+      const direction = (message.direction || "in").toLowerCase();
+      const unread = direction === "out" ? 0 : 1;
       // ✅ Importar dinámicamente para evitar dependencias circulares
       const FindOrCreateTicketService = (await import("../TicketServices/FindOrCreateTicketService")).default;
       
@@ -146,7 +153,7 @@ class NotificaMeMessageService {
       const ticket = await FindOrCreateTicketService(
         contact,           // contact: Contact
         0,                 // whatsappId: number (0 para NotificaMe)
-        1,                 // unreadMessages: number (1 mensaje entrante)
+        unread,            // unreadMessages según dirección
         hubConfig.companyId, // companyId: number
         undefined          // groupContact?: Contact (no aplica para NotificaMe)
       );
@@ -168,12 +175,13 @@ class NotificaMeMessageService {
     hubConfig: HubNotificaMe
   ) {
     try {
+      const direction = (message.direction || "in").toLowerCase();
       const messageData = {
         id: `notificame_${message.id}`, // ID único para NotificaMe
         ticketId: ticket.id,
-        body: message.text,
+        body: message.text || "",
         contactId: contact.id,
-        fromMe: false, // Mensaje entrante
+        fromMe: direction === "out", // OUT -> enviado por nosotros
         read: false,
         mediaType: "text",
         companyId: hubConfig.companyId

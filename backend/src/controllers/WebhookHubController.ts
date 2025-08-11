@@ -45,15 +45,40 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
     if (hubConfig) {
       // Si tenemos configuración de NotificaMe, usar el servicio específico
       const webhookData = req.body;
-      
-      if (webhookData.type === "message" && webhookData.data?.message) {
+
+      // Soportar ambos formatos: antiguo (type: "message", data.message) y nuevo (type: "MESSAGE", message)
+      const typeLower = (webhookData.type || "").toString().toLowerCase();
+
+      if (typeLower === "message" && webhookData?.data?.message) {
         await NotificaMeMessageService.processIncomingMessage({
           message: webhookData.data.message,
           hubConfig
         });
-      } else if (webhookData.type === "contact" && webhookData.data?.contact) {
+      } else if (typeLower === "message" && webhookData?.message) {
+        // Formato nuevo: normalizar a la estructura esperada por el servicio
+        const rawMsg = webhookData.message;
+        const textFromContents = Array.isArray(rawMsg.contents)
+          ? (rawMsg.contents.find((c: any) => c?.type === "text")?.text || rawMsg.contents[0]?.text || "")
+          : "";
+
+        const normalizedMessage = {
+          id: rawMsg.id,
+          text: rawMsg.text || textFromContents || "",
+          from: rawMsg.from,
+          to: rawMsg.to,
+          timestamp: Date.parse(rawMsg.timestamp) || Date.now(),
+          channel: rawMsg.channel,
+          direction: rawMsg.direction
+        };
+
+        await NotificaMeMessageService.processIncomingMessage({
+          message: normalizedMessage as any,
+          hubConfig
+        });
+      } else if (typeLower === "contact" && (webhookData?.data?.contact || webhookData?.contact)) {
+        const contact = webhookData?.data?.contact || webhookData?.contact;
         await NotificaMeMessageService.processContact({
-          contact: webhookData.data.contact,
+          contact,
           hubConfig
         });
       } else {
