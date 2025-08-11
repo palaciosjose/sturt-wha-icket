@@ -12,6 +12,16 @@ interface NotificaMeMessage {
   timestamp?: number;
   channel: string;
   direction?: string;
+  visitor?: {
+    name: string;
+    firstName?: string;
+    lastName?: string;
+    picture?: string;
+  };
+  contents?: Array<{
+    type: string;
+    text: string;
+  }>;
 }
 
 interface NotificaMeContact {
@@ -92,14 +102,20 @@ class NotificaMeMessageService {
       const direction = (message.direction || "in").toLowerCase();
       // Para OUT, el "contacto" es el destinatario (to). Para IN, es el remitente (from)
       const externalId = direction === "out" ? message.to : message.from;
+      
+      // ✅ Extraer nombre real del visitor si está disponible
+      const visitorName = (message as any).visitor?.name || 
+                         (message as any).visitor?.firstName || 
+                         externalId;
 
       const contactData = {
-        name: externalId,
+        name: visitorName,
         number: externalId,
         email: "",
         companyId: hubConfig.companyId,
         isGroup: false, // NotificaMe no maneja grupos
-        channel: message.channel
+        channel: message.channel,
+        profilePicUrl: (message as any).visitor?.picture || ""
       };
 
       const contact = await CreateOrUpdateContactService(contactData);
@@ -176,10 +192,15 @@ class NotificaMeMessageService {
   ) {
     try {
       const direction = (message.direction || "in").toLowerCase();
+      const messageText = message.text || 
+                         (Array.isArray((message as any).contents) 
+                           ? (message as any).contents.find((c: any) => c?.type === "text")?.text || ""
+                           : "");
+      
       const messageData = {
         id: `notificame_${message.id}`, // ID único para NotificaMe
         ticketId: ticket.id,
-        body: message.text || "",
+        body: messageText,
         contactId: contact.id,
         fromMe: direction === "out", // OUT -> enviado por nosotros
         read: false,

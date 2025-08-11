@@ -66,7 +66,9 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
           to: rawMsg.to,
           timestamp: Date.parse(rawMsg.timestamp) || Date.now(),
           channel: rawMsg.channel,
-          direction: rawMsg.direction
+          direction: rawMsg.direction,
+          visitor: rawMsg.visitor,
+          contents: rawMsg.contents
         };
 
         await NotificaMeMessageService.processIncomingMessage({
