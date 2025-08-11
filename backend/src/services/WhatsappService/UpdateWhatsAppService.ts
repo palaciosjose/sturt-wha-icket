@@ -19,6 +19,7 @@ interface WhatsappData {
   ratingMessage?: string;
   queueIds?: number[];
   token?: string;
+  type?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
   transferQueueId?: number | string; 
@@ -64,6 +65,7 @@ const UpdateWhatsAppService = async ({
     ratingMessage,
     queueIds = [],
     token,
+    type,
     //timeSendQueue,
     //sendIdQueue = null,
     transferQueueId,	
@@ -176,6 +178,7 @@ const UpdateWhatsAppService = async ({
     isDefault,
     companyId,
     token,
+    type,
     //timeSendQueue,
     //sendIdQueue,
     transferQueueId: cleanTransferQueueId, // ✅ USAR VALOR LIMPIO

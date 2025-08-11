@@ -27,7 +27,7 @@ const ListWhatsAppsService = async ({
       "plugged", "retries", "greetingMessage", "farewellMessage", 
       "complationMessage", "outOfHoursMessage", "ratingMessage", 
       "provider", "isDefault", "createdAt", "updatedAt", 
-      "companyId", "token", "transferQueueId", "timeToTransfer", 
+      "companyId", "token", "type", "transferQueueId", "timeToTransfer", 
       "promptId", "integrationId", "maxUseBotQueues", "timeUseBotQueues", 
       "expiresTicket", "number", "waName", "expiresInactiveMessage",
       "avatar", "instance"

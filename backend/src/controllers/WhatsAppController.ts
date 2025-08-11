@@ -24,6 +24,7 @@ interface WhatsappData {
   status?: string;
   isDefault?: boolean;
   token?: string;
+  type?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
   transferQueueId?: number | string;
@@ -57,6 +58,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     outOfHoursMessage,
     queueIds,
     token,
+    type,
     //timeSendQueue,
     //sendIdQueue,
 	transferQueueId,
@@ -98,6 +100,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     queueIds: cleanQueueIds, // ✅ USAR ARRAY LIMPIO
     companyId,
     token,
+    type,
     //timeSendQueue,
     //sendIdQueue,
 	transferQueueId: cleanTransferQueueId, // ✅ USAR VALOR LIMPIO

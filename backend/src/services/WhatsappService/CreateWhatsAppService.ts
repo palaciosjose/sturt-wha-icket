@@ -19,6 +19,7 @@ interface Request {
   isDefault?: boolean;
   token?: string;
   provider?: string;
+  type?: string;
   //sendIdQueue?: number;
   //timeSendQueue?: number;
   transferQueueId?: number | string;
@@ -47,6 +48,7 @@ const CreateWhatsAppService = async ({
   companyId,
   token = "",
   provider = "beta",
+  type = "",
   //timeSendQueue,
   //sendIdQueue,
   transferQueueId,
@@ -172,6 +174,7 @@ const CreateWhatsAppService = async ({
       companyId,
       token,
       provider,
+      type,
       //timeSendQueue,
       //sendIdQueue,
       transferQueueId: cleanTransferQueueId, // Usar valor limpio
