@@ -123,7 +123,7 @@ class NotificaMeMessageService {
         companyId: hubConfig.companyId,
         isGroup: false, // NotificaMe no maneja grupos
         channel: message.channel,
-        profilePicUrl: visitor?.picture || ""
+        profilePicUrl: visitor?.picture ? visitor.picture.substring(0, 255) : "" // ✅ Truncar a 255 caracteres
       };
 
       const contact = await CreateOrUpdateContactService(contactData);
