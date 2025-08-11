@@ -14,12 +14,10 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
   }
 
   try {
-    // 🔍 Buscar la conexión correspondiente al canal en tabla Whatsapp
+    // 🔍 Buscar la conexión correspondiente al canal en tabla Whatsapp (opcional)
     const connection = await Whatsapp.findOne({ where: { qrcode: channelId } });
-
     if (!connection) {
       logger.warn(`⚠️ No WhatsApp connection found for channelId: ${channelId}`);
-      return res.status(404).json({ message: "Whatsapp channel not found" });
     }
 
     // 🔍 Buscar también en HubNotificaMe para validación adicional
@@ -29,7 +27,7 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
 
     if (!hubConfig) {
       logger.warn(`⚠️ No HubNotificaMe config found for channelId: ${channelId}`);
-      // No retornamos error aquí, solo log de advertencia
+      return res.status(404).json({ message: "HubNotificaMe config not found" });
     }
 
     // ✅ Manejar petición de validación de NotificaMe Hub
@@ -82,7 +80,8 @@ export const listen = async (req: Request, res: Response): Promise<Response> => 
           hubConfig
         });
       } else {
-        logger.info(`📬 WEBHOOK RECIBIDO - Empresa: ${connection.companyId}, ChannelId: ${channelId}`);
+        const companyLogId = hubConfig?.companyId || connection?.companyId;
+        logger.info(`📬 WEBHOOK RECIBIDO - Empresa: ${companyLogId}, ChannelId: ${channelId}`);
         logger.info(`📝 Contenido del webhook:`, JSON.stringify(req.body, null, 2));
       }
     }

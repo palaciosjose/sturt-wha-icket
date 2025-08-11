@@ -132,6 +132,25 @@ export const remove = async (
   return res.status(200).json({ message: "Token eliminado correctamente" });
 };
 
+// ✅ Nuevo endpoint para “reconectar” (idempotente): vuelve a emitir el registro para que el front lo refresque
+export const reconnect = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { id } = req.params;
+  const { companyId } = req.user;
+
+  const record = await ShowService(id);
+
+  const io = getIO();
+  io.to(`company-${companyId}-mainchannel`).emit(`company-${companyId}-hubnotificame`, {
+    action: "reconnect",
+    record
+  });
+
+  return res.status(200).json({ success: true });
+};
+
 export const findList = async (
   req: Request,
   res: Response

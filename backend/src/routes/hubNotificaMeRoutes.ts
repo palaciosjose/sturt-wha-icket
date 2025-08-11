@@ -16,4 +16,7 @@ routes.put("/:id", isAuth, HubNotificaMeController.update);
 // Ruta para eliminar un HubNotificaMe
 routes.delete("/:id", isAuth, HubNotificaMeController.remove);
 
+// Ruta para reconectar/empujar actualización
+routes.post("/:id/reconnect", isAuth, HubNotificaMeController.reconnect);
+
 export default routes; 

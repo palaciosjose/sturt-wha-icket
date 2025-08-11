@@ -11,6 +11,7 @@ import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import RefreshIcon from "@material-ui/icons/Refresh";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -127,12 +128,13 @@ const HubNotificaMe = () => {
 
       <Paper className={classes.mainPaper} variant="outlined">
         <Table size="small">
-          <TableHead>
+              <TableHead>
             <TableRow>
               <TableCell align="center">Nombre del Canal</TableCell>
               <TableCell align="center">Token del Canal - NotificaMe</TableCell>
+                  <TableCell align="center">Link test</TableCell>
               <TableCell align="center">Canal</TableCell>
-              <TableCell align="center">Acciones</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -140,17 +142,36 @@ const HubNotificaMe = () => {
               <TableRow key={HubNotificaMe.id}>
                 <TableCell align="center">{HubNotificaMe.nome}</TableCell>
                 <TableCell align="center">{HubNotificaMe.token}</TableCell>
+                    <TableCell align="center">
+                      <a
+                        href={`${process.env.REACT_APP_BACKEND_URL || "https://waapi.powerwapp.net"}/hub-webhook/${HubNotificaMe.token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Abrir
+                      </a>
+                    </TableCell>
                 <TableCell align="center">
                   {HubNotificaMe.tipo === "Facebook" ? <TbBrandFacebook size={32} /> : 
                    HubNotificaMe.tipo === "Instagram" ? <TbBrandInstagram size={32} /> : 
                    HubNotificaMe.tipo === "Webchat" ? <TbMessageChatbot size={32} /> : 
                    HubNotificaMe.tipo}
                 </TableCell>
-                <TableCell align="center">
-                  <IconButton size="small" onClick={() => handleDeleteClick(HubNotificaMe)}>
-                    <DeleteOutlineIcon />
-                  </IconButton>
-                </TableCell>
+                    <TableCell align="center">
+                      <IconButton size="small" onClick={async () => {
+                        try {
+                          await api.post(`/hub-notificame/${HubNotificaMe.id}/reconnect`);
+                          toast.success("Reconexión solicitada");
+                        } catch (err) {
+                          toastError(err);
+                        }
+                      }}>
+                        <RefreshIcon />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleDeleteClick(HubNotificaMe)}>
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </TableCell>
               </TableRow>
             ))}
             {loading && <TableRowSkeleton columns={3} />}
