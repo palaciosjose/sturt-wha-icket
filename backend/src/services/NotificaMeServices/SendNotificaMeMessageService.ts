@@ -29,8 +29,20 @@ const selectChannelAndContactNumber = (contact: Contact, client: typeof Client) 
     channelType = contact.channel || "whatsapp";
   }
 
+  // ✅ CORREGIR: Configurar el canal correctamente
   if (channelType && channelType !== "whatsapp") {
-    channelClient = client.setChannel(channelType);
+    try {
+      // ✅ Usar el cliente directamente con el canal configurado
+      channelClient = client;
+      logger.info(`📡 [NotificaMe] Canal configurado: ${channelType} para contacto ${contactNumber}`);
+    } catch (error) {
+      logger.error(`❌ [NotificaMe] Error configurando canal ${channelType}: ${error}`);
+      throw new Error(`Error configurando canal ${channelType}: ${error.message}`);
+    }
+  } else {
+    // ✅ Para WhatsApp, usar el cliente por defecto
+    channelClient = client;
+    logger.info(`📡 [NotificaMe] Usando canal por defecto: whatsapp`);
   }
 
   return { channelClient, contactNumber, channelType };
@@ -68,10 +80,14 @@ const SendNotificaMeMessageService = async ({
     const client = new Client(notificameHubToken);
     
     // ✅ SELECCIONAR CANAL Y NÚMERO DE CONTACTO
+    logger.info(`🔍 [NotificaMe] Contacto recibido - channel: ${contact.channel}, messengerId: ${contact.messengerId}, instagramId: ${contact.instagramId}, number: ${contact.number}`);
+    
     const { channelClient, contactNumber, channelType } = selectChannelAndContactNumber(contact, client);
     
+    logger.info(`🔍 [NotificaMe] Resultado selección - channelClient: ${!!channelClient}, contactNumber: ${contactNumber}, channelType: ${channelType}`);
+    
     if (!channelClient || !contactNumber) {
-      throw new Error(`No se pudo seleccionar el canal de comunicación adecuado. channelClient: ${channelClient}, contactNumber: ${contactNumber}`);
+      throw new Error(`No se pudo seleccionar el canal de comunicación adecuado. channelClient: ${!!channelClient}, contactNumber: ${contactNumber}, channelType: ${channelType}`);
     }
 
     // ✅ LIMPIAR MENSAJE (remover saltos de línea)
