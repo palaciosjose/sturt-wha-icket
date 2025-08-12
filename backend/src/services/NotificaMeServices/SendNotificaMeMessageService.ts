@@ -81,6 +81,11 @@ const SendNotificaMeMessageService = async ({
     // ✅ CREAR CLIENTE DE NOTIFICAME
     const client = new Client(notificameHubToken);
     
+    // ✅ DEBUG: Verificar el cliente creado
+    logger.info(`🔍 [NotificaMe] Cliente creado - Tipo: ${typeof client}, Constructor: ${client.constructor.name}`);
+    logger.info(`🔍 [NotificaMe] Métodos del cliente: ${Object.getOwnPropertyNames(client)}`);
+    logger.info(`🔍 [NotificaMe] Prototipo del cliente: ${Object.getOwnPropertyNames(Object.getPrototypeOf(client))}`);
+    
     // ✅ SELECCIONAR CANAL Y NÚMERO DE CONTACTO
     logger.info(`🔍 [NotificaMe] Contacto recibido - channel: ${contact.channel}, messengerId: ${contact.messengerId}, instagramId: ${contact.instagramId}, number: ${contact.number}`);
     logger.info(`🔍 [NotificaMe] Ticket canal: ${ticketChannel}`);
@@ -100,7 +105,23 @@ const SendNotificaMeMessageService = async ({
     logger.info(`📤 [NotificaMe] Enviando mensaje: "${cleanMessage}" a ${contactNumber} por ${channelType}`);
 
     // ✅ ENVIAR MENSAJE A TRAVÉS DE NOTIFICAME
-    const response = await channelClient.sendMessage(contactNumber, content);
+    logger.info(`🔍 [NotificaMe] Tipo de cliente: ${typeof channelClient}, Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+    
+    // ✅ CORREGIR: Usar el método correcto del cliente
+    let response;
+    if (typeof channelClient.sendMessage === 'function') {
+      response = await channelClient.sendMessage(contactNumber, content);
+    } else if (typeof channelClient.send === 'function') {
+      response = await channelClient.send(contactNumber, content);
+    } else if (typeof channelClient.post === 'function') {
+      response = await channelClient.post('/send', {
+        to: contactNumber,
+        message: cleanMessage,
+        channel: channelType
+      });
+    } else {
+      throw new Error(`Cliente no tiene método de envío válido. Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+    }
 
     // ✅ PARSEAR RESPUESTA
     let data: any;
