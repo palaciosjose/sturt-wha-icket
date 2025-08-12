@@ -12,10 +12,9 @@ module.exports = {
 
   down: async (queryInterface: QueryInterface) => {
     // 🔄 REVERTIR: Recrear la restricción FK (para rollback)
-    await queryInterface.addConstraint("TicketTraking", {
+    await queryInterface.addConstraint("TicketTraking", "TicketTraking_ibfk_3", {
       fields: ["whatsappId"],
       type: "foreign key",
-      name: "TicketTraking_ibfk_3",
       references: {
         table: "Whatsapps",
         field: "id"
