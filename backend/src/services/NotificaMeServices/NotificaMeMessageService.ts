@@ -3,6 +3,8 @@ import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateConta
 import FindOrCreateTicketService from "../TicketServices/FindOrCreateTicketService";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import HubNotificaMe from "../../models/HubNotificaMe";
+import Ticket from "../../models/Ticket"; // ✅ Import correcto
+import { Op } from "sequelize"; // ✅ Import correcto
 
 interface NotificaMeMessage {
   id: string;
@@ -170,19 +172,37 @@ class NotificaMeMessageService {
     try {
       const direction = (message.direction || "in").toLowerCase();
       const unread = direction === "out" ? 0 : 1;
-      // ✅ Importar dinámicamente para evitar dependencias circulares
-      const FindOrCreateTicketService = (await import("../TicketServices/FindOrCreateTicketService")).default;
       
-      // ✅ Llamar con los parámetros correctos según la firma del servicio
-      const ticket = await FindOrCreateTicketService(
-        contact,           // contact: Contact
-        0,                 // whatsappId: number (0 para NotificaMe)
-        unread,            // unreadMessages según dirección
-        hubConfig.companyId, // companyId: number
-        undefined          // groupContact?: Contact (no aplica para NotificaMe)
-      );
+      // ✅ LÓGICA CORREGIDA: Como en la versión anterior que funcionaba
+      // Buscar ticket existente por contacto y canal específico
+      let ticket = await Ticket.findOne({
+        where: {
+          contactId: contact.id,
+          channel: message.channel,
+          status: { [Op.or]: ["open", "pending"] }
+        }
+      });
+
+      if (ticket) {
+        // ✅ Si el ticket existe, actualizar estado y mensaje
+        if (ticket.status === "closed") {
+          await ticket.update({ status: "pending" });
+        }
+        await ticket.update({ unreadMessages: unread });
+      } else {
+        // ✅ Si no existe, crear nuevo ticket con estado 'pending'
+        ticket = await Ticket.create({
+          status: "pending",
+          channel: message.channel,
+          lastMessage: message.text || "Mensaje recibido",
+          contactId: contact.id,
+          whatsappId: null, // ✅ NULL para NotificaMe
+          companyId: hubConfig.companyId,
+          unreadMessages: unread
+        });
+      }
       
-      logger.info(`✅ [NotificaMe] Ticket encontrado/creado: ${ticket.id}`);
+      logger.info(`✅ [NotificaMe] Ticket encontrado/creado: ${ticket.id} en canal ${message.channel}`);
 
       return ticket;
     } catch (error) {

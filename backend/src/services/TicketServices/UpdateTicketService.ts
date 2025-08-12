@@ -92,26 +92,8 @@ const UpdateTicketService = async ({
     const oldQueueId = ticket.queueId;
 
     if (oldStatus === "closed" || Number(whatsappId) !== ticket.whatsappId) {
-      // let otherTicket = await Ticket.findOne({
-      //   where: {
-      //     contactId: ticket.contactId,
-      //     status: { [Op.or]: ["open", "pending", "group"] },
-      //     whatsappId
-      //   }
-      // });
-      // if (otherTicket) {
-      //     otherTicket = await ShowTicketService(otherTicket.id, companyId)
-
-      //     await ticket.update({status: "closed"})
-
-      //     io.to(oldStatus).emit(`company-${companyId}-ticket`, {
-      //       action: "delete",
-      //       ticketId: ticket.id
-      //     });
-
-      //     return { ticket: otherTicket, oldStatus, oldUserId }
-      // }
-      await CheckContactOpenTickets(ticket.contact.id, whatsappId);
+      // ✅ LÓGICA CORREGIDA: Como en la versión anterior que funcionaba
+      await CheckContactOpenTickets(ticket.contact.id, whatsappId, ticket.channel);
       chatbot = null;
       queueOptionId = null;
     }
@@ -337,7 +319,25 @@ const UpdateTicketService = async ({
   } catch (err) {
     Sentry.captureException(err);
     console.error("❌ Error en UpdateTicketService:", err);
-    throw new AppError("Error al actualizar ticket", 500);
+    
+    // ✅ MANEJO ESPECÍFICO DE ERRORES
+    if (err instanceof AppError) {
+      // Si ya es un AppError, re-lanzarlo
+      throw err;
+    }
+    
+    // ✅ ERRORES ESPECÍFICOS PARA TICKETS DE NOTIFICAME
+    if (err.message && err.message.includes("ERR_OTHER_OPEN_TICKET")) {
+      throw new AppError("Ya existe un ticket abierto para este contacto", 400);
+    }
+    
+    // ✅ ERRORES DE BASE DE DATOS
+    if (err.name === "SequelizeValidationError" || err.name === "SequelizeDatabaseError") {
+      throw new AppError("Error de validación en la base de datos", 400);
+    }
+    
+    // ✅ ERROR GENÉRICO SOLO SI NO SE IDENTIFICA EL TIPO
+    throw new AppError("Error interno del servidor al actualizar ticket", 500);
   }
 };
 

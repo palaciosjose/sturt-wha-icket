@@ -14,6 +14,7 @@ interface Request {
   companyId: number;
   queueId?: number;
   whatsappId?: string;
+  channel?: string;
 }
 
 const CreateTicketService = async ({
@@ -22,7 +23,8 @@ const CreateTicketService = async ({
   userId,
   queueId,
   companyId,
-  whatsappId
+  whatsappId,
+  channel = "whatsapp"
 }: Request): Promise<Ticket> => {
   let whatsapp;
 
@@ -38,7 +40,7 @@ const CreateTicketService = async ({
   if (!defaultWhatsapp)
     defaultWhatsapp = await GetDefaultWhatsApp(companyId);
 
-  await CheckContactOpenTickets(contactId, whatsappId);
+  await CheckContactOpenTickets(contactId, whatsappId, channel);
 
   const { isGroup } = await ShowContactService(contactId, companyId);
 
@@ -51,15 +53,16 @@ const CreateTicketService = async ({
     defaults: {
       contactId,
       companyId,
-      whatsappId: defaultWhatsapp.id,
+      whatsappId: whatsappId || (defaultWhatsapp ? defaultWhatsapp.id : null), // ✅ Permitir null para NotificaMe
       status,
       isGroup,
-      userId
+      userId,
+      channel
     }
   });
 
   await Ticket.update(
-    { companyId, queueId, userId, whatsappId: defaultWhatsapp.id, status },
+    { companyId, queueId, userId, whatsappId: whatsappId || (defaultWhatsapp ? defaultWhatsapp.id : null), status, channel },
     { where: { id } }
   );
 
