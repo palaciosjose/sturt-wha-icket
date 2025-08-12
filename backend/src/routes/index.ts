@@ -34,6 +34,7 @@ import forgotsRoutes from "./forgotPasswordRoutes";
 import versionRouter from "./versionRoutes";
 import hubNotificaMeRoutes from "./hubNotificaMeRoutes";
 import hubWebhookRoutes from "./hubWebhookRoutes";
+import messageHubRoutes from "./messageHubRoutes";
 import systemRoutes from "./systemRoutes";
 
 const routes = Router();
@@ -72,6 +73,7 @@ routes.use(forgotsRoutes);
 routes.use(versionRouter);
 routes.use("/hub-notificame", hubNotificaMeRoutes);
 routes.use("/hub-webhook", hubWebhookRoutes);
+routes.use("/message-hub", messageHubRoutes);
 routes.use("/system", systemRoutes);
 
 export default routes;

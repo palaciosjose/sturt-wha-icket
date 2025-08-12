@@ -48,6 +48,7 @@
     "node-cron": "^3.0.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.8.0",
+    "notificamehubsdk": "^0.0.19",
     "openai": "^4.24.7",
     "pg": "^8.7.3",
     "pino": "^7.8.0",

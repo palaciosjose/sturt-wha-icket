@@ -27,6 +27,7 @@ import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import EditWhatsAppMessage from "../services/WbotServices/EditWhatsAppMessage";
 import ShowMessageService, { GetWhatsAppFromMessage } from "../services/MessageServices/ShowMessageService";
 import { logger } from "../utils/logger";
+
 type IndexQuery = {
   pageNumber: string;
 };
@@ -79,32 +80,74 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   console.log('bodyyyyyyyyyy:', body)
   
+  // ✅ DETECTAR CANAL DEL TICKET
+  const channelType = ticket.channel || "whatsapp";
+  logger.info(`📡 [MessageController] Canal detectado: ${channelType} para ticket ${ticketId}`);
+  
   const sentMessages = [];
   
-  if (medias) {
-    await Promise.all(
-      medias.map(async (media: Express.Multer.File, index) => {
-        // ✅ CALCULAR TAMAÑO DEL ARCHIVO
-        let fileSize = 0;
-        try {
-          const fs = require('fs');
-          const stats = fs.statSync(media.path);
-          fileSize = stats.size;
-          console.log(`[MessageController] Tamaño del archivo ${media.originalname}: ${fileSize} bytes`);
-        } catch (error) {
-          console.log(`[MessageController] Error calculando tamaño: ${error.message}`);
-        }
-        
-        // No enviar el nombre del archivo como caption para evitar texto duplicado
-        const bodyToSend = "";
-        
-        const sentMessage = await SendWhatsAppMedia({ media, ticket, body: bodyToSend, fileSize });
-        sentMessages.push(sentMessage);
-      })
-    );
+  // ✅ ENVIAR SEGÚN CANAL DETECTADO
+  if (channelType === "whatsapp") {
+    // ✅ ENVÍO POR WHATSAPP (lógica existente)
+    if (medias) {
+      await Promise.all(
+        medias.map(async (media: Express.Multer.File, index) => {
+          // ✅ CALCULAR TAMAÑO DEL ARCHIVO
+          let fileSize = 0;
+          try {
+            const fs = require('fs');
+            const stats = fs.statSync(media.path);
+            fileSize = stats.size;
+            console.log(`[MessageController] Tamaño del archivo ${media.originalname}: ${fileSize} bytes`);
+          } catch (error) {
+            console.log(`[MessageController] Error calculando tamaño: ${error.message}`);
+          }
+          
+          // No enviar el nombre del archivo como caption para evitar texto duplicado
+          const bodyToSend = "";
+          
+          const sentMessage = await SendWhatsAppMedia({ media, ticket, body: bodyToSend, fileSize });
+          sentMessages.push(sentMessage);
+        })
+      );
+    } else {
+      const sentMessage = await SendWhatsAppMessage({ body, ticket, quotedMsg });
+      sentMessages.push(sentMessage);
+    }
   } else {
-    const sentMessage = await SendWhatsAppMessage({ body, ticket, quotedMsg });
-    sentMessages.push(sentMessage);
+    // ✅ ENVÍO POR NOTIFICAME (nueva lógica)
+    logger.info(`📤 [MessageController] Enviando por NotificaMe - Canal: ${channelType}`);
+    
+    try {
+      // ✅ Importar servicio de NotificaMe
+      const SendNotificaMeMessageService = (await import("../services/NotificaMeServices/SendNotificaMeMessageService")).default;
+      
+      if (medias) {
+        // ✅ ENVÍO DE MEDIA POR NOTIFICAME (implementar después)
+        logger.info(`🖼️ [MessageController] Envío de media por ${channelType} implementado próximamente`);
+        return res.status(200).json({ 
+          message: "Envío de media implementado próximamente",
+          channel: channelType 
+        });
+      } else {
+        // ✅ ENVÍO DE TEXTO POR NOTIFICAME
+        const sentMessage = await SendNotificaMeMessageService({
+          message: body,
+          ticketId: ticket.id,
+          contact: ticket.contact,
+          companyId
+        });
+        
+        sentMessages.push(sentMessage);
+        logger.info(`✅ [MessageController] Mensaje enviado por NotificaMe - ID: ${sentMessage.id}`);
+      }
+    } catch (error) {
+      logger.error(`❌ [MessageController] Error enviando por NotificaMe: ${error}`);
+      return res.status(500).json({ 
+        error: "Error enviando mensaje por NotificaMe",
+        details: error.message 
+      });
+    }
   }
 
   // ✅ EMITIR EVENTO SOCKET PARA ACTUALIZACIÓN EN TIEMPO REAL
@@ -369,7 +412,7 @@ export const forwardMessage = async (
 
   let body = message.body;
   if (message.mediaType === 'conversation' || message.mediaType === 'extendedTextMessage') {
-    await SendWhatsAppMessage({ body, ticket: createTicket, quotedMsg, isForwarded: message.fromMe ? false : true });
+          await SendWhatsAppMessage({ body, ticket: createTicket, quotedMsg, isForwarded: message.fromMe ? false : true });
   } else {
     if (!message.mediaUrl) {
       return res.status(400).send("Media URL not found");

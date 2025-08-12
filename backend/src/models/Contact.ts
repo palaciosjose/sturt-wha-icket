@@ -47,6 +47,20 @@ class Contact extends Model<Contact> {
   @Column
   isGroup: boolean;
 
+  @Default("whatsapp")
+  @Column
+  channel: string;
+
+  @AllowNull(true)
+  @Default(null)
+  @Column
+  messengerId?: string;
+
+  @AllowNull(true)
+  @Default(null)
+  @Column
+  instagramId?: string;
+
   @CreatedAt
   createdAt: Date;
 

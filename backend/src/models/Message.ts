@@ -45,6 +45,10 @@ class Message extends Model<Message> {
   @Column(DataType.TEXT)
   body: string;
   
+  @Default("whatsapp")
+  @Column
+  channel: string;
+  
   @Default([])
   @Column(DataType.JSON)
   reactions: { type: string; userId: number; }[];
