@@ -39,15 +39,15 @@ class TicketTraking extends Model<TicketTraking> {
   company: Company;
 
   @ForeignKey(() => Whatsapp)
-  @Column
-  whatsappId?: number; // ✅ Permitir null para NotificaMe
+  @Column({ allowNull: true })
+  whatsappId: number | null; // ✅ Permitir null para NotificaMe
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
 
   @ForeignKey(() => User)
-  @Column
-  userId?: number; // ✅ Permitir null para consistencia
+  @Column({ allowNull: true })
+  userId: number | null; // ✅ Permitir null para consistencia
 
   @Column
   rated: boolean;
