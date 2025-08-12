@@ -120,27 +120,28 @@ const SendNotificaMeMessageService = async ({
         logger.info(`🔍 [NotificaMe] Métodos del cliente configurado: ${Object.getOwnPropertyNames(channelClientConfigured)}`);
         logger.info(`🔍 [NotificaMe] Prototipo del cliente configurado: ${Object.getOwnPropertyNames(Object.getPrototypeOf(channelClientConfigured))}`);
         
-        // ✅ 2. Enviar mensaje usando sendMessageBatch
-        if (typeof channelClientConfigured.sendMessageBatch === 'function') {
-          response = await channelClientConfigured.sendMessageBatch([{
+        // ✅ 2. Enviar mensaje usando sendMessageBatch del cliente base
+        if (typeof channelClient.sendMessageBatch === 'function') {
+          response = await channelClient.sendMessageBatch([{
             to: contactNumber,
-            content: content
+            content: content,
+            channel: channelType
           }]);
-          logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch`);
-        } else if (typeof channelClientConfigured.send === 'function') {
-          // ✅ ALTERNATIVA: Usar método send
-          response = await channelClientConfigured.send(contactNumber, content);
-          logger.info(`📤 [NotificaMe] Mensaje enviado usando send`);
-        } else if (typeof channelClientConfigured.post === 'function') {
-          // ✅ ALTERNATIVA: Usar método post
-          response = await channelClientConfigured.post('/send', {
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch del cliente base`);
+        } else if (typeof channelClient.send === 'function') {
+          // ✅ ALTERNATIVA: Usar método send del cliente base
+          response = await channelClient.send(contactNumber, content, { channel: channelType });
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando send del cliente base`);
+        } else if (typeof channelClient.post === 'function') {
+          // ✅ ALTERNATIVA: Usar método post del cliente base
+          response = await channelClient.post('/send', {
             to: contactNumber,
             message: cleanMessage,
             channel: channelType
           });
-          logger.info(`📤 [NotificaMe] Mensaje enviado usando post`);
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando post del cliente base`);
         } else {
-          throw new Error(`Cliente configurado no tiene métodos de envío válidos. Métodos: ${Object.getOwnPropertyNames(channelClientConfigured)}`);
+          throw new Error(`Cliente base no tiene métodos de envío válidos. Métodos: ${Object.getOwnPropertyNames(channelClient)}`);
         }
       } else {
         throw new Error(`Cliente no tiene método setChannel`);
