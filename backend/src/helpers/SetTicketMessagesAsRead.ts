@@ -11,7 +11,32 @@ const SetTicketMessagesAsRead = async (ticket: Ticket): Promise<void> => {
   // await cacheLayer.set(`contacts:${ticket.contactId}:unreads`, "0");
 
   try {
+    // ✅ VALIDAR SI EL TICKET TIENE WHATSAPP (para tickets de NotificaMe)
     const wbot = await GetTicketWbot(ticket);
+    
+    if (!wbot) {
+      // Para tickets de NotificaMe (sin whatsapp), solo marcar como leídos en BD
+      logger.info(`Ticket ${ticket.id} sin whatsapp - Marcando mensajes como leídos solo en BD`);
+      
+      await Message.update(
+        { read: true },
+        {
+          where: {
+            ticketId: ticket.id,
+            read: false
+          }
+        }
+      );
+      
+      // Emitir evento de socket
+      const io = getIO();
+      io.to(`company-${ticket.companyId}-mainchannel`).emit(`company-${ticket.companyId}-ticket`, {
+        action: "updateUnread",
+        ticketId: ticket.id
+      });
+      
+      return;
+    }
 
     const getJsonMessage = await Message.findAll({
       where: {
