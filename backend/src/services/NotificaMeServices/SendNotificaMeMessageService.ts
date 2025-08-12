@@ -107,20 +107,31 @@ const SendNotificaMeMessageService = async ({
     // ✅ ENVIAR MENSAJE A TRAVÉS DE NOTIFICAME
     logger.info(`🔍 [NotificaMe] Tipo de cliente: ${typeof channelClient}, Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
     
-    // ✅ CORREGIR: Usar el método correcto del cliente
+    // ✅ CORREGIR: Usar setChannel y sendMessageBatch
     let response;
-    if (typeof channelClient.sendMessage === 'function') {
-      response = await channelClient.sendMessage(contactNumber, content);
-    } else if (typeof channelClient.send === 'function') {
-      response = await channelClient.send(contactNumber, content);
-    } else if (typeof channelClient.post === 'function') {
-      response = await channelClient.post('/send', {
-        to: contactNumber,
-        message: cleanMessage,
-        channel: channelType
-      });
-    } else {
-      throw new Error(`Cliente no tiene método de envío válido. Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+    
+    try {
+      // ✅ 1. Configurar el canal primero
+      if (typeof channelClient.setChannel === 'function') {
+        const channelClientConfigured = channelClient.setChannel(channelType);
+        logger.info(`📡 [NotificaMe] Canal configurado exitosamente: ${channelType}`);
+        
+        // ✅ 2. Enviar mensaje usando sendMessageBatch
+        if (typeof channelClientConfigured.sendMessageBatch === 'function') {
+          response = await channelClientConfigured.sendMessageBatch([{
+            to: contactNumber,
+            content: content
+          }]);
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch`);
+        } else {
+          throw new Error(`Cliente configurado no tiene sendMessageBatch`);
+        }
+      } else {
+        throw new Error(`Cliente no tiene método setChannel`);
+      }
+    } catch (error) {
+      logger.error(`❌ [NotificaMe] Error en envío: ${error}`);
+      throw error;
     }
 
     // ✅ PARSEAR RESPUESTA
