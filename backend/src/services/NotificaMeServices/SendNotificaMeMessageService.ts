@@ -116,6 +116,10 @@ const SendNotificaMeMessageService = async ({
         const channelClientConfigured = channelClient.setChannel(channelType);
         logger.info(`📡 [NotificaMe] Canal configurado exitosamente: ${channelType}`);
         
+        // ✅ DEBUG: Verificar métodos del cliente configurado
+        logger.info(`🔍 [NotificaMe] Métodos del cliente configurado: ${Object.getOwnPropertyNames(channelClientConfigured)}`);
+        logger.info(`🔍 [NotificaMe] Prototipo del cliente configurado: ${Object.getOwnPropertyNames(Object.getPrototypeOf(channelClientConfigured))}`);
+        
         // ✅ 2. Enviar mensaje usando sendMessageBatch
         if (typeof channelClientConfigured.sendMessageBatch === 'function') {
           response = await channelClientConfigured.sendMessageBatch([{
@@ -123,8 +127,20 @@ const SendNotificaMeMessageService = async ({
             content: content
           }]);
           logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch`);
+        } else if (typeof channelClientConfigured.send === 'function') {
+          // ✅ ALTERNATIVA: Usar método send
+          response = await channelClientConfigured.send(contactNumber, content);
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando send`);
+        } else if (typeof channelClientConfigured.post === 'function') {
+          // ✅ ALTERNATIVA: Usar método post
+          response = await channelClientConfigured.post('/send', {
+            to: contactNumber,
+            message: cleanMessage,
+            channel: channelType
+          });
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando post`);
         } else {
-          throw new Error(`Cliente configurado no tiene sendMessageBatch`);
+          throw new Error(`Cliente configurado no tiene métodos de envío válidos. Métodos: ${Object.getOwnPropertyNames(channelClientConfigured)}`);
         }
       } else {
         throw new Error(`Cliente no tiene método setChannel`);
