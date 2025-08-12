@@ -29,11 +29,11 @@ const selectChannelAndContactNumber = (contact: Contact, client: typeof Client, 
     channelType = ticketChannel || "whatsapp";
   }
 
-  // ✅ CORREGIR: Configurar el canal correctamente
+  // ✅ CORREGIR: Configurar el canal usando setChannel()
   if (channelType && channelType !== "whatsapp") {
     try {
-      // ✅ Usar el cliente directamente con el canal configurado
-      channelClient = client;
+      // ✅ IMPORTANTE: Usar setChannel() para configurar el canal
+      channelClient = client.setChannel(channelType);
       logger.info(`📡 [NotificaMe] Canal configurado: ${channelType} para contacto ${contactNumber}`);
     } catch (error) {
       logger.error(`❌ [NotificaMe] Error configurando canal ${channelType}: ${error}`);
@@ -107,20 +107,31 @@ const SendNotificaMeMessageService = async ({
     // ✅ ENVIAR MENSAJE A TRAVÉS DE NOTIFICAME
     logger.info(`🔍 [NotificaMe] Tipo de cliente: ${typeof channelClient}, Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
     
-    // ✅ CORREGIR: Usar setChannel y sendMessageBatch
+    // ✅ CORREGIR: Implementación correcta según documentación NotificaMe
     let response;
     
-    // ✅ SIMPLIFICAR: Enviar directamente usando sendMessageBatch
     try {
-      if (typeof channelClient.sendMessageBatch === 'function') {
-        response = await channelClient.sendMessageBatch([{
-          to: contactNumber,
-          content: content,
-          channel: channelType
-        }]);
-        logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch`);
+      // ✅ IMPORTANTE: Usar la API correcta según el canal
+      if (channelType === "instagram" || channelType === "facebook") {
+        // ✅ Para Instagram/Facebook usar sendMessageBatch con channel especificado
+        if (typeof channelClient.sendMessageBatch === 'function') {
+          response = await channelClient.sendMessageBatch([{
+            to: contactNumber,
+            content: content,
+            channel: channelType
+          }]);
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessageBatch para ${channelType}`);
+        } else {
+          throw new Error(`Cliente no tiene método sendMessageBatch. Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+        }
       } else {
-        throw new Error(`Cliente no tiene método sendMessageBatch. Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+        // ✅ Para WhatsApp usar el método por defecto
+        if (typeof channelClient.sendMessage === 'function') {
+          response = await channelClient.sendMessage(contactNumber, content);
+          logger.info(`📤 [NotificaMe] Mensaje enviado usando sendMessage para WhatsApp`);
+        } else {
+          throw new Error(`Cliente no tiene método sendMessage. Métodos disponibles: ${Object.getOwnPropertyNames(channelClient)}`);
+        }
       }
     } catch (error) {
       // ✅ CORREGIR: Manejo de errores más detallado
