@@ -8,25 +8,25 @@ import { getIO } from "../../libs/socket";
 import { logger } from "../../utils/logger";
 
 // ✅ FUNCIÓN PARA SELECCIONAR CANAL Y NÚMERO DE CONTACTO
-const selectChannelAndContactNumber = (contact: Contact, client: typeof Client) => {
+const selectChannelAndContactNumber = (contact: Contact, client: typeof Client, ticketChannel: string) => {
   let channelClient;
   let contactNumber;
   let channelType;
 
-  // ✅ DETECTAR CANAL BASADO EN EL MODELO DE CONTACTO
-  if (contact.channel === "facebook") {
+  // ✅ USAR EL CANAL DEL TICKET COMO PRIORIDAD
+  if (ticketChannel === "facebook") {
     contactNumber = contact.messengerId || contact.number;
     channelType = "facebook";
-  } else if (contact.channel === "instagram") {
+  } else if (ticketChannel === "instagram") {
     contactNumber = contact.instagramId || contact.number;
     channelType = "instagram";
-  } else if (contact.channel === "webchat") {
+  } else if (ticketChannel === "webchat") {
     contactNumber = contact.number;
     channelType = "webchat";
   } else {
     // ✅ CANAL POR DEFECTO
     contactNumber = contact.number;
-    channelType = contact.channel || "whatsapp";
+    channelType = ticketChannel || "whatsapp";
   }
 
   // ✅ CORREGIR: Configurar el canal correctamente
@@ -60,13 +60,15 @@ const SendNotificaMeMessageService = async ({
   companyId: number;
 }): Promise<Message> => {
   try {
-    logger.info(`📤 [NotificaMe] Enviando mensaje a ticket ${ticketId} en canal ${contact.channel}`);
-
-    // ✅ BUSCAR TICKET Y OBTENER COMPANY ID
+    // ✅ BUSCAR TICKET Y OBTENER COMPANY ID Y CANAL
     const ticket = await Ticket.findOne({ where: { id: ticketId } });
     if (!ticket) {
       throw new Error(`Ticket con ID ${ticketId} no encontrado`);
     }
+
+    // ✅ USAR EL CANAL DEL TICKET EN LUGAR DEL CONTACTO
+    const ticketChannel = ticket.channel || "whatsapp";
+    logger.info(`📤 [NotificaMe] Enviando mensaje a ticket ${ticketId} en canal ${ticketChannel} (ticket) vs ${contact.channel} (contacto)`);
 
     // ✅ OBTENER TOKEN DE NOTIFICAME
     let notificameHubToken;
@@ -81,8 +83,9 @@ const SendNotificaMeMessageService = async ({
     
     // ✅ SELECCIONAR CANAL Y NÚMERO DE CONTACTO
     logger.info(`🔍 [NotificaMe] Contacto recibido - channel: ${contact.channel}, messengerId: ${contact.messengerId}, instagramId: ${contact.instagramId}, number: ${contact.number}`);
+    logger.info(`🔍 [NotificaMe] Ticket canal: ${ticketChannel}`);
     
-    const { channelClient, contactNumber, channelType } = selectChannelAndContactNumber(contact, client);
+    const { channelClient, contactNumber, channelType } = selectChannelAndContactNumber(contact, client, ticketChannel);
     
     logger.info(`🔍 [NotificaMe] Resultado selección - channelClient: ${!!channelClient}, contactNumber: ${contactNumber}, channelType: ${channelType}`);
     
