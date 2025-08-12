@@ -10,27 +10,27 @@ type Session = WASocket & {
   store?: Store;
 };
 
-const GetTicketWbot = async (ticket: Ticket): Promise<Session | null> => {
-  try {
-    // ✅ VALIDAR SI EL TICKET TIENE WHATSAPP ID
-    if (!ticket.whatsappId) {
-      // Para tickets de NotificaMe (sin whatsappId), retornar null
-      logger.info(`Ticket ${ticket.id} sin whatsappId - Es un ticket de NotificaMe`);
-      return null;
+const GetTicketWbot = async (ticket: Ticket): Promise<Session> => {
+  // ✅ SOLUCIÓN CORREGIDA: Como en la versión anterior que funcionaba
+  if (!ticket.whatsappId) {
+    // Para tickets de NotificaMe, asignar WhatsApp por defecto
+    const defaultWhatsapp = await GetDefaultWhatsApp(ticket.companyId);
+    
+    if (defaultWhatsapp) {
+      // ✅ ACTUALIZAR EL TICKET CON EL WHATSAPP POR DEFECTO
+      await ticket.update({ whatsappId: defaultWhatsapp.id });
+      logger.info(`Ticket ${ticket.id} de NotificaMe asignado a WhatsApp por defecto: ${defaultWhatsapp.id}`);
+    } else {
+      throw new Error("No se encontró WhatsApp por defecto para la empresa");
     }
-
-    // ✅ VALIDAR SI EL WBOT EXISTE
-    const wbot = getWbot(ticket.whatsappId);
-    if (!wbot) {
-      logger.warn(`Wbot no encontrado para whatsappId: ${ticket.whatsappId}`);
-      return null;
-    }
-
-    return wbot;
-  } catch (err) {
-    logger.error(`Error en GetTicketWbot para ticket ${ticket.id}:`, err);
-    return null;
   }
+
+  const wbot = getWbot(ticket.whatsappId);
+  if (!wbot) {
+    throw new Error(`Wbot no encontrado para whatsappId: ${ticket.whatsappId}`);
+  }
+
+  return wbot;
 };
 
 export default GetTicketWbot;
