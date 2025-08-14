@@ -47,8 +47,8 @@ export const checkUpdates = async (req: Request, res: Response): Promise<Respons
     }
 
     return res.status(200).json({
-      currentVersion: currentHash.substring(0, 8),
-      latestVersion: latestVersion.substring(0, 8),
+      currentVersion: currentHash.substring(0, 9),
+      latestVersion: latestVersion.substring(0, 9),
       hasUpdates,
       commitsAhead: parseInt(commitsAhead),
       currentBranch,
@@ -123,7 +123,7 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
       success: true,
       message: "Actualización completada exitosamente",
       previousVersion: req.body.previousVersion || "N/A",
-      newVersion: newHash.substring(0, 8),
+      newVersion: newHash.substring(0, 9),
       newMessage,
       newAuthor,
       newDate,
@@ -311,7 +311,7 @@ export const performFullUpdate = async (req: Request, res: Response): Promise<Re
       success: true,
       message: "Actualización completa finalizada exitosamente",
       previousVersion: req.body.previousVersion || "N/A",
-      newVersion: newHash.substring(0, 8),
+      newVersion: newHash.substring(0, 9),
       newMessage,
       newAuthor,
       newDate,
