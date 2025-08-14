@@ -33,19 +33,29 @@ class Company extends Model<Company> {
   @Column
   name: string;
 
-  @Column
+  @Column({
+    allowNull: true
+  })
   phone: string;
 
-  @Column
+  @Column({
+    allowNull: true
+  })
   email: string;
 
-  @Column
+  @Column({
+    allowNull: true
+  })
   status: boolean;
 
-  @Column
+  @Column({
+    allowNull: true
+  })
   dueDate: string;
 
-  @Column
+  @Column({
+    allowNull: true
+  })
   recurrence: string;
 
   @Column({
@@ -53,10 +63,12 @@ class Company extends Model<Company> {
     allowNull: true,
     defaultValue: null
   })
-  schedules: [];
+  schedules: any[];
 
   @ForeignKey(() => Plan)
-  @Column
+  @Column({
+    allowNull: true
+  })
   planId: number;
 
   @BelongsTo(() => Plan)

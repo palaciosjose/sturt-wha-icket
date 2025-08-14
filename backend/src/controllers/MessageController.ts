@@ -81,7 +81,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   console.log('bodyyyyyyyyyy:', body)
   
   // ✅ DETECTAR CANAL DEL TICKET
-  const channelType = ticket.channel || "whatsapp";
+    const channelType = ticket.channel || "whatsapp";
   logger.info(`📡 [MessageController] Canal detectado: ${channelType} para ticket ${ticketId}`);
   
   const sentMessages = [];

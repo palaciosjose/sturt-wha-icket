@@ -93,7 +93,9 @@ const UpdateTicketService = async ({
 
     if (oldStatus === "closed" || Number(whatsappId) !== ticket.whatsappId) {
       // ✅ LÓGICA CORREGIDA: Como en la versión anterior que funcionaba
-      await CheckContactOpenTickets(ticket.contact.id, whatsappId, ticket.channel);
+      // ✅ TEMPORALMENTE COMENTADO - Campo channel no existe en la base de datos
+      // await CheckContactOpenTickets(ticket.contact.id, whatsappId, ticket.channel);
+      await CheckContactOpenTickets(ticket.contact.id, whatsappId, "whatsapp"); // ✅ Temporalmente siempre whatsapp
       chatbot = null;
       queueOptionId = null;
     }

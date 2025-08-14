@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
@@ -36,6 +36,7 @@ import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import toastError from "../../errors/toastError";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { SocketContext } from "../../context/Socket/SocketContext";
 import { Can } from "../../components/Can";
 
 const useStyles = makeStyles(theme => ({
@@ -82,7 +83,8 @@ const Connections = () => {
 	const classes = useStyles();
 
 	const { user } = useContext(AuthContext);
-	const { whatsApps, loading } = useContext(WhatsAppsContext);
+	const { whatsApps, loading, refreshWhatsApps } = useContext(WhatsAppsContext);
+	const socketManager = useContext(SocketContext);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
@@ -98,17 +100,113 @@ const Connections = () => {
 		confirmationModalInitialState
 	);
 
-  // ✅ AGREGAR FUNCIÓN PARA REFRESCAR CONEXIONES
-  const refreshConnections = () => {
-    // Forzar re-render de las conexiones
-    window.location.reload();
+  // ✅ WEBSOCKET PARA SINCRONIZACIÓN EN TIEMPO REAL
+  useEffect(() => {
+    if (socketManager) {
+      const companyId = localStorage.getItem("companyId");
+      const socket = socketManager.getSocket(companyId);
+
+      // ✅ ESCUCHAR EVENTOS DE WHATSAPP
+      socket.on(`company-${companyId}-whatsapp`, (data) => {
+        console.log("📡 EVENTO WHATSAPP RECIBIDO:", data.action);
+        
+        if (data.action === "create") {
+          console.log("➕ CREANDO NUEVA CONEXIÓN:", data.whatsapp.id);
+          // Refrescar conexiones automáticamente
+          refreshWhatsApps();
+        }
+        
+        if (data.action === "update") {
+          console.log("🔄 ACTUALIZANDO CONEXIÓN:", data.whatsapp.id);
+          // Refrescar conexiones automáticamente
+          refreshWhatsApps();
+        }
+        
+        if (data.action === "delete") {
+          console.log("🗑️ ELIMINANDO CONEXIÓN:", data.whatsappId);
+          // Refrescar conexiones automáticamente
+          refreshWhatsApps();
+        }
+      });
+
+      // ✅ ESCUCHAR EVENTOS DE SESIÓN
+      socket.on(`company-${companyId}-whatsappSession`, (data) => {
+        if (data.action === "update") {
+          console.log("🔄 ACTUALIZANDO SESIÓN:", data.session.id);
+          // Refrescar conexiones automáticamente
+          refreshWhatsApps();
+        }
+      });
+
+      // ✅ LIMPIAR LISTENERS AL DESMONTAR
+      return () => {
+        if (socket && typeof socket.off === 'function') {
+          socket.off(`company-${companyId}-whatsapp`);
+          socket.off(`company-${companyId}-whatsappSession`);
+        }
+      };
+    }
+  }, [socketManager, refreshWhatsApps]);
+
+  // ✅ FUNCIÓN MEJORADA PARA REFRESCAR CONEXIONES
+  // eslint-disable-next-line no-unused-vars
+  const refreshConnections = async () => {
+    try {
+      await refreshWhatsApps();
+      toast.success("✅ Lista de conexiones actualizada");
+    } catch (error) {
+      console.error("Error al refrescar conexiones:", error);
+    }
+  };
+
+  // ✅ FUNCIÓN PARA MANEJAR ÉXITO EN CREACIÓN/EDICIÓN
+  const handleWhatsAppSuccess = async () => {
+    try {
+      // Cerrar modal
+      setWhatsAppModalOpen(false);
+      
+      // Refrescar conexiones automáticamente
+      await refreshWhatsApps();
+      
+      // Mostrar mensaje de éxito
+      toast.success("✅ Conexión guardada exitosamente");
+    } catch (error) {
+      console.error("Error al refrescar después de guardar:", error);
+    }
+  };
+
+  // ✅ FUNCIÓN PARA MANEJAR ÉXITO EN ELIMINACIÓN
+  const handleDeleteSuccess = async (whatsAppId) => {
+    try {
+      // Cerrar modal de confirmación
+      setConfirmModalOpen(false);
+      setConfirmModalInfo(confirmationModalInitialState);
+      
+      // Refrescar conexiones automáticamente
+      await refreshWhatsApps();
+      
+      // Mostrar mensaje de éxito
+      toast.success("✅ Conexión eliminada exitosamente");
+    } catch (error) {
+      console.error("Error al refrescar después de eliminar:", error);
+    }
   };
 
   const restartWhatsapps = async () => {
-    // const companyId = localStorage.getItem("companyId");
     try {
       await api.post(`/whatsapp-restart/`);
-      toast.warn(i18n.t("Aguarde... reiniciando..."));
+      toast.warn("⏳ Aguarde... reiniciando conexiones...");
+      
+      // ✅ ESPERAR UN POCO Y LUEGO REFRESCAR
+      setTimeout(async () => {
+        try {
+          await refreshWhatsApps();
+          toast.success("✅ Conexiones reiniciadas exitosamente");
+        } catch (error) {
+          console.error("Error al refrescar después del reinicio:", error);
+        }
+      }, 3000); // Esperar 3 segundos para que el reinicio se complete
+      
     } catch (err) {
       toastError(err);
     }
@@ -117,6 +215,11 @@ const Connections = () => {
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {
 			await api.post(`/whatsappsession/${whatsAppId}`);
+			
+			// ✅ REFRESCAR CONEXIONES DESPUÉS DE INICIAR SESIÓN
+			await refreshWhatsApps();
+			
+			toast.success("✅ Sesión de WhatsApp iniciada");
 		} catch (err) {
 			toastError(err);
 		}
@@ -124,7 +227,12 @@ const Connections = () => {
 
 	const handleRequestNewQrCode = async whatsAppId => {
 		try {
-			await api.put(`/whatsappsession/${whatsAppId}`);
+			await api.post(`/whatsappsession/${whatsAppId}`);
+			
+			// ✅ REFRESCAR CONEXIONES DESPUÉS DE SOLICITAR QR
+			await refreshWhatsApps();
+			
+			toast.success("✅ Nuevo código QR generado");
 		} catch (err) {
 			toastError(err);
 		}
@@ -176,25 +284,21 @@ const Connections = () => {
 		setConfirmModalOpen(true);
 	};
 
-	const handleSubmitConfirmationModal = async () => {
-		if (confirmModalInfo.action === "disconnect") {
-			try {
-				await api.delete(`/whatsappsession/${confirmModalInfo.whatsAppId}`);
-			} catch (err) {
-				toastError(err);
-			}
-		}
-
-		if (confirmModalInfo.action === "delete") {
-			try {
-				await api.delete(`/whatsapp/${confirmModalInfo.whatsAppId}`);
-				toast.success(i18n.t("connections.toasts.deleted"));
-			} catch (err) {
-				toastError(err);
-			}
-		}
-
+	const handleCloseConfirmModal = () => {
+		setConfirmModalOpen(false);
 		setConfirmModalInfo(confirmationModalInitialState);
+	};
+
+	const handleDeleteWhatsApp = async () => {
+		try {
+			await api.delete(`/whatsapp/${confirmModalInfo.whatsAppId}`);
+			
+			// ✅ USAR NUEVA FUNCIÓN DE ÉXITO
+			await handleDeleteSuccess(confirmModalInfo.whatsAppId);
+			
+		} catch (err) {
+			toastError(err);
+		}
 	};
 
 	const renderActionButtons = whatsApp => {
@@ -258,8 +362,8 @@ const Connections = () => {
 			<ConfirmationModal
 				title={confirmModalInfo.title}
 				open={confirmModalOpen}
-				onClose={setConfirmModalOpen}
-				onConfirm={handleSubmitConfirmationModal}
+				onClose={handleCloseConfirmModal}
+				onConfirm={handleDeleteWhatsApp}
 			>
 				{confirmModalInfo.message}
 			</ConfirmationModal>
@@ -272,7 +376,7 @@ const Connections = () => {
 				open={whatsAppModalOpen}
 				onClose={handleCloseWhatsAppModal}
 				whatsAppId={!qrModalOpen && selectedWhatsApp?.id}
-				onSave={refreshConnections}
+				onSave={handleWhatsAppSuccess}
 			/>
 			<MainHeader>
 				<Title>{i18n.t("connections.title")}</Title>

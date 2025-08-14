@@ -426,10 +426,10 @@ const UpdateVersionModal = ({ open, onClose }) => {
             </Box>
           )}
           <Typography variant="body2" style={{ color: "#2196f3", fontWeight: "bold" }}>
-            ✅ Actualización completada exitosamente. Los servicios se han reiniciado automáticamente.
+            <span role="img" aria-label="check">✅</span> Actualización completada exitosamente. Los servicios se han reiniciado automáticamente.
           </Typography>
           <Typography variant="body2" style={{ color: "#666", marginTop: "8px", fontSize: "0.875rem" }}>
-            💡 Los usuarios experimentaron una breve reconexión automática (2-5 segundos). 
+            <span role="img" aria-label="idea">💡</span> Los usuarios experimentaron una breve reconexión automática (2-5 segundos). 
             Presiona "CERRAR" para recargar esta página.
           </Typography>
         </Paper>
@@ -484,12 +484,12 @@ const UpdateVersionModal = ({ open, onClose }) => {
                 marginBottom: "16px"
               }}>
                 <Typography variant="body2" style={{ color: "#e65100", fontWeight: "bold" }}>
-                  ⚠️ Importante: Reinicio de Servicios
+                  <span role="img" aria-label="warning">⚠️</span> Importante: Reinicio de Servicios
                 </Typography>
                 <Typography variant="body2" style={{ color: "#bf360c", fontSize: "0.875rem", marginTop: "4px" }}>
                   • La actualización completa reiniciará los servicios automáticamente<br/>
                   • Los usuarios experimentarán una breve reconexión (2-5 segundos)<br/>
-                  • 💡 Recomendado fuera de horas pico para minimizar impacto
+                  • <span role="img" aria-label="idea">💡</span> Recomendado fuera de horas pico para minimizar impacto
                 </Typography>
               </Paper>
               

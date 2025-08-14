@@ -11,7 +11,7 @@ import {
   Unique
 } from "sequelize-typescript";
 
-@Table({ tableName: "Invoices" })
+@Table({ tableName: "invoices" })
 class Invoices extends Model<Invoices> {
   @PrimaryKey
   @AutoIncrement

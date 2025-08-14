@@ -81,11 +81,36 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   // ✅ LIMPIAR transferQueueId (convertir '' a null)
   const cleanTransferQueueId = transferQueueId && transferQueueId !== '' && transferQueueId !== 0 ? Number(transferQueueId) : null;
 
+  // ✅ VALIDACIÓN: Limpiar timeToTransfer si no hay departamento destino
+  let cleanTimeToTransfer = timeToTransfer;
+  if (!cleanTransferQueueId || cleanTransferQueueId === null) {
+    console.log("🔄 LIMPIANDO timeToTransfer - No hay departamento destino seleccionado");
+    cleanTimeToTransfer = null;
+  }
+
+  // ✅ VALIDACIÓN MEJORADA: Solo requerir greetingMessage si hay múltiples departamentos
+  if (cleanQueueIds.length > 1 && !greetingMessage) {
+    throw new AppError("ERR_WAPP_GREETING_REQUIRED");
+  }
+
+  // ✅ VALIDACIÓN MEJORADA: Si solo hay prompt (sin departamentos), no requerir greetingMessage
+  if (cleanQueueIds.length === 0 && promptId) {
+    console.log("✅ CONFIGURACIÓN SOLO CON PROMPT - No se requiere greetingMessage");
+  }
+
+  // ✅ ELIMINAR VALIDACIÓN OBLIGATORIA DE DEPARTAMENTOS O PROMPTS
+  // Una conexión puede existir solo con nombre y estatus
+  // if (cleanQueueIds.length === 0 && !promptId) {
+  //   throw new AppError("ERR_WAPP_QUEUE_OR_PROMPT_REQUIRED");
+  // }
+
   console.log("🔄 DATOS RECIBIDOS:");
   console.log("  - queueIds original:", queueIds);
   console.log("  - queueIds limpio:", cleanQueueIds);
   console.log("  - transferQueueId original:", transferQueueId);
   console.log("  - transferQueueId limpio:", cleanTransferQueueId);
+  console.log("  - timeToTransfer original:", timeToTransfer);
+  console.log("  - timeToTransfer limpio:", cleanTimeToTransfer);
   console.log("  - token:", token);
   console.log("  - name:", name);
   console.log("  - status:", status);
@@ -104,7 +129,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     //timeSendQueue,
     //sendIdQueue,
 	transferQueueId: cleanTransferQueueId, // ✅ USAR VALOR LIMPIO
-	timeToTransfer,	
+	timeToTransfer: cleanTimeToTransfer,	
     promptId,
     maxUseBotQueues,
     timeUseBotQueues,

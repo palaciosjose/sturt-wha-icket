@@ -122,9 +122,58 @@ const FindOrCreateTicketService = async (
     ? await Whatsapp.findOne({ where: { id: whatsappId } })
     : null;
 
+  // ✅ ACTUALIZAR TICKET EXISTENTE CON PROMPTID Y QUEUEID SI NO LOS TIENE
+  if (ticket && whatsapp && (!ticket.promptId || !ticket.queueId)) {
+    console.log("🔍 ACTUALIZANDO TICKET EXISTENTE - PromptId actual:", ticket.promptId, "QueueId actual:", ticket.queueId);
+    
+    const updateData: any = {};
+    
+    if (whatsapp.promptId && !ticket.promptId) {
+      updateData.promptId = whatsapp.promptId;
+      console.log("✅ ACTUALIZANDO PROMPTID DEL TICKET:", whatsapp.promptId);
+    }
+    
+    if (whatsapp.queues && whatsapp.queues.length > 0 && !ticket.queueId) {
+      updateData.queueId = whatsapp.queues[0].id;
+      console.log("✅ ACTUALIZANDO QUEUEID DEL TICKET:", whatsapp.queues[0].id);
+    }
+    
+    if (updateData.promptId) {
+      updateData.useIntegration = true;
+      console.log("✅ ACTIVANDO INTEGRACIÓN DEL TICKET");
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      await ticket.update(updateData);
+      console.log("✅ TICKET ACTUALIZADO CON CONFIGURACIÓN DE WHATSAPP");
+    }
+  }
+
   let wasCreated = false;
 
   if (!ticket) {
+    // ✅ OBTENER CONFIGURACIÓN DEL WHATSAPP PARA ASIGNAR PROMPTID
+    let promptId = null;
+    let queueId = null;
+    
+    if (whatsapp) {
+      console.log("🔍 CONFIGURACIÓN WHATSAPP - ID:", whatsapp.id);
+      console.log("🔍 CONFIGURACIÓN WHATSAPP - PromptId:", whatsapp.promptId);
+      console.log("🔍 CONFIGURACIÓN WHATSAPP - Queues:", whatsapp.queues ? whatsapp.queues.map(q => q.id) : []);
+      
+      // ✅ ASIGNAR PROMPTID SI ESTÁ CONFIGURADO
+      if (whatsapp.promptId) {
+        promptId = whatsapp.promptId;
+        console.log("✅ ASIGNANDO PROMPTID AL TICKET:", promptId);
+      }
+      
+      // ✅ ASIGNAR PRIMER DEPARTAMENTO SI ESTÁ CONFIGURADO
+      if (whatsapp.queues && whatsapp.queues.length > 0) {
+        queueId = whatsapp.queues[0].id;
+        console.log("✅ ASIGNANDO QUEUEID AL TICKET:", queueId);
+      }
+    }
+    
     ticket = await Ticket.create({
       contactId: groupContact ? groupContact.id : contact.id,
       status: "pending",
@@ -132,7 +181,10 @@ const FindOrCreateTicketService = async (
       unreadMessages,
       whatsappId: whatsapp ? whatsapp.id : null,
       whatsapp: whatsapp || undefined,
-      companyId
+      companyId,
+      promptId, // ✅ ASIGNAR PROMPTID DEL WHATSAPP
+      queueId,  // ✅ ASIGNAR QUEUEID DEL WHATSAPP
+      useIntegration: !!promptId // ✅ ACTIVAR INTEGRACIÓN SI HAY PROMPT
     });
     await FindOrCreateATicketTrakingService({
       ticketId: ticket.id,

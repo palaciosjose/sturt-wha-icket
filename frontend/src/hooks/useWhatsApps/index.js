@@ -52,6 +52,11 @@ const reducer = (state, action) => {
     return [...state];
   }
 
+  if (action.type === "REFRESH_WHATSAPPS") {
+    const whatsApps = action.payload;
+    return [...whatsApps];
+  }
+
   if (action.type === "RESET") {
     return [];
   }
@@ -61,8 +66,6 @@ const useWhatsApps = () => {
   const [whatsApps, dispatch] = useReducer(reducer, []);
   const [loading, setLoading] = useState(true);
   const isMounted = useRef(true);
-
-  // const socketManager = useContext(SocketContext); // ✅ TEMPORALMENTE COMENTADO
 
   useEffect(() => {
     return () => {
@@ -117,60 +120,6 @@ const useWhatsApps = () => {
       fetchSession();
     }
   }, []);
-
-  // ✅ TEMPORALMENTE DESHABILITADO PARA PROBAR FORMULARIO
-  /*
-  useEffect(() => {
-    if (isMounted.current) {
-      const companyId = localStorage.getItem("companyId");
-      const socket = socketManager.getSocket(companyId);
-
-      socket.on(`company-${companyId}-whatsapp`, (data) => {
-        if (isMounted.current) {
-          logger.whatsapp.debug("📡 EVENTO WHATSAPP RECIBIDO:", data.action);
-          
-          if (data.action === "create") {
-            logger.whatsapp.debug("➕ CREANDO NUEVA CONEXIÓN:", data.whatsapp.id);
-            dispatch({ type: "ADD_WHATSAPPS", payload: data.whatsapp });
-          }
-          
-          if (data.action === "update") {
-            logger.whatsapp.debug("🔄 ACTUALIZANDO CONEXIÓN:", data.whatsapp.id);
-            dispatch({ type: "UPDATE_WHATSAPPS", payload: data.whatsapp });
-          }
-          
-          if (data.action === "delete") {
-            logger.whatsapp.debug("🗑️ ELIMINANDO CONEXIÓN:", data.whatsappId);
-            dispatch({ type: "DELETE_WHATSAPPS", payload: data.whatsappId });
-          }
-          
-          if (data.action === "refresh") {
-            logger.whatsapp.debug("🔄 EVENTO DE REFRESCO RECIBIDO");
-            refreshWhatsApps();
-          }
-        }
-      });
-
-      socket.on(`company-${companyId}-whatsappSession`, (data) => {
-        if (isMounted.current) {
-          if (data.action === "update") {
-            logger.whatsapp.debug("🔄 ACTUALIZANDO SESIÓN:", data.session.id);
-            dispatch({ type: "UPDATE_SESSION", payload: data.session });
-          }
-        }
-      });
-
-      return () => {
-        if (isMounted.current) {
-          if (socket && typeof socket.off === 'function') {
-            socket.off(`company-${companyId}-whatsapp`);
-            socket.off(`company-${companyId}-whatsappSession`);
-          }
-        }
-      };
-    }
-  }, [socketManager]);
-  */
 
   return { whatsApps, loading, refreshWhatsApps };
 };

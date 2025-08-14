@@ -8,6 +8,11 @@ import Queue from "./models/Queue";
 import { getIO } from "./libs/socket";
 import { logger } from "./utils/logger";
 import ShowTicketService from "./services/TicketServices/ShowTicketService";
+import Prompt from "./models/Prompt";
+import Contact from "./models/Contact";
+import GetTicketWbot from "./helpers/GetTicketWbot";
+import { verifyMessage } from "./services/WbotServices/wbotMessageListener";
+import QueueOption from "./models/QueueOption";
 
 // ✅ MEJORADO: Sistema de transferencias automáticas inteligente
 export const TransferTicketQueue = async (): Promise<void> => {
@@ -60,22 +65,46 @@ export const TransferTicketQueue = async (): Promise<void> => {
         if (wpp.timeToTransfer && wpp.transferQueueId && wpp.timeToTransfer > 0) {
           const dataLimite = new Date(ticket.updatedAt);
           dataLimite.setMinutes(dataLimite.getMinutes() + wpp.timeToTransfer);
+          
+          const ahora = new Date();
+          const tiempoTranscurrido = Math.floor((ahora.getTime() - ticket.updatedAt.getTime()) / (1000 * 60)); // minutos
+          
+          logger.info(`[Transfer] Verificando transferencia por tiempo - Ticket ${ticket.id}:`);
+          logger.info(`  - Última actualización: ${ticket.updatedAt.toLocaleTimeString()}`);
+          logger.info(`  - Tiempo configurado: ${wpp.timeToTransfer} minutos`);
+          logger.info(`  - Tiempo transcurrido: ${tiempoTranscurrido} minutos`);
+          logger.info(`  - Límite: ${dataLimite.toLocaleTimeString()}`);
+          logger.info(`  - Ahora: ${ahora.toLocaleTimeString()}`);
 
-          if (new Date() > dataLimite) {
-            logger.info(`[Transfer] Transferencia por tiempo - Ticket ${ticket.id} → Departamento ${wpp.transferQueueId}`);
+          if (tiempoTranscurrido >= wpp.timeToTransfer) {
+            logger.info(`[Transfer] ✅ TRANSFERENCIA POR TIEMPO - Ticket ${ticket.id} → Departamento ${wpp.transferQueueId}`);
+            logger.info(`  - Tiempo transcurrido: ${tiempoTranscurrido} minutos >= ${wpp.timeToTransfer} minutos`);
             
             await performTransfer(ticket, wpp.transferQueueId, "tiempo", io);
             continue;
+          } else {
+            logger.info(`[Transfer] ⏳ ESPERANDO - Ticket ${ticket.id} aún no cumple tiempo: ${tiempoTranscurrido}/${wpp.timeToTransfer} minutos`);
+            logger.info(`[Transfer] 🚫 NO ejecutando asignación automática - Esperando transferencia por tiempo`);
+            continue; // ✅ SALIR DEL BUCLE - NO ejecutar asignación automática
           }
         }
 
-        // ✅ TRANSFERENCIA INTELIGENTE: Si el WhatsApp tiene departamentos configurados
+        // ✅ TRANSFERENCIA INTELIGENTE: Solo si NO hay transferencia por tiempo configurada
         if (wpp.queues && wpp.queues.length > 0) {
-          const defaultQueueId = wpp.queues[0].id;
+          logger.info(`[Transfer] 🔍 Verificando asignación automática para ticket ${ticket.id}`);
+          logger.info(`[Transfer]   - Transferencia por tiempo configurada: ${wpp.timeToTransfer ? 'SÍ' : 'NO'}`);
+          logger.info(`[Transfer]   - Departamento destino configurado: ${wpp.transferQueueId ? 'SÍ' : 'NO'}`);
           
-          logger.info(`[Transfer] Asignación automática - Ticket ${ticket.id} → Departamento ${defaultQueueId}`);
-          
-          await performTransfer(ticket, defaultQueueId, "automática", io);
+          // ✅ SOLO asignar automáticamente si NO hay transferencia por tiempo
+          if (!wpp.timeToTransfer || !wpp.transferQueueId) {
+            const defaultQueueId = wpp.queues[0].id;
+            
+            logger.info(`[Transfer] ✅ Asignación automática - Ticket ${ticket.id} → Departamento ${defaultQueueId}`);
+            
+            await performTransfer(ticket, defaultQueueId, "automática", io);
+          } else {
+            logger.info(`[Transfer] 🚫 NO ejecutando asignación automática - Transferencia por tiempo configurada`);
+          }
         }
 
       } catch (error) {
@@ -83,29 +112,117 @@ export const TransferTicketQueue = async (): Promise<void> => {
       }
     }
 
-    // ✅ TRANSFERENCIAS ENTRE DEPARTAMENTOS ESPECÍFICOS
-    await handleInterDepartmentTransfers();
+
 
   } catch (error) {
     logger.error("[Transfer] Error en proceso de transferencias:", error);
   }
 };
 
-// ✅ FUNCIÓN MEJORADA: Realizar transferencia con notificaciones
+// ✅ FUNCIÓN MEJORADA: Realizar transferencia con notificaciones y activación automática de chatbot
 const performTransfer = async (ticket: Ticket, newQueueId: number, reason: string, io: any) => {
   try {
-    // ✅ OBTENER DEPARTAMENTO DESTINO
-    const targetQueue = await Queue.findByPk(newQueueId);
+    // ✅ OBTENER DEPARTAMENTO DESTINO CON CONFIGURACIÓN COMPLETA
+    const targetQueue = await Queue.findByPk(newQueueId, {
+      include: [
+        {
+          model: Prompt,
+          as: 'prompt'
+        },
+        {
+          model: QueueOption,
+          as: 'options'
+        }
+      ]
+    });
+    
     if (!targetQueue) {
       logger.error(`[Transfer] Departamento ${newQueueId} no encontrado`);
       return;
     }
 
-    // ✅ ACTUALIZAR TICKET
-    await ticket.update({
+    // ✅ VERIFICAR SI EL DEPARTAMENTO TIENE CHATBOT CONFIGURADO
+    const hasChatbot = targetQueue.options && targetQueue.options.length > 0;
+    const hasPrompt = targetQueue.promptId || (targetQueue.prompt && targetQueue.prompt.id);
+    const hasGreeting = targetQueue.greetingMessage && targetQueue.greetingMessage.trim() !== "";
+
+    logger.info(`[Transfer] 🔍 Configuración del departamento ${targetQueue.name}:`);
+    logger.info(`  - Tiene opciones: ${hasChatbot ? 'SÍ' : 'NO'}`);
+    logger.info(`  - Tiene prompt: ${hasPrompt ? 'SÍ' : 'NO'}`);
+    logger.info(`  - Tiene mensaje de saludo: ${hasGreeting ? 'SÍ' : 'NO'}`);
+
+    // ✅ DETERMINAR SI SE DEBE ACTIVAR CHATBOT
+    let shouldActivateChatbot = false;
+    let chatbotType = "ninguno";
+
+    if (hasChatbot && hasGreeting) {
+      shouldActivateChatbot = true;
+      chatbotType = "opciones";
+      logger.info(`[Transfer] 🤖 ACTIVANDO CHATBOT EXISTENTE CON OPCIONES para departamento ${targetQueue.name}`);
+    } else if (hasPrompt) {
+      shouldActivateChatbot = true;
+      chatbotType = "IA";
+      logger.info(`[Transfer] 🤖 ACTIVANDO CHATBOT EXISTENTE IA para departamento ${targetQueue.name}`);
+    } else if (hasGreeting) {
+      shouldActivateChatbot = true;
+      chatbotType = "saludo";
+      logger.info(`[Transfer] 🤖 ACTIVANDO CHATBOT EXISTENTE CON SALUDO para departamento ${targetQueue.name}`);
+    }
+
+    // ✅ ACTUALIZAR TICKET CON CONFIGURACIÓN DE CHATBOT
+    const updateData: any = {
       queueId: newQueueId,
       status: "pending"
-    });
+    };
+
+    if (shouldActivateChatbot) {
+      updateData.chatbot = true;
+      updateData.promptId = hasPrompt ? (targetQueue.promptId || targetQueue.prompt?.id) : null;
+      updateData.useIntegration = hasPrompt ? true : false;
+      
+      logger.info(`[Transfer] ✅ Ticket ${ticket.id} configurado con chatbot tipo: ${chatbotType}`);
+      logger.info(`[Transfer] ℹ️ El chatbot existente del departamento ${targetQueue.name} se activará automáticamente`);
+    }
+
+    await ticket.update(updateData);
+
+    // ✅ ENVIAR SALUDO + OPCIONES DEL DEPARTAMENTO (REUTILIZANDO CONFIGURACIÓN EXISTENTE)
+    if (shouldActivateChatbot && hasGreeting) {
+      try {
+        const freshTicket = await Ticket.findByPk(ticket.id, {
+          include: [{ model: Contact, as: "contact" }]
+        });
+        
+        if (freshTicket?.contact?.number) {
+          const wbot = await GetTicketWbot(freshTicket);
+          
+          if (hasChatbot && targetQueue.options && targetQueue.options.length > 0) {
+            // ✅ ENVIAR SALUDO + OPCIONES
+            let options = "";
+            targetQueue.options.forEach((option, index) => {
+              options += `*[ ${index + 1} ]* - ${option.title}\n`;
+            });
+            
+            const body = `${targetQueue.greetingMessage}\n\n${options}`;
+            const jid = `${freshTicket.contact.number}@${freshTicket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+            const sentMessage = await wbot.sendMessage(jid, { text: body });
+            await verifyMessage(sentMessage, freshTicket, freshTicket.contact);
+            
+            logger.info(`[Transfer] ✅ Mensaje de saludo + opciones enviado a ticket ${freshTicket.id}`);
+          } else {
+            // ✅ ENVIAR SOLO SALUDO
+            const body = `${targetQueue.greetingMessage}`;
+            const jid = `${freshTicket.contact.number}@${freshTicket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+            const sentMessage = await wbot.sendMessage(jid, { text: body });
+            await verifyMessage(sentMessage, freshTicket, freshTicket.contact);
+            
+            logger.info(`[Transfer] ✅ Mensaje de saludo enviado a ticket ${freshTicket.id}`);
+          }
+        }
+      } catch (err) {
+        logger.error(`[Transfer] Error enviando mensaje automático:`, err);
+      }
+    }
 
     // ✅ ACTUALIZAR TRACKING
     const ticketTraking = await TicketTraking.findOne({
@@ -122,6 +239,8 @@ const performTransfer = async (ticket: Ticket, newQueueId: number, reason: strin
       });
     }
 
+    // (El saludo ya fue enviado arriba cuando corresponde)
+
     // ✅ NOTIFICAR TRANSFERENCIA
     const currentTicket = await ShowTicketService(ticket.id, ticket.companyId);
 
@@ -131,135 +250,19 @@ const performTransfer = async (ticket: Ticket, newQueueId: number, reason: strin
       .emit(`company-${ticket.companyId}-ticket`, {
         action: "update",
         ticket: currentTicket,
-        traking: `Transferencia ${reason} a ${targetQueue.name}`
+        traking: `Transferencia ${reason} a ${targetQueue.name}${shouldActivateChatbot ? ` + Chatbot ${chatbotType} activado` : ''}`
       });
 
     logger.info(`✅ [Transfer] Ticket ${ticket.id} transferido a ${targetQueue.name} (${reason})`);
+    if (shouldActivateChatbot) {
+      logger.info(`🤖 [Transfer] Chatbot ${chatbotType} activado automáticamente`);
+    }
 
   } catch (error) {
     logger.error(`[Transfer] Error en transferencia del ticket ${ticket.id}:`, error);
   }
 };
 
-// ✅ NUEVA FUNCIÓN: Transferencias entre departamentos específicos
-const handleInterDepartmentTransfers = async () => {
-  try {
-    // ✅ BUSCAR TICKETS EN DEPARTAMENTOS ESPECÍFICOS QUE NECESITAN TRANSFERENCIA
-    const ticketsForTransfer = await Ticket.findAll({
-      where: {
-        status: "pending",
-        queueId: {
-          [Op.not]: null
-        },
-        userId: {
-          [Op.is]: null
-        }
-      },
-      include: [
-        {
-          model: Queue,
-          as: "queue"
-        }
-      ]
-    });
 
-    for (const ticket of ticketsForTransfer) {
-      try {
-        const currentQueue = ticket.queue;
 
-        if (!currentQueue) {
-          continue;
-        }
 
-        // ✅ OBTENER WHATSAPP Y SUS DEPARTAMENTOS
-        const wpp = await Whatsapp.findByPk(ticket.whatsappId, {
-          include: [
-            {
-              model: Queue,
-              as: "queues"
-            }
-          ]
-        });
-
-        if (!wpp || !wpp.queues || wpp.queues.length === 0) {
-          continue;
-        }
-
-        // ✅ LÓGICA DE TRANSFERENCIA ENTRE DEPARTAMENTOS
-        // Ejemplo: Si está en SOPORTE y no hay agentes disponibles, transferir a VENTAS
-        if (currentQueue.name.includes("SOPORTE") && wpp.queues.length > 1) {
-          const ventasQueue = wpp.queues.find(q => q.name.includes("VENTAS"));
-          
-          if (ventasQueue && shouldTransferToVentas(ticket)) {
-            logger.info(`[Transfer] Transferencia SOPORTE → VENTAS - Ticket ${ticket.id}`);
-            await performTransfer(ticket, ventasQueue.id, "SOPORTE→VENTAS", getIO());
-          }
-        }
-
-        // ✅ LÓGICA DE TRANSFERENCIA VENTAS → SOPORTE
-        if (currentQueue.name.includes("VENTAS") && wpp.queues.length > 1) {
-          const soporteQueue = wpp.queues.find(q => q.name.includes("SOPORTE"));
-          
-          if (soporteQueue && shouldTransferToSoporte(ticket)) {
-            logger.info(`[Transfer] Transferencia VENTAS → SOPORTE - Ticket ${ticket.id}`);
-            await performTransfer(ticket, soporteQueue.id, "VENTAS→SOPORTE", getIO());
-          }
-        }
-
-      } catch (error) {
-        logger.error(`[Transfer] Error en transferencia inter-departamental ticket ${ticket.id}:`, error);
-      }
-    }
-
-  } catch (error) {
-    logger.error("[Transfer] Error en transferencias inter-departamentales:", error);
-  }
-};
-
-// ✅ FUNCIONES DE LÓGICA DE TRANSFERENCIA
-const shouldTransferToVentas = (ticket: Ticket): boolean => {
-  // ✅ LÓGICA: Transferir a VENTAS si:
-  // - El mensaje contiene palabras clave de ventas
-  // - Ha pasado mucho tiempo sin respuesta
-  // - El usuario pregunta por precios/productos
-  
-  const messageBody = ticket.lastMessage?.toLowerCase() || "";
-  const salesKeywords = ["precio", "costo", "comprar", "venta", "producto", "servicio", "oferta", "descuento"];
-  
-  const hasSalesKeywords = salesKeywords.some(keyword => messageBody.includes(keyword));
-  
-  if (hasSalesKeywords) {
-    logger.info(`[Transfer] Ticket ${ticket.id} contiene palabras clave de ventas`);
-    return true;
-  }
-
-  // ✅ TRANSFERENCIA POR TIEMPO SIN RESPUESTA
-  const timeSinceLastMessage = new Date().getTime() - new Date(ticket.updatedAt).getTime();
-  const minutesWithoutResponse = timeSinceLastMessage / (1000 * 60);
-  
-  if (minutesWithoutResponse > 30) { // 30 minutos sin respuesta
-    logger.info(`[Transfer] Ticket ${ticket.id} sin respuesta por ${Math.round(minutesWithoutResponse)} minutos`);
-    return true;
-  }
-
-  return false;
-};
-
-const shouldTransferToSoporte = (ticket: Ticket): boolean => {
-  // ✅ LÓGICA: Transferir a SOPORTE si:
-  // - El mensaje contiene palabras clave de soporte técnico
-  // - Problemas técnicos mencionados
-  // - Solicitudes de ayuda técnica
-  
-  const messageBody = ticket.lastMessage?.toLowerCase() || "";
-  const supportKeywords = ["error", "problema", "no funciona", "ayuda", "soporte", "técnico", "falla", "bug"];
-  
-  const hasSupportKeywords = supportKeywords.some(keyword => messageBody.includes(keyword));
-  
-  if (hasSupportKeywords) {
-    logger.info(`[Transfer] Ticket ${ticket.id} contiene palabras clave de soporte`);
-    return true;
-  }
-
-  return false;
-};

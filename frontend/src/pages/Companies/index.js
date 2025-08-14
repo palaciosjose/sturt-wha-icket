@@ -67,7 +67,7 @@ const SignUp = () => {
 	const handleSignUp = async values => {
 		Object.assign(values, { recurrence: "MENSAL" });
 		Object.assign(values, { dueDate: dueDate });
-		Object.assign(values, { status: "t" });
+		Object.assign(values, { status: true });
 		Object.assign(values, { campaignsEnabled: true });
 		try {
 			await openApi.post("/companies/cadastro", values);

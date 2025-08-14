@@ -32,6 +32,7 @@ import GetTimezone from "./helpers/GetTimezone";
 import SendWhatsAppMessage from "./services/WbotServices/SendWhatsAppMessage";
 import FindOrCreateTicketService from "./services/TicketServices/FindOrCreateTicketService";
 import { formatStartMessage, formatReminderMessage, formatImmediateMessage } from "./services/ScheduleServices/ReminderSystemService";
+import Invoices from "./models/Invoices";
 
 
 const nodemailer = require('nodemailer');
@@ -216,6 +217,7 @@ async function handleCloseTicketsAutomatic() {
         } catch (e: any) {
           Sentry.captureException(e);
           logger.error(`[AutoClose] Error en empresa ${c.id}:`, e.message);
+          // Continuar con la siguiente empresa en lugar de fallar completamente
         }
       }
       
@@ -226,6 +228,8 @@ async function handleCloseTicketsAutomatic() {
     } catch (e: any) {
       Sentry.captureException(e);
       logger.error("[AutoClose] Error general:", e.message);
+      // Asegurar que el error no se propague como unhandledRejection
+      return Promise.resolve();
     }
   });
   job.start()
@@ -1196,77 +1200,214 @@ async function handleLoginStatus(job) {
 }
 
 
+// ✅ FUNCIÓN PARA CREAR PLAN POR DEFECTO SI NO EXISTE
+async function ensureDefaultPlanExists(): Promise<number> {
+  try {
+    // Buscar plan por defecto
+    let defaultPlan = await Plan.findOne({
+      where: { name: "Plan Básico" }
+    });
+    
+    if (!defaultPlan) {
+      // Crear plan por defecto si no existe
+      defaultPlan = await Plan.create({
+        name: "Plan Básico",
+        users: 10,
+        connections: 10,
+        queues: 10,
+        value: 30,
+        useSchedules: false,
+        useCampaigns: false,
+        useInternalChat: false,
+        useExternalApi: false,
+        useKanban: false,
+        useOpenAi: false,
+        useIntegrations: false,
+        useInternal: false
+      });
+      logger.info(`[Invoice] ✅ Plan por defecto creado con ID: ${defaultPlan.id}`);
+    }
+    
+    return defaultPlan.id;
+  } catch (error) {
+    logger.error("[Invoice] Error creando plan por defecto:", error);
+    return 1; // Fallback
+  }
+}
+
+// ✅ FUNCIÓN PARA CORREGIR EMPRESAS CON PLANID INVÁLIDO
+async function fixInvalidCompanyPlans(): Promise<void> {
+  try {
+    const companies = await Company.findAll();
+    let fixedCount = 0;
+    
+    for (const company of companies) {
+      try {
+        const plan = await Plan.findByPk(company.planId);
+        if (!plan) {
+          const defaultPlanId = await ensureDefaultPlanExists();
+          await company.update({ planId: defaultPlanId });
+          logger.info(`[Invoice] ✅ Empresa ${company.id} (${company.name}) corregida con plan por defecto ID: ${defaultPlanId}`);
+          fixedCount++;
+        }
+      } catch (error) {
+        logger.warn(`[Invoice] ⚠️ No se pudo corregir empresa ${company.id}:`, error);
+      }
+    }
+    
+    if (fixedCount > 0) {
+      logger.info(`[Invoice] ✅ ${fixedCount} empresas corregidas con plan por defecto`);
+    }
+  } catch (error) {
+    logger.error("[Invoice] Error corrigiendo empresas:", error);
+  }
+}
+
 async function handleInvoiceCreate() {
   logger.info("Iniciando geração de boletos");
+  
+  // ✅ INICIALIZAR PLAN POR DEFECTO AL ARRANCAR
+  try {
+    const defaultPlanId = await ensureDefaultPlanExists();
+    logger.info(`[Invoice] ✅ Plan por defecto inicializado con ID: ${defaultPlanId}`);
+    
+    // ✅ CORREGIR EMPRESAS CON PLANID INVÁLIDO
+    await fixInvalidCompanyPlans();
+  } catch (error) {
+    logger.error("[Invoice] Error inicializando plan por defecto:", error);
+  }
+  
+  // ✅ CACHE PARA EVITAR SPAM DE LOGS DE ERROR
+  const errorCache = new Map<string, { lastError: string, count: number, lastShown: number }>();
+  
   const job = new CronJob('*/5 * * * * *', async () => {
+    try {
+      const companies = await Company.findAll();
+      
+      // ✅ PROCESAR EMPRESAS DE FORMA SECUENCIAL PARA EVITAR PROMESAS RECHAZADAS
+      for (const c of companies) {
+        try {
+          var dueDate = c.dueDate;
+          const date = moment(dueDate).format();
+          const timestamp = moment().format();
+          const hoje = moment(moment()).format("DD/MM/yyyy");
+          var vencimento = moment(dueDate).format("DD/MM/yyyy");
 
+          var diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
+          var dias = moment.duration(diff).asDays();
 
-    const companies = await Company.findAll();
-    companies.map(async c => {
-      var dueDate = c.dueDate;
-      const date = moment(dueDate).format();
-      const timestamp = moment().format();
-      const hoje = moment(moment()).format("DD/MM/yyyy");
-      var vencimento = moment(dueDate).format("DD/MM/yyyy");
+          if (dias < 20) {
+            try {
+              let plan = await Plan.findByPk(c.planId);
+              
+              if (!plan) {
+                // ✅ CREAR PLAN POR DEFECTO SI NO EXISTE
+                logger.warn(`[Invoice] ⚠️ Plan ${c.planId} no encontrado para empresa ${c.id} (${c.name}) - Usando plan por defecto`);
+                
+                const defaultPlanId = await ensureDefaultPlanExists();
+                plan = await Plan.findByPk(defaultPlanId);
+                
+                if (!plan) {
+                  logger.error(`[Invoice] ❌ No se pudo obtener plan por defecto para empresa ${c.id} (${c.name}) - Omitiendo factura`);
+                  return;
+                }
+                
+                // ✅ ACTUALIZAR EMPRESA CON PLAN VÁLIDO
+                try {
+                  await c.update({ planId: defaultPlanId });
+                  logger.info(`[Invoice] ✅ Empresa ${c.id} (${c.name}) actualizada con plan por defecto ID: ${defaultPlanId}`);
+                } catch (updateError) {
+                  logger.warn(`[Invoice] ⚠️ No se pudo actualizar empresa ${c.id} con plan por defecto:`, updateError);
+                }
+              }
 
-      var diff = moment(vencimento, "DD/MM/yyyy").diff(moment(hoje, "DD/MM/yyyy"));
-      var dias = moment.duration(diff).asDays();
+              // ✅ LOGGING DETALLADO PARA DEBUGGING
+              logger.debug(`[Invoice] Procesando empresa ${c.id} (${c.name}) con plan: ${plan.name} (ID: ${plan.id})`);
 
-      if (dias < 20) {
-        const plan = await Plan.findByPk(c.planId);
-
-        const sql = `SELECT COUNT(*) mycount FROM "Invoices" WHERE "companyId" = ${c.id} AND "dueDate"::text LIKE '${moment(dueDate).format("yyyy-MM-DD")}%';`
-        const invoice = await sequelize.query(sql,
-          { type: QueryTypes.SELECT }
-        );
-        if (invoice[0]['mycount'] > 0) {
-
-        } else {
-          const sql = `INSERT INTO "Invoices" (detail, status, value, "updatedAt", "createdAt", "dueDate", "companyId")
-          VALUES ('${plan.name}', 'open', '${plan.value}', '${timestamp}', '${timestamp}', '${date}', ${c.id});`
-
-          const invoiceInsert = await sequelize.query(sql,
-            { type: QueryTypes.INSERT }
-          );
-
-          /*           let transporter = nodemailer.createTransport({
-                      service: 'gmail',
-                      auth: {
-                        user: 'email@gmail.com',
-                        pass: 'senha'
-                      }
-                    });
- 
-                    const mailOptions = {
-                      from: 'heenriquega@gmail.com', // sender address
-                      to: `${c.email}`, // receiver (use array of string for a list)
-                      subject: 'Fatura gerada - Sistema', // Subject line
-                      html: `Olá ${c.name} esté é um email sobre sua fatura!<br>
-          <br>
-          Vencimento: ${vencimento}<br>
-          Valor: ${plan.value}<br>
-          Link: ${process.env.FRONTEND_URL}/financeiro<br>
-          <br>
-          Qualquer duvida estamos a disposição!
-                      `// plain text body
-                    };
- 
-                    transporter.sendMail(mailOptions, (err, info) => {
-                      if (err)
-                        console.log(err)
-                      else
-                        console.log(info);
-                    }); */
-
+              try {
+                // ✅ VERIFICAR SI YA EXISTE FACTURA USANDO MODELO SEQUELIZE
+                const existingInvoice = await Invoices.findOne({
+                  where: {
+                    companyId: c.id,
+                    dueDate: {
+                      [Op.like]: `${moment(dueDate).format("yyyy-MM-DD")}%`
+                    }
+                  }
+                });
+                
+                if (existingInvoice) {
+                  // ✅ INVOICE YA EXISTE - NO HACER NADA
+                  logger.debug(`[Invoice] Factura ya existe para empresa ${c.id} (${c.name}) en fecha ${moment(dueDate).format("DD/MM/yyyy")}`);
+                } else {
+                  // ✅ CREAR NUEVA FACTURA USANDO MODELO SEQUELIZE
+                  await Invoices.create({
+                    detail: plan.name,
+                    status: 'open',
+                    value: plan.value,
+                    dueDate: date,
+                    companyId: c.id
+                  });
+                  
+                  logger.info(`[Invoice] ✅ Factura creada para empresa ${c.id} (${c.name}): ${plan.name} - $${plan.value}`);
+                }
+              } catch (sqlError) {
+                // ✅ ERROR EN OPERACIÓN DE BASE DE DATOS
+                logger.error(`[Invoice] ❌ Error en operación de BD para empresa ${c.id} (${c.name}):`, sqlError);
+                logger.error(`[Invoice] ❌ Detalles del error:`, {
+                  companyId: c.id,
+                  companyName: c.name,
+                  planId: c.planId,
+                  dueDate: c.dueDate,
+                  errorMessage: sqlError.message,
+                  errorStack: sqlError.stack
+                });
+                // ✅ NO PROPAGAR ERROR - CONTINUAR CON SIGUIENTE EMPRESA
+              }
+            } catch (planError) {
+              // ✅ LOGGING DETALLADO DEL ERROR
+              logger.error(`[Invoice] ❌ Error procesando empresa ${c.id} (${c.name}):`, planError);
+              logger.error(`[Invoice] ❌ Detalles del error:`, {
+                companyId: c.id,
+                companyName: c.name,
+                planId: c.planId,
+                dueDate: c.dueDate,
+                errorMessage: planError.message,
+                errorStack: planError.stack
+              });
+              
+              // ✅ EVITAR SPAM DE LOGS - Solo mostrar error una vez cada 5 minutos
+              const errorKey = `plan-error-${c.id}`;
+              const now = Date.now();
+              const fiveMinutes = 5 * 60 * 1000;
+              
+              if (!errorCache.has(errorKey) || (now - errorCache.get(errorKey)!.lastShown) > fiveMinutes) {
+                logger.error(`[Invoice] ❌ Error procesando plan para empresa ${c.id} (${c.name}):`, planError);
+                errorCache.set(errorKey, { lastError: 'Plan error', count: 1, lastShown: now });
+              } else {
+                const cached = errorCache.get(errorKey)!;
+                cached.count++;
+                // Solo mostrar cada 10 errores para evitar spam
+                if (cached.count % 10 === 0) {
+                  logger.error(`[Invoice] ❌ Error procesando plan para empresa ${c.id} (${c.name}) - Repetido ${cached.count} veces`);
+                  cached.lastShown = now;
+                }
+              }
+              // ✅ NO PROPAGAR ERROR - EVITAR UNHANDLED REJECTION
+            }
+          }
+        } catch (companyError) {
+          // ✅ MANEJAR ERRORES POR EMPRESA INDIVIDUALMENTE
+          logger.error(`[Invoice] Error procesando empresa ${c.id} (${c.name}):`, companyError);
+          logger.error(`[Invoice] Datos de empresa ${c.id}: planId=${c.planId}, dueDate=${c.dueDate}`);
+          // ✅ CONTINUAR CON LA SIGUIENTE EMPRESA
         }
-
-
-
-
-
       }
-
-    });
+    } catch (error) {
+      // ✅ MANEJAR ERRORES GENERALES
+      logger.error("[Invoice] Error general en generación de boletos:", error);
+      // ✅ NO PROPAGAR ERROR - EVITAR UNHANDLED REJECTION
+      return Promise.resolve();
+    }
   });
   job.start()
 }

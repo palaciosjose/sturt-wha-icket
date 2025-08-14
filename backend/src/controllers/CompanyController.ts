@@ -71,9 +71,16 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     throw new AppError(err.message);
   }
 
-  const company = await CreateCompanyService(newCompany);
-
-  return res.status(200).json(company);
+  try {
+    const company = await CreateCompanyService(newCompany);
+    return res.status(200).json(company);
+  } catch (err: any) {
+    console.error("Error creating company:", err);
+    if (err instanceof AppError) {
+      throw err;
+    }
+    throw new AppError("ERR_COMPANY_CREATION_FAILED");
+  }
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {

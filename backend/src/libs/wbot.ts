@@ -196,6 +196,8 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   // Verificar que la sesión esté realmente establecida
                   if (!wsocket.store || !wsocket.user) {
                     logger.warn(`⚠️ Sesión no completamente establecida para ID: ${whatsapp.id}, reintentando en 3 segundos...`);
+                    
+                    // ✅ LIMITAR REINTENTOS PARA EVITAR LOOPS INFINITOS
                     setTimeout(async () => {
                       try {
                         await ExtractWhatsAppNameService({
@@ -205,6 +207,8 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                         logger.info(`✅ Nombre de WhatsApp extraído para ID: ${whatsapp.id} (reintento 1)`);
                       } catch (error) {
                         logger.error("Error extracting WhatsApp name (reintento 1):", error);
+                        // ✅ NO REINTENTAR MÁS - EVITAR UNHANDLED REJECTION
+                        logger.warn(`⚠️ No se pudo extraer nombre de WhatsApp para ID: ${whatsapp.id} después del reintento`);
                       }
                     }, 3000);
                     return;
@@ -225,6 +229,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                       // logger.info(`✅ Avatar de WhatsApp extraído para ID: ${whatsapp.id}`);
                     } catch (error) {
                       logger.error("Error extracting WhatsApp avatar:", error);
+                      // ✅ NO PROPAGAR ERROR - EVITAR UNHANDLED REJECTION
                     }
                   }, 2000); // 2 segundos después del nombre
                 } catch (error) {

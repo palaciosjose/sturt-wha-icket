@@ -44,8 +44,13 @@ process.on("uncaughtException", err => {
 });
 
 process.on("unhandledRejection", (reason, p) => {
-  logger.error(`${new Date().toUTCString()} unhandledRejection:`, reason, p);
-  // Remove process.exit(1); to avoid abrupt shutdowns
+  logger.error(`${new Date().toUTCString()} unhandledRejection:`, reason);
+  // Log the promise for debugging
+  if (p) {
+    logger.error("Promise details:", p);
+  }
+  // Don't exit the process, just log the error
+  // This prevents the server from crashing due to unhandled promises
 });
 
 cron.schedule("* * * * *", async () => {
@@ -57,6 +62,8 @@ cron.schedule("* * * * *", async () => {
     await TransferTicketQueue();
   } catch (error) {
     logger.error("Error in cron job:", error);
+    // Asegurar que el error no se propague como unhandledRejection
+    return Promise.resolve();
   }
 });
 

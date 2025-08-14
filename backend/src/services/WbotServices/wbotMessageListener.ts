@@ -66,6 +66,7 @@ import { getMessageOptions } from "./SendWhatsAppMedia";
 import Prompt from "../../models/Prompt";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
 import GetWhatsappWbot from "../../helpers/GetWhatsappWbot";
+import Whatsapp from "../../models/Whatsapp";
 
 const request = require("request");
 
@@ -1562,7 +1563,97 @@ const verifyQueue = async (
   const companyId = ticket.companyId;
 
   console.log("🔍 VERIFYQUEUE - Iniciando...");
+  
+  // ✅ DETECTAR SI SE LLAMA DESDE EL CONTEXTO DEL CHATBOT
+  const isFromChatbot = ticket.chatbot && ticket.queueId;
+  console.log("🔍 VERIFYQUEUE - Contexto detectado:");
+  console.log("  - Es desde chatbot:", isFromChatbot);
+  console.log("  - Departamento actual:", ticket.queueId);
+  console.log("  - Chatbot activado:", ticket.chatbot);
+  
+  if (isFromChatbot) {
+    console.log("🤖 VERIFYQUEUE - Procesando desde contexto del chatbot");
+    
+    // ✅ LEER OPCIONES DEL DEPARTAMENTO ACTUAL DEL TICKET
+    const currentQueue = await Queue.findByPk(ticket.queueId, {
+      include: [{ model: QueueOption, as: 'options' }]
+    });
+    
+    if (!currentQueue) {
+      console.log("❌ VERIFYQUEUE - Departamento actual no encontrado");
+      return;
+    }
+    
+    console.log("🔍 VERIFYQUEUE - Departamento actual:", currentQueue.name);
+    console.log("🔍 VERIFYQUEUE - Opciones disponibles:", currentQueue.options?.length || 0);
+    
+    if (currentQueue.options && currentQueue.options.length > 0) {
+      const selectedOption = getBodyMessage(msg);
+      console.log("🔍 VERIFYQUEUE - Opción seleccionada:", selectedOption);
+      
+      // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA
+      const optionIndex = parseInt(selectedOption) - 1;
+      const selectedQueueOption = currentQueue.options[optionIndex];
+      
+      if (selectedQueueOption) {
+        console.log("✅ VERIFYQUEUE - Opción válida seleccionada:", selectedQueueOption.title);
+        console.log("🔍 VERIFYQUEUE - Verificando transferencia...");
+        
+        // ✅ VERIFICAR SI TIENE TRANSFERENCIA A DEPARTAMENTO IA
+        if (selectedQueueOption.transferQueueId) {
+          console.log("🚀 VERIFYQUEUE - TRANSFERENCIA DETECTADA a departamento:", selectedQueueOption.transferQueueId);
+          
+          // ✅ TRANSFERIR AL DEPARTAMENTO IA
+          await transferQueue(selectedQueueOption.transferQueueId, ticket, contact);
+          
+          // ✅ FASE 2: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT DE IA
+          console.log("✅ VERIFYQUEUE - Transferencia completada, procesando mensaje original con nuevo prompt de IA");
+          
+          // ✅ RECARGAR TICKET PARA OBTENER CONFIGURACIÓN ACTUALIZADA
+          await reloadTicketSafely(ticket);
+          
+          // ✅ VERIFICAR SI EL TICKET ESTÁ CONFIGURADO PARA IA
+          if (ticket.useIntegration && ticket.promptId) {
+            console.log("🤖 VERIFYQUEUE - Ticket configurado para IA, procesando mensaje original con prompt:", ticket.promptId);
+            
+            // ✅ PROCESAR MENSAJE ORIGINAL CON EL NUEVO PROMPT DE IA
+            // ✅ REUTILIZAR LA FUNCIÓN EXISTENTE handleOpenAi
+            await handleOpenAi(msg, wbot, ticket, contact, mediaSent);
+            
+            console.log("✅ VERIFYQUEUE - Mensaje original procesado con nuevo prompt de IA");
+            return;
+          } else {
+            console.log("⚠️ VERIFYQUEUE - Ticket no configurado para IA después de transferencia");
+          }
+        } else {
+          console.log("⚠️ VERIFYQUEUE - Opción sin transferencia configurada");
+        }
+      } else {
+        console.log("❌ VERIFYQUEUE - Opción no válida:", selectedOption);
+        
+        // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
+        const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
+        
+        const sendMsg = await wbot.sendMessage(
+          `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
+          { text: invalidOptionMessage }
+        );
+        
+        await verifyMessage(sendMsg, ticket, contact);
+        console.log("✅ VERIFYQUEUE - Mensaje de opción inválida enviado");
+        return;
+      }
+    } else {
+      console.log("⚠️ VERIFYQUEUE - Departamento actual sin opciones configuradas");
+    }
+    
+    // ✅ SI LLEGA AQUÍ, NO HAY OPCIONES VÁLIDAS O TRANSFERENCIA
+    return;
+  }
 
+  // ✅ LÓGICA ORIGINAL PARA CASOS NO-CHATBOT
+  console.log("🔍 VERIFYQUEUE - Procesando caso no-chatbot (lógica original)");
+  
   const { queues, greetingMessage, maxUseBotQueues, timeUseBotQueues } = await ShowWhatsAppService(
     wbot.id!,
     ticket.companyId
@@ -1639,6 +1730,20 @@ const verifyQueue = async (
       // return;
     }
 
+    // ✅ VERIFICAR SI HAY CONFIGURACIÓN DE TRANSFERENCIA POR TIEMPO ANTES DE ASIGNAR DEPARTAMENTO
+    const whatsapp = await Whatsapp.findByPk(wbot.id);
+    const hasTimeTransfer = whatsapp?.timeToTransfer && whatsapp.timeToTransfer > 0;
+    const hasTransferQueue = whatsapp?.transferQueueId && whatsapp.transferQueueId > 0;
+    
+    if (hasTimeTransfer && hasTransferQueue) {
+      console.log("⏰ VERIFYQUEUE - TRANSFERENCIA POR TIEMPO CONFIGURADA - NO asignando departamento");
+      console.log("  - El ticket se transferirá automáticamente después de", whatsapp.timeToTransfer, "minutos");
+      console.log("  - Departamento destino:", whatsapp.transferQueueId);
+      
+      // ✅ NO ASIGNAR DEPARTAMENTO - DEJAR QUE LA TRANSFERENCIA POR TIEMPO FUNCIONE
+      return;
+    }
+
     await UpdateTicketService({
       ticketData: { queueId: firstQueue.id, chatbot, status: "pending" },
       ticketId: ticket.id,
@@ -1690,9 +1795,25 @@ const verifyQueue = async (
           // ✅ TRANSFERIR AL DEPARTAMENTO IA
           await transferQueue(selectedQueueOption.transferQueueId, ticket, contact);
           
-          // ✅ FASE 1: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT
-          // ✅ NO SALIR - CONTINUAR PARA PROCESAR EL MENSAJE ORIGINAL
-          console.log("✅ VERIFYQUEUE - Transferencia completada, procesando mensaje original con nuevo prompt");
+          // ✅ FASE 2: PROCESAR MENSAJE ORIGINAL CON NUEVO PROMPT DE IA
+          console.log("✅ VERIFYQUEUE - Transferencia completada, procesando mensaje original con nuevo prompt de IA");
+          
+          // ✅ RECARGAR TICKET PARA OBTENER CONFIGURACIÓN ACTUALIZADA
+          await reloadTicketSafely(ticket);
+          
+          // ✅ VERIFICAR SI EL TICKET ESTÁ CONFIGURADO PARA IA
+          if (ticket.useIntegration && ticket.promptId) {
+            console.log("🤖 VERIFYQUEUE - Ticket configurado para IA, procesando mensaje original con prompt:", ticket.promptId);
+            
+            // ✅ PROCESAR MENSAJE ORIGINAL CON EL NUEVO PROMPT DE IA
+            // ✅ REUTILIZAR LA FUNCIÓN EXISTENTE handleOpenAi
+            await handleOpenAi(msg, wbot, ticket, contact, mediaSent);
+            
+            console.log("✅ VERIFYQUEUE - Mensaje original procesado con nuevo prompt de IA");
+            return;
+          } else {
+            console.log("⚠️ VERIFYQUEUE - Ticket no configurado para IA después de transferencia");
+          }
         } else {
           console.log("⚠️ VERIFYQUEUE - Opción sin transferencia configurada");
         }
@@ -2088,30 +2209,35 @@ const handleChartbot = async (
     return;
   }
 
-  // ✅ LÓGICA EXISTENTE DEL CHATBOT
-  // ... resto del código existente ...
+  // ✅ LÓGICA CORREGIDA: Leer opciones del departamento actual del ticket
+  console.log("🔍 HANDLECHATBOT - Leyendo opciones del departamento actual del ticket");
+  
+  // ✅ OBTENER DEPARTAMENTO ACTUAL CON SUS OPCIONES
+  const currentQueue = await Queue.findByPk(ticket.queueId, {
+    include: [{ model: QueueOption, as: 'options' }]
+  });
+  
+  if (!currentQueue) {
+    console.log("❌ HANDLECHATBOT - Departamento actual no encontrado");
+    return;
+  }
+  
+  console.log("🔍 HANDLECHATBOT - Departamento actual:", currentQueue.name);
+  console.log("🔍 HANDLECHATBOT - Opciones disponibles:", currentQueue.options?.length || 0);
 
-  // ✅ LÓGICA EXISTENTE DEL CHATBOT
-  const { queues, greetingMessage } = await ShowWhatsAppService(
-    wbot.id!,
-    ticket.companyId
-  );
-
-  console.log("🔍 HANDLECHATBOT - Queues encontradas:", queues.length);
-
-  // ✅ LÓGICA PARA MÚLTIPLES DEPARTAMENTOS
-  if (queues.length > 1) {
-    console.log("🔍 HANDLECHATBOT - Múltiples departamentos detectados");
+  // ✅ LÓGICA CORREGIDA: Procesar opciones del departamento actual
+  if (currentQueue.options && currentQueue.options.length > 0) {
+    console.log("🔍 HANDLECHATBOT - Departamento con opciones detectado");
     
     const selectedOption = getBodyMessage(msg);
     console.log("🔍 HANDLECHATBOT - Opción seleccionada:", selectedOption);
     
     // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA
     const optionIndex = parseInt(selectedOption) - 1;
-    const choosenQueue = queues[optionIndex];
+    const selectedQueueOption = currentQueue.options[optionIndex];
     
-    if (choosenQueue) {
-      console.log("✅ HANDLECHATBOT - Opción válida seleccionada:", choosenQueue.name);
+    if (selectedQueueOption) {
+      console.log("✅ HANDLECHATBOT - Opción válida seleccionada:", selectedQueueOption.title);
       
       // ✅ PROCESAR OPCIÓN VÁLIDA
       await verifyQueue(wbot, msg, ticket, contact, mediaSent);
@@ -2156,106 +2282,22 @@ const handleChartbot = async (
       // ✅ VOLVER A MOSTRAR EL MENÚ DESPUÉS DEL ERROR
       console.log("🔄 HANDLECHATBOT - Volviendo a mostrar menú después del error");
       
-      const { queues } = await ShowWhatsAppService(wbot.id!, ticket.companyId);
-      if (queues.length === 1) {
-        const currentQueue = queues[0];
-        if (currentQueue.options && currentQueue.options.length > 0) {
-          let options = "";
-          currentQueue.options.forEach((option, index) => {
-            options += `*[ ${index + 1} ]* - ${option.title}\n`;
-          });
+      // ✅ REUTILIZAR OPCIONES DEL DEPARTAMENTO ACTUAL
+      let options = "";
+      currentQueue.options.forEach((option, index) => {
+        options += `*[ ${index + 1} ]* - ${option.title}\n`;
+      });
 
-          const queueGreetingMessage = currentQueue.greetingMessage || "";
-          
-          // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
-          await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
-        }
-      }
+      const queueGreetingMessage = currentQueue.greetingMessage || "";
+      
+      // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
+      await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
     }
   } else {
-    console.log("🔍 HANDLECHATBOT - Un solo departamento detectado");
+    console.log("🔍 HANDLECHATBOT - Departamento sin opciones, procesando normalmente");
     
-    // ✅ LÓGICA PARA UN SOLO DEPARTAMENTO
-    const currentQueue = queues[0];
-    
-    if (currentQueue.options && currentQueue.options.length > 0) {
-      console.log("🔍 HANDLECHATBOT - Departamento con opciones detectado");
-      
-      const selectedOption = getBodyMessage(msg);
-      console.log("🔍 HANDLECHATBOT - Opción seleccionada:", selectedOption);
-      
-      // ✅ VERIFICAR SI LA OPCIÓN ES VÁLIDA
-      const optionIndex = parseInt(selectedOption) - 1;
-      const selectedQueueOption = currentQueue.options[optionIndex];
-      
-      if (selectedQueueOption) {
-        console.log("✅ HANDLECHATBOT - Opción válida seleccionada:", selectedQueueOption.title);
-        
-        // ✅ PROCESAR OPCIÓN VÁLIDA
-        await verifyQueue(wbot, msg, ticket, contact, mediaSent);
-      } else {
-        console.log("❌ HANDLECHATBOT - Opción inválida:", selectedOption);
-        
-        // ✅ ENVIAR MENSAJE DE OPCIÓN INVÁLIDA
-        const invalidOptionMessage = "Opción inválida, por favor, elige una opción válida.";
-        
-        const sendMsg = await wbot.sendMessage(
-          `${contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`,
-          { text: invalidOptionMessage }
-        );
-        
-        // ✅ GUARDAR MENSAJE DE ERROR EN BASE DE DATOS
-        const errorMessageData = {
-          id: sendMsg.key.id,
-          ticketId: ticket.id,
-          contactId: undefined, // Mensaje del bot
-          body: invalidOptionMessage,
-          fromMe: true,
-          mediaType: "conversation",
-          read: true,
-          quotedMsgId: undefined,
-          ack: 2, // ACK_SUCCESS
-          remoteJid: sendMsg.key.remoteJid,
-          participant: sendMsg.key.participant,
-          dataJson: JSON.stringify(sendMsg),
-          isEdited: false,
-        };
-
-        // ✅ GUARDAR MENSAJE DE ERROR
-        await CreateMessageService({ messageData: errorMessageData, companyId: ticket.companyId });
-        
-        // ✅ ACTUALIZAR TICKET
-        await ticket.update({
-          lastMessage: invalidOptionMessage
-        });
-
-        console.log("✅ HANDLECHATBOT - Mensaje de opción inválida enviado y guardado en BD");
-        
-        // ✅ VOLVER A MOSTRAR EL MENÚ DESPUÉS DEL ERROR
-        console.log("🔄 HANDLECHATBOT - Volviendo a mostrar menú después del error");
-        
-        const { queues } = await ShowWhatsAppService(wbot.id!, ticket.companyId);
-        if (queues.length === 1) {
-          const currentQueue = queues[0];
-          if (currentQueue.options && currentQueue.options.length > 0) {
-            let options = "";
-            currentQueue.options.forEach((option, index) => {
-              options += `*[ ${index + 1} ]* - ${option.title}\n`;
-            });
-
-            const queueGreetingMessage = currentQueue.greetingMessage || "";
-            
-            // ✅ USAR FUNCIÓN AUXILIAR PARA ENVIAR MENÚ
-            await sendChatbotMenu(wbot, ticket, contact, queueGreetingMessage, options);
-          }
-        }
-      }
-    } else {
-      console.log("🔍 HANDLECHATBOT - Departamento sin opciones, procesando normalmente");
-      
-      // ✅ PROCESAR NORMALMENTE
-      await verifyQueue(wbot, msg, ticket, contact, mediaSent);
-    }
+    // ✅ PROCESAR NORMALMENTE
+    await verifyQueue(wbot, msg, ticket, contact, mediaSent);
   }
 };
 
@@ -2418,32 +2460,6 @@ const handleMessage = async (
 
     try {
       if (!msg.key.fromMe) {
-        /**
-         * Tratamento para avaliação do atendente
-         */
-
-        //  // dev Ricardo: insistir a responder avaliação
-        //  const rate_ = Number(bodyMessage);
-
-        //  if ((ticket?.lastMessage.includes('_Insatisfeito_') || ticket?.lastMessage.includes('Por favor avalie nosso atendimento.')) &&  (!isFinite(rate_))) {
-        //      const debouncedSentMessage = debounce(
-        //        async () => {
-        //          await wbot.sendMessage(
-        //            `${ticket.contact.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"
-        //            }`,
-        //            {
-        //              text: 'Por favor avalie nosso atendimento.'
-        //            }
-        //          );
-        //        },
-        //        1000,
-        //        ticket.id
-        //      );
-        //      debouncedSentMessage();
-        //      return;
-        //  }
-        //  // dev Ricardo
-
         if (ticketTraking !== null && verifyRating(ticketTraking)) {
 
           handleRating(parseFloat(bodyMessage), ticket, ticketTraking);
@@ -2703,36 +2719,54 @@ const handleMessage = async (
       
       // ✅ REASIGNACIÓN AUTOMÁTICA: Si el ticket no tiene departamento, asignarlo al configurado
       if (!ticket.queueId && whatsapp.queues && whatsapp.queues.length > 0) {
-        const configuredQueueId = whatsapp.queues[0].id;
-        console.log("🔄 REASIGNANDO TICKET A DEPARTAMENTO:");
-        console.log("  - Ticket sin departamento, asignando a:", configuredQueueId);
-        console.log("  - Ticket ID:", ticket.id);
-        console.log("  - Ticket queueId antes:", ticket.queueId);
+        // ✅ VERIFICAR SI HAY CONFIGURACIÓN DE TRANSFERENCIA POR TIEMPO
+        const hasTimeTransfer = whatsapp.timeToTransfer && whatsapp.timeToTransfer > 0;
+        const hasTransferQueue = whatsapp.transferQueueId && whatsapp.transferQueueId > 0;
         
-        // ✅ VERIFICAR SI EL DEPARTAMENTO TIENE PROMPT
-        const queue = await Queue.findByPk(configuredQueueId, {
-          include: [{ model: Prompt, as: 'prompt' }]
-        });
+        console.log("🔍 VERIFICANDO CONFIGURACIÓN DE TRANSFERENCIA:");
+        console.log("  - Tiempo configurado:", whatsapp.timeToTransfer, "minutos");
+        console.log("  - Departamento destino:", whatsapp.transferQueueId);
+        console.log("  - Tiene transferencia por tiempo:", hasTimeTransfer);
+        console.log("  - Tiene departamento destino:", hasTransferQueue);
         
-        let chatbot = false;
-        if (queue && queue.options && queue.options.length > 0) {
-          chatbot = true;
+        if (hasTimeTransfer && hasTransferQueue) {
+          // ✅ NO REASIGNAR AUTOMÁTICAMENTE - DEJAR QUE LA TRANSFERENCIA POR TIEMPO FUNCIONE
+          console.log("⏰ TRANSFERENCIA POR TIEMPO CONFIGURADA - NO reasignando automáticamente");
+          console.log("  - El ticket se transferirá automáticamente después de", whatsapp.timeToTransfer, "minutos");
+          console.log("  - Departamento destino:", whatsapp.transferQueueId);
+        } else {
+          // ✅ REASIGNACIÓN NORMAL (sin transferencia por tiempo configurada)
+          const configuredQueueId = whatsapp.queues[0].id;
+          console.log("🔄 REASIGNANDO TICKET A DEPARTAMENTO:");
+          console.log("  - Ticket sin departamento, asignando a:", configuredQueueId);
+          console.log("  - Ticket ID:", ticket.id);
+          console.log("  - Ticket queueId antes:", ticket.queueId);
+          
+          // ✅ VERIFICAR SI EL DEPARTAMENTO TIENE PROMPT
+          const queue = await Queue.findByPk(configuredQueueId, {
+            include: [{ model: Prompt, as: 'prompt' }]
+          });
+          
+          let chatbot = false;
+          if (queue && queue.options && queue.options.length > 0) {
+            chatbot = true;
+          }
+          
+          // ✅ SI NO HAY PROMPT, ACTIVAR CHATBOT SIMPLE
+          if (!queue?.promptId && !queue?.prompt) {
+            console.log("📋 DEPARTAMENTO SIN PROMPT - ACTIVANDO CHATBOT SIMPLE");
+            chatbot = true;
+          }
+          
+          await ticket.update({
+            queueId: configuredQueueId,
+            chatbot: chatbot,
+            status: "pending"
+          });
+          
+          console.log("✅ TICKET REASIGNADO - Departamento actualizado, Chatbot:", chatbot);
+          console.log("  - Ticket queueId después:", ticket.queueId);
         }
-        
-        // ✅ SI NO HAY PROMPT, ACTIVAR CHATBOT SIMPLE
-        if (!queue?.promptId && !queue?.prompt) {
-          console.log("📋 DEPARTAMENTO SIN PROMPT - ACTIVANDO CHATBOT SIMPLE");
-          chatbot = true;
-        }
-        
-        await ticket.update({
-          queueId: configuredQueueId,
-          chatbot: chatbot,
-          status: "pending"
-        });
-        
-        console.log("✅ TICKET REASIGNADO - Departamento actualizado, Chatbot:", chatbot);
-        console.log("  - Ticket queueId después:", ticket.queueId);
       } else {
         console.log("🔍 DEBUG REASIGNACIÓN - Ticket queueId:", ticket.queueId, "WhatsApp queues:", whatsapp.queues ? whatsapp.queues.length : 0);
         console.log("🔍 DEBUG REASIGNACIÓN - Ticket chatbot:", ticket.chatbot, "Ticket status:", ticket.status);
@@ -3188,9 +3222,23 @@ const shouldUseAI = (ticket: Ticket): boolean => {
   console.log("  - hasPrompt:", hasPrompt);
   console.log("  - hasIntegration:", hasIntegration);
   console.log("  - hasQueue:", hasQueue);
-  console.log("  - RESULTADO:", hasPrompt && hasIntegration && hasQueue);
   
-  return hasPrompt && hasIntegration && hasQueue;
+  // ✅ NUEVA LÓGICA: Permitir solo PROMPT O solo DEPARTAMENTO
+  // Opción 1: Solo con PROMPT (sin departamento)
+  const soloPrompt = hasPrompt && hasIntegration && !hasQueue;
+  // Opción 2: Solo con DEPARTAMENTO (sin prompt)
+  const soloDepartamento = !hasPrompt && hasIntegration && hasQueue;
+  // Opción 3: Ambos (prompt + departamento)
+  const ambos = hasPrompt && hasIntegration && hasQueue;
+  
+  const resultado = soloPrompt || soloDepartamento || ambos;
+  
+  console.log("  - SOLO PROMPT:", soloPrompt);
+  console.log("  - SOLO DEPARTAMENTO:", soloDepartamento);
+  console.log("  - AMBOS:", ambos);
+  console.log("  - RESULTADO:", resultado);
+  
+  return resultado;
 };
 
 // ✅ FUNCIÓN HELPER: Detectar palabras clave de transferencia

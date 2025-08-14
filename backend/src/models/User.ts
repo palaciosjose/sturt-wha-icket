@@ -36,6 +36,7 @@ class User extends Model<User> {
   @Column
   email: string;
   
+  @Default("disabled")
   @Column
   allTicket: string;
 
@@ -53,9 +54,11 @@ class User extends Model<User> {
   @Column
   profile: string;
 
+  @Default(false)
   @Column
   super: boolean;
 
+  @Default(false)
   @Column
   online: boolean;
 
@@ -86,7 +89,9 @@ class User extends Model<User> {
   quickMessages: QuickMessage[];
 
   @ForeignKey(() => Whatsapp)
-  @Column
+  @Column({
+    allowNull: true
+  })
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)

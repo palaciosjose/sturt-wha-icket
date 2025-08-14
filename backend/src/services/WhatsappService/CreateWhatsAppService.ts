@@ -64,6 +64,8 @@ const CreateWhatsAppService = async ({
   console.log("  - Empresa ID:", companyId);
   console.log("  - Departamentos:", queueIds);
   console.log("  - Prompt ID:", promptId);
+  console.log("  - Greeting Message:", greetingMessage ? "SÍ" : "NO");
+  
   const company = await Company.findOne({
     where: {
       id: companyId
@@ -131,6 +133,17 @@ const CreateWhatsAppService = async ({
     throw new AppError("ERR_WAPP_GREETING_REQUIRED");
   }
 
+  // ✅ VALIDACIÓN MEJORADA: Si solo hay prompt (sin departamentos), no requerir greetingMessage
+  if (queueIds.length === 0 && promptId) {
+    console.log("✅ CONFIGURACIÓN SOLO CON PROMPT - No se requiere greetingMessage");
+  }
+
+  // ✅ ELIMINAR VALIDACIÓN OBLIGATORIA DE DEPARTAMENTOS O PROMPTS
+  // Una conexión puede existir solo con nombre y estatus
+  // if (queueIds.length === 0 && !promptId) {
+  //   throw new AppError("ERR_WAPP_QUEUE_OR_PROMPT_REQUIRED");
+  // }
+
       if (token !== null && token !== "") {
       const tokenSchema = Yup.object().shape({
         token: Yup.string()
@@ -162,6 +175,13 @@ const CreateWhatsAppService = async ({
   // Limpiar transferQueueId: si es '' (cadena vacía), poner null
   const cleanTransferQueueId = transferQueueId && transferQueueId !== '' && transferQueueId !== 0 ? Number(transferQueueId) : null;
 
+  // ✅ VALIDACIÓN: Limpiar timeToTransfer si no hay departamento destino
+  let cleanTimeToTransfer = timeToTransfer;
+  if (!cleanTransferQueueId || cleanTransferQueueId === null) {
+    console.log("🔄 LIMPIANDO timeToTransfer - No hay departamento destino seleccionado");
+    cleanTimeToTransfer = null;
+  }
+
   const whatsapp = await Whatsapp.create(
     {
       name,
@@ -178,7 +198,7 @@ const CreateWhatsAppService = async ({
       //timeSendQueue,
       //sendIdQueue,
       transferQueueId: cleanTransferQueueId, // Usar valor limpio
-      timeToTransfer,  
+      timeToTransfer: cleanTimeToTransfer,  
       promptId,
       maxUseBotQueues,
       timeUseBotQueues,

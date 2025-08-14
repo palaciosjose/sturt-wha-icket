@@ -8,111 +8,104 @@ import moment from "moment";
 import ShowTicketService from "../TicketServices/ShowTicketService";
 import { verifyMessage } from "./wbotMessageListener";
 import TicketTraking from "../../models/TicketTraking";
+import UpdateTicketService from "../TicketServices/UpdateTicketService";
 
 export const ClosedAllOpenTickets = async (companyId: number): Promise<void> => {
-
-  // @ts-ignore: Unreachable code error
-  const closeTicket = async (ticket: any, currentStatus: any, body: any) => {
-    if (currentStatus === 'nps') {
-
-      await ticket.update({
-        status: "closed",
-        //userId: ticket.userId || null,
-        lastMessage: body,
-        unreadMessages: 0,
-        amountUseBotQueues: 0
-      });
-
-    } else if (currentStatus === 'open') {
-
-      await ticket.update({
-        status: "closed",
-        //  userId: ticket.userId || null,
-        lastMessage: body,
-        unreadMessages: 0,
-        amountUseBotQueues: 0
-      });
-
-    } else {
-
-      await ticket.update({
-        status: "closed",
-        //userId: ticket.userId || null,
-        unreadMessages: 0
-      });
-    }
-  };
-
-  const io = getIO();
+  console.log(`🔍 [AutoClose] Iniciando verificación para empresa ${companyId}`);
   try {
-
     const { rows: tickets } = await Ticket.findAndCountAll({
-      where: { status: { [Op.in]: ["open"] }, companyId },
+      where: { status: { [Op.in]: ["open", "pending"] }, companyId },
       order: [["updatedAt", "DESC"]]
     });
 
-    tickets.forEach(async ticket => {
-      const showTicket = await ShowTicketService(ticket.id, companyId);
-      const whatsapp = await Whatsapp.findByPk(showTicket?.whatsappId);
-      const ticketTraking = await TicketTraking.findOne({
-        where: {
-          ticketId: ticket.id,
-          finishedAt: null,
+    if (tickets.length === 0) {
+      console.log(`ℹ️ [AutoClose] No hay tickets para verificar en empresa ${companyId}`);
+      return;
+    }
+
+    // ✅ AGRUPAR TICKETS POR WHATSAPP PARA EVITAR LOGS REPETITIVOS
+    const whatsappGroups = new Map<number, any[]>();
+    tickets.forEach(ticket => {
+      if (ticket.whatsappId) {
+        if (!whatsappGroups.has(ticket.whatsappId)) {
+          whatsappGroups.set(ticket.whatsappId, []);
         }
-      })
-
-      if (!whatsapp) return;
-
-      let {
-        expiresInactiveMessage, //mensage de encerramento por inatividade      
-        expiresTicket //tempo em horas para fechar ticket automaticamente
-      } = whatsapp
-
-
-      // @ts-ignore: Unreachable code error
-      if (expiresTicket && expiresTicket !== "" &&
-        // @ts-ignore: Unreachable code error
-        expiresTicket !== "0" && Number(expiresTicket) > 0) {
-
-        //mensagem de encerramento por inatividade
-        const bodyExpiresMessageInactive = formatBody(`\u200e ${expiresInactiveMessage}`, showTicket.contact);
-
-        const dataLimite = new Date()
-        dataLimite.setMinutes(dataLimite.getMinutes() - Number(expiresTicket));
-
-        if (showTicket.status === "open" && !showTicket.isGroup) {
-
-          const dataUltimaInteracaoChamado = new Date(showTicket.updatedAt)
-
-          if (dataUltimaInteracaoChamado < dataLimite && showTicket.fromMe) {
-
-            closeTicket(showTicket, showTicket.status, bodyExpiresMessageInactive);
-
-            if (expiresInactiveMessage !== "" && expiresInactiveMessage !== undefined) {
-              const sentMessage = await SendWhatsAppMessage({ body: bodyExpiresMessageInactive, ticket: showTicket });
-
-              await verifyMessage(sentMessage, showTicket, showTicket.contact);
-            }
-
-            await ticketTraking.update({
-              finishedAt: moment().toDate(),
-              closedAt: moment().toDate(),
-              whatsappId: ticket.whatsappId,
-              userId: ticket.userId,
-            })
-
-            io.to("open").emit(`company-${companyId}-ticket`, {
-              action: "delete",
-              ticketId: showTicket.id
-            });
-
-          }
-        }
+        whatsappGroups.get(ticket.whatsappId)!.push(ticket);
       }
     });
 
-  } catch (e: any) {
-    console.log('e', e)
-  }
+    console.log(`🔍 [AutoClose] Verificando ${tickets.length} tickets para cierre por inactividad`);
+    
+    let ticketsProcessed = 0;
+    let ticketsClosed = 0;
 
-}
+    // ✅ PROCESAR POR GRUPOS DE WHATSAPP
+    for (const [whatsappId, whatsappTickets] of whatsappGroups) {
+      try {
+        const whatsapp = await Whatsapp.findByPk(whatsappId);
+        
+        if (!whatsapp) {
+          console.log(`⚠️ [AutoClose] WhatsApp ${whatsappId} no encontrado`);
+          continue;
+        }
+
+        const { expiresInactiveMessage, expiresTicket } = whatsapp;
+        
+        // ✅ MOSTRAR UN SOLO MENSAJE INFORMATIVO POR WHATSAPP
+        if (expiresTicket && expiresTicket > 0) {
+          console.log(`ℹ️ [AutoClose] WhatsApp ${whatsappId} está activo - ${whatsappTickets.length} tickets`);
+        } else {
+          console.log(`ℹ️ [AutoClose] WhatsApp ${whatsappId} sin configuración de cierre por inactividad`);
+        }
+
+        // ✅ PROCESAR TICKETS DE ESTE WHATSAPP
+        for (const ticket of whatsappTickets) {
+          try {
+            const showTicket = await ShowTicketService(ticket.id, companyId);
+            
+            if (expiresTicket && expiresTicket > 0) {
+              const expiresTicketMinutes = expiresTicket;
+              const dataLimite = new Date();
+              dataLimite.setMinutes(dataLimite.getMinutes() - expiresTicketMinutes);
+
+              if ((showTicket.status === "open" || showTicket.status === "pending") && !showTicket.isGroup) {
+                const dataUltimaInteracaoChamado = new Date(showTicket.updatedAt);
+
+                if (dataUltimaInteracaoChamado < dataLimite) {
+                  console.log(`🔒 [AutoClose] CERRANDO TICKET ${showTicket.id} POR INACTIVIDAD:`);
+                  console.log(`  - Estado actual: ${showTicket.status}`);
+                  console.log(`  - Última interacción: ${dataUltimaInteracaoChamado.toLocaleString()}`);
+                  console.log(`  - Límite de inactividad: ${dataLimite.toLocaleString()}`);
+                  console.log(`  - Tiempo de inactividad: ${expiresTicketMinutes} minutos`);
+
+                  if (expiresInactiveMessage && expiresInactiveMessage.trim() !== "") {
+                    console.log(`  - Mensaje de cierre: "${expiresInactiveMessage}"`);
+                  }
+
+                  await UpdateTicketService({
+                    ticketData: { status: "closed" },
+                    ticketId: showTicket.id,
+                    companyId
+                  });
+
+                  ticketsClosed++;
+                }
+              }
+            }
+            ticketsProcessed++;
+          } catch (error) {
+            console.error(`❌ [AutoClose] Error procesando ticket ${ticket.id}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [AutoClose] Error procesando WhatsApp ${whatsappId}:`, error);
+      }
+    }
+
+    console.log(`✅ [AutoClose] Verificación completada para empresa ${companyId}:`);
+    console.log(`  - Tickets procesados: ${ticketsProcessed}`);
+    console.log(`  - Tickets cerrados: ${ticketsClosed}`);
+  } catch (e: any) {
+    console.error('❌ [AutoClose] Error en verificación de tickets automáticos:', e);
+  }
+};

@@ -205,7 +205,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         tickets: ticketsPorEtiqueta[tag.id]?.length || 0
       }))
     });
-  }, [localTickets, etiquetasKanban, ticketsPorEtiqueta]);
+  }, [localTickets, etiquetasKanban, ticketsPorEtiqueta, ticketsSinEtiquetas.length]);
 
   // ✅ CREAR COLUMNAS DINÁMICAMENTE
   const columns = [
