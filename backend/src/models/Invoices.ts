@@ -10,8 +10,9 @@ import {
   HasMany,
   Unique
 } from "sequelize-typescript";
+import { tableNames } from "../config/tableNames";
 
-@Table({ tableName: "invoices" })
+@Table({ tableName: tableNames.invoices })
 class Invoices extends Model<Invoices> {
   @PrimaryKey
   @AutoIncrement
