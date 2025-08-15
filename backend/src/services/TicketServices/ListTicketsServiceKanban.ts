@@ -126,16 +126,15 @@ const ListTicketsServiceKanban = async ({
         if (ticketsConEtiquetasKanban.length > 0) {
           const ticketIdsConEtiquetas = ticketsConEtiquetasKanban.map(tt => tt.ticketId);
           
-          // Modificar la condición para incluir tickets con etiquetas kanban
-          whereCondition = {
-            ...whereCondition,
-            [Op.or]: [
-              // Tickets sin etiquetas (van a columna ABIERTOS)
-              { id: { [Op.notIn]: ticketIdsConEtiquetas } },
-              // Tickets con etiquetas kanban (van a sus respectivas columnas)
-              { id: { [Op.in]: ticketIdsConEtiquetas } }
-            ]
-          };
+          // ✅ CORRECCIÓN: SIMPLIFICAR LA LÓGICA - NO USAR Op.or COMPLEJO
+          // Solo asegurar que la consulta incluya todos los tickets necesarios
+          // La condición base ya incluye todos los tickets, no necesitamos restringir
+          
+          // logger.dashboard.debug('🔄 Kanban: Incluyendo tickets con etiquetas kanban:', {
+          //   etiquetasKanban: tagIds,
+          //   ticketsConEtiquetas: ticketIdsConEtiquetas.length,
+          //   totalTickets: localTickets?.length || 0
+          // });
         }
       }
     } catch (error) {
