@@ -273,18 +273,62 @@ const ListTicketsServiceKanban = async ({
   if (ticketIdsConEtiquetasKanban.length > 0) {
     console.log(`🔄 [Kanban] Aplicando corrección final - incluyendo ${ticketIdsConEtiquetasKanban.length} tickets con etiquetas kanban`);
     
-    // Modificar la condición para incluir tickets con etiquetas kanban
-    whereCondition = {
-      ...whereCondition,
-      [Op.or]: [
-        // Tickets que cumplen las condiciones originales
-        whereCondition,
-        // Tickets con etiquetas kanban (deben incluirse siempre)
-        { id: { [Op.in]: ticketIdsConEtiquetasKanban } }
-      ]
-    };
+    // ✅ CORRECCIÓN AGRESIVA: FORZAR INCLUSIÓN DE TODOS LOS TICKETS KANBAN
+    // En lugar de usar Op.or complejo, vamos a hacer una consulta separada y combinar resultados
     
-    console.log(`🔄 [Kanban] Condición final modificada:`, JSON.stringify(whereCondition, null, 2));
+    try {
+      console.log(`🔄 [Kanban] Ejecutando consulta separada para tickets con etiquetas kanban...`);
+      
+      // Hacer una consulta separada para tickets con etiquetas kanban
+      const ticketsKanban = await Ticket.findAndCountAll({
+        where: {
+          id: { [Op.in]: ticketIdsConEtiquetasKanban },
+          companyId: companyId,
+          status: { [Op.or]: ["pending", "open"] }
+        },
+        include: includeCondition,
+        distinct: true,
+        order: [["updatedAt", "DESC"]],
+        subQuery: false
+      });
+      
+      console.log(`🔄 [Kanban] Consulta separada - tickets kanban encontrados: ${ticketsKanban.rows.length}`);
+      
+      // Hacer la consulta original para tickets sin etiquetas kanban
+      const ticketsOriginales = await Ticket.findAndCountAll({
+        where: whereCondition,
+        include: includeCondition,
+        distinct: true,
+        limit,
+        offset,
+        order: [["updatedAt", "DESC"]],
+        subQuery: false
+      });
+      
+      console.log(`🔄 [Kanban] Consulta original - tickets encontrados: ${ticketsOriginales.rows.length}`);
+      
+      // Combinar resultados: tickets originales + tickets kanban
+      const todosLosTickets = [...ticketsOriginales.rows, ...ticketsKanban.rows];
+      
+      // Eliminar duplicados por ID
+      const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
+        index === self.findIndex(t => t.id === ticket.id)
+      );
+      
+      console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
+      
+      const hasMore = ticketsUnicos.length > limit;
+      
+      return {
+        tickets: ticketsUnicos.slice(0, limit),
+        count: ticketsUnicos.length,
+        hasMore
+      };
+      
+    } catch (error) {
+      console.error("❌ [Kanban] Error en consulta separada:", error);
+      // Si falla, continuar con la lógica original
+    }
   }
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({
