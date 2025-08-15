@@ -182,6 +182,20 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   // ✅ LÓGICA DINÁMICA: Separar tickets por etiquetas que tienen kanban=true
   const ticketsSinEtiquetas = localTickets.filter(ticket => ticket.tags.length === 0);
   
+  // ✅ DEBUG INMEDIATO: Verificar tickets sin etiquetas
+  console.log('🔍 [DEBUG INMEDIATO] KanbanBoard - Tickets sin etiquetas:', {
+    totalTickets: localTickets.length,
+    ticketsSinEtiquetas: ticketsSinEtiquetas.length,
+    sampleTickets: localTickets.slice(0, 3).map(t => ({
+      id: t.id,
+      hasTags: !!t.tags,
+      tagsLength: t.tags?.length || 0,
+      tagsType: typeof t.tags,
+      tagsIsArray: Array.isArray(t.tags),
+      rawTags: t.tags
+    }))
+  });
+  
   // ✅ Filtrar solo etiquetas que tienen kanban activado
   const etiquetasKanban = tags.filter(tag => tag.kanban === 1);
   
@@ -205,6 +219,34 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         tickets: ticketsPorEtiqueta[tag.id]?.length || 0
       }))
     });
+    
+    // ✅ DEBUG EXTENDIDO: Verificar tickets sin etiquetas
+    if (ticketsSinEtiquetas.length > 0) {
+      logger.dashboard.debug('🔄 [KanbanBoard] Tickets ABIERTOS encontrados:', 
+        ticketsSinEtiquetas.slice(0, 5).map(t => ({
+          id: t.id,
+          contactName: t.contact?.name,
+          tags: t.tags?.length || 0,
+          tagNames: t.tags?.map(tag => tag.name) || []
+        }))
+      );
+    } else {
+      logger.dashboard.warn('⚠️ [KanbanBoard] NO HAY TICKETS SIN ETIQUETAS - ABIERTOS estará vacío');
+      
+      // ✅ DEBUG: Verificar estructura de tickets recibidos
+      if (localTickets.length > 0) {
+        logger.dashboard.debug('🔄 [KanbanBoard] Estructura de tickets recibidos:', 
+          localTickets.slice(0, 3).map(t => ({
+            id: t.id,
+            hasTags: !!t.tags,
+            tagsLength: t.tags?.length || 0,
+            tagsType: typeof t.tags,
+            tagsIsArray: Array.isArray(t.tags),
+            rawTags: t.tags
+          }))
+        );
+      }
+    }
   }, [localTickets, etiquetasKanban, ticketsPorEtiqueta, ticketsSinEtiquetas.length]);
 
   // ✅ CREAR COLUMNAS DINÁMICAMENTE

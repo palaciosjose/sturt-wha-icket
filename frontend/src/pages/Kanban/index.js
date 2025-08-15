@@ -93,7 +93,59 @@ const Kanban = () => {
           teste: true
         }
       });
+      
+      // ✅ DEBUG DETALLADO: Verificar datos recibidos del backend
+      logger.dashboard.debug("🔄 [Frontend] Datos recibidos del backend:", {
+        totalTickets: data.tickets?.length || 0,
+        count: data.count,
+        hasMore: data.hasMore,
+        sampleTickets: data.tickets?.slice(0, 3).map(t => ({
+          id: t.id,
+          tags: t.tags?.length || 0,
+          tagNames: t.tags?.map(tag => tag.name) || []
+        })) || []
+      });
+      
+      // ✅ DEBUG: Verificar distribución de tickets por tipo
+      const ticketsConEtiquetas = data.tickets?.filter(t => t.tags && t.tags.length > 0) || [];
+      const ticketsSinEtiquetas = data.tickets?.filter(t => !t.tags || t.tags.length === 0) || [];
+      
+      logger.dashboard.debug("🔄 [Frontend] Distribución de tickets:", {
+        conEtiquetas: ticketsConEtiquetas.length,
+        sinEtiquetas: ticketsSinEtiquetas.length,
+        total: data.tickets?.length || 0
+      });
+      
+      // ✅ DEBUG: Verificar tickets sin etiquetas (ABIERTOS)
+      if (ticketsSinEtiquetas.length > 0) {
+        logger.dashboard.debug("🔄 [Frontend] Ejemplos de tickets ABIERTOS:", 
+          ticketsSinEtiquetas.slice(0, 5).map(t => ({
+            id: t.id,
+            contactName: t.contact?.name,
+            lastMessage: t.lastMessage?.substring(0, 50) + '...'
+          }))
+        );
+      } else {
+        logger.dashboard.warn("⚠️ [Frontend] NO HAY TICKETS SIN ETIQUETAS (ABIERTOS)");
+      }
+      
       setTickets(data.tickets);
+      
+      // ✅ DEBUG INMEDIATO: Verificar datos recibidos
+      console.log('🔍 [DEBUG INMEDIATO] Kanban - Datos recibidos del backend:', {
+        totalTickets: data.tickets?.length || 0,
+        count: data.count,
+        hasMore: data.hasMore,
+        sampleTickets: data.tickets?.slice(0, 3).map(t => ({
+          id: t.id,
+          hasTags: !!t.tags,
+          tagsLength: t.tags?.length || 0,
+          tagsType: typeof t.tags,
+          tagsIsArray: Array.isArray(t.tags),
+          rawTags: t.tags
+        })) || []
+      });
+      
       logger.dashboard.debug("✅ Tickets cargados:", data.tickets?.length || 0);
     } catch (err) {
       logger.dashboard.error("❌ Error cargando tickets:", err);
