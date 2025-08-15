@@ -96,11 +96,14 @@ const ListTicketsServiceKanban = async ({
 
   // ✅ FILTRAR SOLO CONTACTOS INDIVIDUALES (NO GRUPOS DE WHATSAPP)
   // Kanban está diseñado exclusivamente para contactos directos
-  // ✅ CORREGIDO: Usar filtro en el include de Contact en lugar de whereCondition
+  // ✅ CORREGIDO: Remover filtro problemático y usar aproximación más simple
   // whereCondition = {
   //   ...whereCondition,
   //   "$Contact.isGroup$": false
   // };
+
+  // ✅ NUEVA APROXIMACIÓN: Filtrar después de obtener los tickets
+  // Esto evita problemas de sintaxis con Sequelize
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
