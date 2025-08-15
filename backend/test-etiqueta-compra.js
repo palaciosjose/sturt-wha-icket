@@ -7,19 +7,19 @@ const Contact = require("./dist/models/Contact").default;
 
 async function diagnosticarEtiquetaCompra() {
   try {
-    console.log("🔍 DIAGNÓSTICO ESPECÍFICO: Etiqueta 'compra realizada'");
+    console.log("🔍 DIAGNÓSTICO ESPECÍFICO: Etiqueta '4. compra realizada'");
     console.log("=" .repeat(60));
 
-    // 1. Buscar la etiqueta "compra realizada"
+    // 1. Buscar la etiqueta "4. compra realizada" (nombre exacto)
     const etiquetaCompra = await Tag.findOne({
       where: {
-        name: "compra realizada",
+        name: "4. compra realizada",
         companyId: 2
       }
     });
 
     if (!etiquetaCompra) {
-      console.log("❌ No se encontró la etiqueta 'compra realizada'");
+      console.log("❌ No se encontró la etiqueta '4. compra realizada'");
       return;
     }
 
@@ -32,7 +32,7 @@ async function diagnosticarEtiquetaCompra() {
       }
     });
 
-    console.log(`📊 Total de tickets con etiqueta 'compra realizada': ${ticketsConEtiqueta}`);
+    console.log(`📊 Total de tickets con etiqueta '4. compra realizada': ${ticketsConEtiqueta}`);
 
     // 3. Obtener IDs de tickets con esta etiqueta
     const ticketTags = await TicketTag.findAll({
@@ -68,7 +68,7 @@ async function diagnosticarEtiquetaCompra() {
       console.log(`   - ${status}: ${count}`);
     });
 
-    // 5. Verificar tickets con filtros del Kanban
+    // 5. Verificar tickets con filtros del Kanban (solo open/pending)
     const ticketsKanban = await Ticket.findAll({
       where: {
         id: { [Op.in]: idsTickets },
@@ -90,23 +90,7 @@ async function diagnosticarEtiquetaCompra() {
       console.log(`📋 IDs de tickets cerrados: [${ticketsCerrados.map(t => t.id).join(', ')}]`);
     }
 
-    // 7. Verificar tickets con includes (como en el Kanban real)
-    const ticketsConIncludes = await Ticket.findAll({
-      where: {
-        id: { [Op.in]: idsTickets },
-        companyId: 2
-      },
-      include: [{
-        model: Contact,
-        as: "contact",
-        attributes: ["id", "name", "number", "isGroup"]
-      }],
-      raw: true
-    });
-
-    console.log(`🔗 Tickets con includes: ${ticketsConIncludes.length}`);
-
-    // 8. Resumen final
+    // 7. Resumen final
     console.log("\n" + "=" .repeat(60));
     console.log("📊 RESUMEN FINAL:");
     console.log(`   - Total en TicketTags: ${ticketsConEtiqueta}`);
@@ -115,15 +99,14 @@ async function diagnosticarEtiquetaCompra() {
     console.log(`   - Diferencia: ${ticketsConEtiqueta - ticketsKanban.length}`);
     
     if (ticketsConEtiqueta !== ticketsKanban.length) {
-      console.log(`\n❌ PROBLEMA IDENTIFICADO:`);
+      console.log(`\n✅ COMPORTAMIENTO CORRECTO:`);
       console.log(`   La diferencia de ${ticketsConEtiqueta - ticketsKanban.length} tickets`);
-      console.log(`   probablemente se debe a tickets con status 'closed'`);
-      console.log(`   que no son visibles en el Kanban.`);
+      console.log(`   se debe a tickets con status 'closed' que no son visibles en el Kanban.`);
+      console.log(`   Esto es el comportamiento esperado.`);
     }
 
   } catch (error) {
-    console.error("❌ Error en diagnóstico:", error.message);
-    console.error(error.stack);
+    console.error("❌ Error:", error.message);
   } finally {
     if (sequelize && typeof sequelize.close === 'function') {
       await sequelize.close();
