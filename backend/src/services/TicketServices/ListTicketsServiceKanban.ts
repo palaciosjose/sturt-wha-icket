@@ -72,7 +72,9 @@ const ListTicketsServiceKanban = async ({
     {
       model: Tag,
       as: "tags",
-      attributes: ["id", "name", "color"]
+      attributes: ["id", "name", "color"],
+      through: { attributes: [] }, // ✅ FORZAR CARGA DE RELACIÓN MANY-TO-MANY
+      required: false // ✅ NO REQUERIR QUE TENGAN ETIQUETAS
     },
     {
       model: Whatsapp,
@@ -318,6 +320,15 @@ const ListTicketsServiceKanban = async ({
         id: t.id,
         tags: t.tags?.map(tag => tag.name) || []
       })).slice(0, 10));
+      
+      // ✅ DEBUG EXTENDIDO: Verificar etiquetas de cada ticket
+      console.log(`🔄 [Kanban] DEBUG EXTENDIDO - Verificando etiquetas de tickets:`);
+      ticketsUnicos.slice(0, 5).forEach((ticket, index) => {
+        console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
+        console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
+        console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
+        console.log(`    - Raw ticket data:`, JSON.stringify(ticket, null, 2).substring(0, 200) + '...');
+      });
       
       // Aplicar limit solo al resultado final
       const limit = 40;
