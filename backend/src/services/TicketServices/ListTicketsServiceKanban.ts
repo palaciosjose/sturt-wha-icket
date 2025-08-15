@@ -248,11 +248,160 @@ const ListTicketsServiceKanban = async ({
       
       const idsConEtiquetas = ticketIdsConEtiquetas.map(t => t.ticketId);
       console.log(`🔄 [Kanban] IDs de tickets con etiquetas kanban: ${idsConEtiquetas.length}`);
+      console.log(`🔄 [Kanban] Primeros 10 IDs:`, idsConEtiquetas.slice(0, 10));
+      
+      // ✅ VERIFICAR QUE LOS IDs EXISTAN EN LA TABLA TICKETS
+      if (idsConEtiquetas.length > 0) {
+        const ticketsExistentes = await Ticket.findAll({
+          where: { id: { [Op.in]: idsConEtiquetas } },
+          attributes: ['id', 'status', 'companyId'],
+          raw: true
+        });
+        console.log(`🔄 [Kanban] Tickets existentes en BD: ${ticketsExistentes.length}`);
+        console.log(`🔄 [Kanban] Primeros 5 tickets existentes:`, ticketsExistentes.slice(0, 5));
+        
+        // ✅ VERIFICAR STATUS DE LOS TICKETS
+        const statusCounts = ticketsExistentes.reduce((acc, ticket) => {
+          acc[ticket.status] = (acc[ticket.status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log(`🔄 [Kanban] Distribución de status:`, statusCounts);
+      }
       
       // 2. Obtener tickets con etiquetas kanban (prioridad alta)
       // ✅ IMPORTANTE: NO aplicar filtros de status para tickets con etiquetas kanban
       const whereConditionSinStatus = { ...whereCondition };
       delete whereConditionSinStatus.status; // Remover filtro de status
+      
+      console.log(`🔄 [Kanban] DEBUG - whereConditionSinStatus:`, JSON.stringify(whereConditionSinStatus, null, 2));
+      console.log(`🔄 [Kanban] DEBUG - idsConEtiquetas (primeros 5):`, idsConEtiquetas.slice(0, 5));
+      
+      // ✅ VERIFICAR CONSULTA SQL GENERADA
+      const consultaSQL = await Ticket.findOne({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        include: includeCondition,
+        logging: console.log // ✅ MOSTRAR SQL GENERADO
+      });
+      
+      // ✅ VERIFICAR CONSULTA SIMPLE SIN INCLUDES
+      console.log(`🔄 [Kanban] Probando consulta simple sin includes...`);
+      const consultaSimple = await Ticket.findAll({
+        where: {
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        attributes: ['id', 'status', 'companyId'],
+        raw: true
+      });
+      console.log(`🔄 [Kanban] Consulta simple sin includes: ${consultaSimple.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON SOLO CONTACT (NO GRUPOS)
+      console.log(`🔄 [Kanban] Probando consulta con filtro de contacto...`);
+      const consultaConContact = await Ticket.findAll({
+        where: {
+          id: { [Op.in]: idsConEtiquetas },
+          "$contact.isGroup$": false
+        },
+        include: [{
+          model: Contact,
+          as: "contact",
+          attributes: ["id", "name", "number", "email", "profilePicUrl", "isGroup"]
+        }],
+        raw: true
+      });
+      console.log(`🔄 [Kanban] Consulta con filtro de contacto: ${consultaConContact.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON WHERE CONDITION COMPLETO
+      console.log(`🔄 [Kanban] Probando consulta con whereCondition completo...`);
+      const consultaConWhereCompleto = await Ticket.findAll({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        attributes: ['id', 'status', 'companyId'],
+        raw: true
+      });
+      console.log(`🔄 [Kanban] Consulta con whereCondition completo: ${consultaConWhereCompleto.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON INCLUDE CONDITION
+      console.log(`🔄 [Kanban] Probando consulta con includeCondition...`);
+      const consultaConInclude = await Ticket.findAll({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        include: includeCondition,
+        attributes: ['id', 'status', 'companyId'],
+        raw: true
+      });
+      console.log(`🔄 [Kanban] Consulta con includeCondition: ${consultaConInclude.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON DISTINCT Y SUBQUERY
+      console.log(`🔄 [Kanban] Probando consulta con distinct y subQuery...`);
+      const consultaConDistinct = await Ticket.findAndCountAll({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        include: includeCondition,
+        distinct: true,
+        subQuery: false
+      });
+      console.log(`🔄 [Kanban] Consulta con distinct y subQuery: ${consultaConDistinct.rows.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON LIMIT
+      console.log(`🔄 [Kanban] Probando consulta con limit...`);
+      const consultaConLimit = await Ticket.findAndCountAll({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        include: includeCondition,
+        distinct: true,
+        limit: 51,
+        subQuery: false
+      });
+      console.log(`🔄 [Kanban] Consulta con limit: ${consultaConLimit.rows.length} tickets`);
+      
+      // ✅ VERIFICAR CONSULTA CON ORDER
+      console.log(`🔄 [Kanban] Probando consulta con order...`);
+      const consultaConOrder = await Ticket.findAndCountAll({
+        where: {
+          ...whereConditionSinStatus,
+          id: { [Op.in]: idsConEtiquetas }
+        },
+        include: includeCondition,
+        distinct: true,
+        limit: 51,
+        order: [["updatedAt", "DESC"]],
+        subQuery: false
+      });
+      console.log(`🔄 [Kanban] Consulta con order: ${consultaConOrder.rows.length} tickets`);
+      
+      // ✅ VERIFICAR CONTENIDO EXACTO DEL WHERE CONDITION
+      console.log(`🔄 [Kanban] === ANÁLISIS DETALLADO DEL WHERE CONDITION ===`);
+      console.log(`🔄 [Kanban] whereCondition original:`, JSON.stringify(whereCondition, null, 2));
+      console.log(`🔄 [Kanban] whereConditionSinStatus:`, JSON.stringify(whereConditionSinStatus, null, 2));
+      console.log(`🔄 [Kanban] whereCondition final aplicado:`, JSON.stringify({
+        ...whereConditionSinStatus,
+        id: { [Op.in]: idsConEtiquetas }
+      }, null, 2));
+      console.log(`🔄 [Kanban] === FIN DEL ANÁLISIS ===`);
+      
+      // ✅ VERIFICAR CONTENIDO EXACTO DEL INCLUDE CONDITION
+      console.log(`🔄 [Kanban] === ANÁLISIS DETALLADO DEL INCLUDE CONDITION ===`);
+      console.log(`🔄 [Kanban] includeCondition:`, JSON.stringify(includeCondition, null, 2));
+      console.log(`🔄 [Kanban] === FIN DEL ANÁLISIS ===`);
+      
+      // ✅ VERIFICAR CONTENIDO EXACTO DEL WHERE CONDITION PARA TICKETS SIN ETIQUETAS
+      console.log(`🔄 [Kanban] === ANÁLISIS DETALLADO DEL WHERE CONDITION SIN ETIQUETAS ===`);
+      console.log(`🔄 [Kanban] whereCondition para tickets sin etiquetas:`, JSON.stringify({
+        ...whereCondition,
+        id: { [Op.notIn]: idsConEtiquetas }
+      }, null, 2));
+      console.log(`🔄 [Kanban] === FIN DEL ANÁLISIS ===`);
       
       const ticketsConEtiquetas = await Ticket.findAndCountAll({
         where: {
@@ -265,6 +414,12 @@ const ListTicketsServiceKanban = async ({
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
+      
+      console.log(`🔄 [Kanban] DEBUG - Consulta SQL ejecutada para tickets con etiquetas`);
+      console.log(`🔄 [Kanban] DEBUG - whereCondition final:`, JSON.stringify({
+        ...whereConditionSinStatus,
+        id: { [Op.in]: idsConEtiquetas }
+      }, null, 2));
       
       console.log(`🔄 [Kanban] Tickets con etiquetas encontrados: ${ticketsConEtiquetas.rows.length}`);
       
