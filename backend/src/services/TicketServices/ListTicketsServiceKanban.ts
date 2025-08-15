@@ -261,7 +261,7 @@ const ListTicketsServiceKanban = async ({
         },
         include: includeCondition,
         distinct: true,
-        limit: 20, // Solo 20 para no saturar
+        limit: 51, // ✅ MOSTRAR TODOS los tickets con etiquetas kanban disponibles
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
@@ -294,7 +294,7 @@ const ListTicketsServiceKanban = async ({
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
       
       // 6. Aplicar limit solo al resultado final
-      const limit = 40;
+      const limit = 100; // ✅ Aumentar el límite para mostrar más tickets
       const hasMore = ticketsUnicos.length > limit;
       
       return {
