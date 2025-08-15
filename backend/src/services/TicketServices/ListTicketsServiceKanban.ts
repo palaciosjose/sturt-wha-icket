@@ -250,9 +250,13 @@ const ListTicketsServiceKanban = async ({
       console.log(`🔄 [Kanban] IDs de tickets con etiquetas kanban: ${idsConEtiquetas.length}`);
       
       // 2. Obtener tickets con etiquetas kanban (prioridad alta)
+      // ✅ IMPORTANTE: NO aplicar filtros de status para tickets con etiquetas kanban
+      const whereConditionSinStatus = { ...whereCondition };
+      delete whereConditionSinStatus.status; // Remover filtro de status
+      
       const ticketsConEtiquetas = await Ticket.findAndCountAll({
         where: {
-          ...whereCondition,
+          ...whereConditionSinStatus,
           id: { [Op.in]: idsConEtiquetas }
         },
         include: includeCondition,
