@@ -286,8 +286,9 @@ const ListTicketsServiceKanban = async ({
       const ticketsKanban = await Ticket.findAndCountAll({
         where: {
           id: { [Op.in]: ticketIdsConEtiquetasKanban },
-          companyId: companyId,
-          status: { [Op.or]: ["pending", "open"] }
+          companyId: companyId
+          // ✅ REMOVIDO: status: { [Op.or]: ["pending", "open"] }
+          // Ahora incluye TODOS los tickets con etiquetas kanban
         },
         include: includeCondition,
         distinct: true,
