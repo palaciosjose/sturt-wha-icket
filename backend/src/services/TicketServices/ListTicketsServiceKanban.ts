@@ -360,6 +360,58 @@ const ListTicketsServiceKanban = async ({
         tags: t.tags?.map(tag => tag.name) || []
       })).slice(0, 10));
       
+      // ✅ SOLUCIÓN COMPLETA: Primera página siempre incluye TODOS los tickets sin etiquetas
+      // Si es la primera página, forzar inclusión de tickets sin etiquetas
+      const esPrimeraPagina = +pageNumber === 1;
+      
+      if (esPrimeraPagina) {
+        console.log(`🔄 [Kanban] Primera página detectada - Forzando inclusión de TODOS los tickets sin etiquetas`);
+        
+        // Hacer consulta especial para primera página: incluir TODOS los tickets sin etiquetas
+        const ticketsSinEtiquetas = await Ticket.findAndCountAll({
+          where: {
+            companyId: companyId,
+            status: { [Op.or]: ["pending", "open"] }
+          },
+          include: includeCondition,
+          distinct: true,
+          order: [["updatedAt", "DESC"]],
+          subQuery: false
+        });
+        
+        console.log(`🔄 [Kanban] Primera página - Tickets sin etiquetas encontrados: ${ticketsSinEtiquetas.rows.length}`);
+        
+        // Filtrar solo los que realmente no tienen etiquetas
+        const ticketsRealmenteSinEtiquetas = ticketsSinEtiquetas.rows.filter(ticket => 
+          !ticket.tags || ticket.tags.length === 0
+        );
+        
+        console.log(`🔄 [Kanban] Primera página - Tickets realmente sin etiquetas: ${ticketsRealmenteSinEtiquetas.length}`);
+        
+        // Combinar: tickets sin etiquetas + tickets con etiquetas kanban
+        const todosLosTickets = [...ticketsRealmenteSinEtiquetas, ...ticketsKanban.rows];
+        
+        // Eliminar duplicados por ID
+        const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
+          index === self.findIndex(t => t.id === ticket.id)
+        );
+        
+        console.log(`🔄 [Kanban] Primera página - Resultado final: ${ticketsUnicos.length} tickets únicos`);
+        
+        // Aplicar limit solo al resultado final
+        const limit = 40;
+        const hasMore = ticketsUnicos.length > limit;
+        
+        return {
+          tickets: ticketsUnicos.slice(0, limit),
+          count: ticketsUnicos.length,
+          hasMore
+        };
+      }
+      
+      // Para páginas siguientes, usar la lógica original
+      console.log(`🔄 [Kanban] Página ${pageNumber} - Usando lógica de paginación normal`);
+      
       // Aplicar limit solo al resultado final
       const limit = 40;
       const offset = limit * (+pageNumber - 1);
