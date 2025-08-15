@@ -279,7 +279,7 @@ const ListTicketsServiceKanban = async ({
     try {
       console.log(`🔄 [Kanban] Ejecutando consulta separada para tickets con etiquetas kanban...`);
       
-      // Hacer una consulta separada para tickets con etiquetas kanban
+      // Hacer una consulta separada para tickets con etiquetas kanban (SIN LIMIT)
       const ticketsKanban = await Ticket.findAndCountAll({
         where: {
           id: { [Op.in]: ticketIdsConEtiquetasKanban },
@@ -294,13 +294,11 @@ const ListTicketsServiceKanban = async ({
       
       console.log(`🔄 [Kanban] Consulta separada - tickets kanban encontrados: ${ticketsKanban.rows.length}`);
       
-      // Hacer la consulta original para tickets sin etiquetas kanban
+      // Hacer la consulta original para tickets sin etiquetas kanban (SIN LIMIT)
       const ticketsOriginales = await Ticket.findAndCountAll({
         where: whereCondition,
         include: includeCondition,
         distinct: true,
-        limit,
-        offset,
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
@@ -316,11 +314,18 @@ const ListTicketsServiceKanban = async ({
       );
       
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
+      console.log(`🔄 [Kanban] Tickets por etiqueta:`, ticketsUnicos.map(t => ({
+        id: t.id,
+        tags: t.tags?.map(tag => tag.name) || []
+      })).slice(0, 10));
       
-      const hasMore = ticketsUnicos.length > limit;
+      // Aplicar limit solo al resultado final
+      const limit = 40;
+      const offset = limit * (+pageNumber - 1);
+      const hasMore = ticketsUnicos.length > offset + limit;
       
       return {
-        tickets: ticketsUnicos.slice(0, limit),
+        tickets: ticketsUnicos.slice(offset, offset + limit),
         count: ticketsUnicos.length,
         hasMore
       };
