@@ -119,14 +119,10 @@ async function testKanbanProduccion() {
     console.log(`\n🔍 [PRODUCCIÓN] 4. Simulando whereCondition del Kanban...`);
     
     // Simular el whereCondition exacto del ListTicketsServiceKanban
-    const whereCondition = {
-      [Op.or]: [{ userId: userId }, { status: "pending" }],
-      queueId: { [Op.or]: [[], null] }, // queueIds vacío
-      status: { [Op.or]: ["pending", "open"] },
-      companyId: companyId
-      // ✅ CORREGIDO: Remover filtro problemático de Contact.isGroup
-      // "$Contact.isGroup$": false
-    };
+    whereCondition = {
+        companyId: companyId,
+        status: { [Op.or]: ["pending", "open"] }
+      };
     
     const whereConditionSinStatus = { ...whereCondition };
     delete whereConditionSinStatus.status; // Remover filtro de status

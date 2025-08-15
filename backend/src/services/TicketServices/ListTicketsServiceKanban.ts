@@ -310,8 +310,9 @@ const ListTicketsServiceKanban = async ({
       console.log(`🔄 [Kanban] Probando consulta con filtro de contacto...`);
       const consultaConContact = await Ticket.findAll({
         where: {
-          id: { [Op.in]: idsConEtiquetas },
-          "$Contact.isGroup$": false
+          id: { [Op.in]: idsConEtiquetas }
+          // ✅ CORREGIDO: Remover filtro problemático de Contact.isGroup
+          // "$Contact.isGroup$": false
         },
         include: [{
           model: Contact,
