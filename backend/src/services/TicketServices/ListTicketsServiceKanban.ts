@@ -338,19 +338,27 @@ const ListTicketsServiceKanban = async ({
       );
       
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
+      
+      // ✅ DEBUG: Verificar distribución de tickets por tipo
+      const ticketsConEtiquetas = ticketsUnicos.filter(t => t.tags && t.tags.length > 0);
+      const ticketsSinEtiquetas = ticketsUnicos.filter(t => !t.tags || t.tags.length === 0);
+      
+      console.log(`🔄 [Kanban] Distribución final:`);
+      console.log(`  - Tickets CON etiquetas: ${ticketsConEtiquetas.length}`);
+      console.log(`  - Tickets SIN etiquetas (ABIERTOS): ${ticketsSinEtiquetas.length}`);
+      
+      // ✅ DEBUG: Mostrar algunos ejemplos de tickets sin etiquetas
+      if (ticketsSinEtiquetas.length > 0) {
+        console.log(`🔄 [Kanban] Ejemplos de tickets ABIERTOS (sin etiquetas):`);
+        ticketsSinEtiquetas.slice(0, 5).forEach((ticket, index) => {
+          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}): status=${ticket.status}, lastMessage="${ticket.lastMessage?.substring(0, 50)}..."`);
+        });
+      }
+      
       console.log(`🔄 [Kanban] Tickets por etiqueta:`, ticketsUnicos.map(t => ({
         id: t.id,
         tags: t.tags?.map(tag => tag.name) || []
       })).slice(0, 10));
-      
-      // ✅ DEBUG EXTENDIDO: Verificar etiquetas de cada ticket
-      console.log(`🔄 [Kanban] DEBUG EXTENDIDO - Verificando etiquetas de tickets:`);
-      ticketsUnicos.slice(0, 5).forEach((ticket, index) => {
-        console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
-        console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
-        console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
-        console.log(`    - Raw ticket data:`, JSON.stringify(ticket, null, 2).substring(0, 200) + '...');
-      });
       
       // Aplicar limit solo al resultado final
       const limit = 40;
