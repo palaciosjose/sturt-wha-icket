@@ -318,10 +318,20 @@ const ListTicketsServiceKanban = async ({
       
       console.log(`🔄 [Kanban] Consulta original - tickets encontrados: ${ticketsOriginales.rows.length}`);
       
-      // Combinar resultados: tickets originales + tickets kanban
-      const todosLosTickets = [...ticketsOriginales.rows, ...ticketsKanban.rows];
+      // ✅ DEBUG: Verificar si las etiquetas se cargaron en consulta original
+      if (ticketsOriginales.rows.length > 0) {
+        console.log(`🔄 [Kanban] DEBUG - Verificando etiquetas en consulta original:`);
+        ticketsOriginales.rows.slice(0, 3).forEach((ticket, index) => {
+          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
+          console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
+          console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
+        });
+      }
       
-      // Eliminar duplicados por ID
+      // Combinar resultados: tickets con etiquetas PRIMERO + tickets originales
+      const todosLosTickets = [...ticketsKanban.rows, ...ticketsOriginales.rows];
+      
+      // Eliminar duplicados por ID (mantener los primeros que aparezcan)
       const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
         index === self.findIndex(t => t.id === ticket.id)
       );
