@@ -89,9 +89,14 @@ const ListTicketsServiceKanban = async ({
     whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
   }
 
+  // ✅ CONSTRUIR WHERE CONDITION PARA KANBAN
+  // ✅ CORREGIDO: Simplificar filtros para evitar restricciones excesivas
   whereCondition = {
-    ...whereCondition,
+    companyId: companyId,
     status: { [Op.or]: ["pending", "open"] }
+    // ✅ REMOVIDO: Filtros restrictivos de userId y queueId que causaban 0 resultados
+    // [Op.or]: [{ userId: userId }, { status: "pending" }],
+    // queueId: { [Op.or]: [[], null] }
   };
 
   // ✅ FILTRAR SOLO CONTACTOS INDIVIDUALES (NO GRUPOS DE WHATSAPP)
