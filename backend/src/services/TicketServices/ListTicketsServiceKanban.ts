@@ -96,11 +96,11 @@ const ListTicketsServiceKanban = async ({
 
   // ✅ FILTRAR SOLO CONTACTOS INDIVIDUALES (NO GRUPOS DE WHATSAPP)
   // Kanban está diseñado exclusivamente para contactos directos
-  // ✅ CORREGIDO: Usar sintaxis correcta de Sequelize para filtro de contact
-  whereCondition = {
-    ...whereCondition,
-    "$Contact.isGroup$": false
-  };
+  // ✅ CORREGIDO: Usar filtro en el include de Contact en lugar de whereCondition
+  // whereCondition = {
+  //   ...whereCondition,
+  //   "$Contact.isGroup$": false
+  // };
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
