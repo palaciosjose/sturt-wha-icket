@@ -1321,9 +1321,6 @@ async function handleInvoiceCreate() {
                 }
               }
 
-              // ✅ LOGGING DETALLADO PARA DEBUGGING
-              logger.debug(`[Invoice] Procesando empresa ${c.id} (${c.name}) con plan: ${plan.name} (ID: ${plan.id})`);
-
               try {
                 // ✅ VERIFICAR SI YA EXISTE FACTURA USANDO MODELO SEQUELIZE
                 const existingInvoice = await Invoices.findOne({
@@ -1336,8 +1333,7 @@ async function handleInvoiceCreate() {
                 });
                 
                 if (existingInvoice) {
-                  // ✅ INVOICE YA EXISTE - NO HACER NADA
-                  logger.debug(`[Invoice] Factura ya existe para empresa ${c.id} (${c.name}) en fecha ${moment(dueDate).format("DD/MM/yyyy")}`);
+                  // ✅ INVOICE YA EXISTE - NO HACER NADA (SIN LOG)
                 } else {
                   // ✅ CREAR NUEVA FACTURA USANDO MODELO SEQUELIZE
                   await Invoices.create({

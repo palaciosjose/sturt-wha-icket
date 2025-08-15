@@ -97,6 +97,53 @@ const ListTicketsServiceKanban = async ({
     "$contact.isGroup$": false
   };
 
+  // ✅ CORRECCIÓN CRÍTICA: INCLUIR TICKETS CON ETIQUETAS KANBAN ACTIVAS
+  // Cuando se llama desde el Kanban, incluir automáticamente tickets con etiquetas kanban
+  if (!Array.isArray(tags) || tags.length === 0) {
+    try {
+      // Obtener todas las etiquetas kanban activas para esta empresa
+      const etiquetasKanban = await Tag.findAll({
+        where: {
+          kanban: 1,
+          companyId: companyId
+        },
+        attributes: ['id'],
+        raw: true
+      });
+
+      if (etiquetasKanban.length > 0) {
+        const tagIds = etiquetasKanban.map(tag => tag.id);
+        
+        // Obtener todos los tickets que tienen estas etiquetas kanban
+        const ticketsConEtiquetasKanban = await TicketTag.findAll({
+          where: {
+            tagId: { [Op.in]: tagIds }
+          },
+          attributes: ['ticketId'],
+          raw: true
+        });
+
+        if (ticketsConEtiquetasKanban.length > 0) {
+          const ticketIdsConEtiquetas = ticketsConEtiquetasKanban.map(tt => tt.ticketId);
+          
+          // Modificar la condición para incluir tickets con etiquetas kanban
+          whereCondition = {
+            ...whereCondition,
+            [Op.or]: [
+              // Tickets sin etiquetas (van a columna ABIERTOS)
+              { id: { [Op.notIn]: ticketIdsConEtiquetas } },
+              // Tickets con etiquetas kanban (van a sus respectivas columnas)
+              { id: { [Op.in]: ticketIdsConEtiquetas } }
+            ]
+          };
+        }
+      }
+    } catch (error) {
+      console.error("Error obteniendo etiquetas kanban:", error);
+      // Si hay error, continuar con la lógica original
+    }
+  }
+
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
 
