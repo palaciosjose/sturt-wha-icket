@@ -180,7 +180,9 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   }, [tickets]);
 
   // ✅ LÓGICA DINÁMICA: Separar tickets por etiquetas que tienen kanban=true
-  const ticketsSinEtiquetas = localTickets.filter(ticket => ticket.tags.length === 0);
+  const ticketsSinEtiquetas = localTickets.filter(ticket => 
+    !ticket.tags || ticket.tags.length === 0
+  );
   
   // ✅ DEBUG INMEDIATO: Verificar tickets sin etiquetas
   console.log('🔍 [DEBUG INMEDIATO] KanbanBoard - Tickets sin etiquetas:', {
@@ -203,7 +205,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   const ticketsPorEtiqueta = {};
   etiquetasKanban.forEach(tag => {
     ticketsPorEtiqueta[tag.id] = localTickets.filter(ticket => 
-      ticket.tags.some(ticketTag => ticketTag.id === tag.id)
+      ticket.tags && ticket.tags.some(ticketTag => ticketTag.id === tag.id)
     );
   });
 

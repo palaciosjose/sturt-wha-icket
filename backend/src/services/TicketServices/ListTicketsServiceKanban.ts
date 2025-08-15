@@ -11,6 +11,7 @@ import Tag from "../../models/Tag";
 import TicketTag from "../../models/TicketTag";
 import { intersection } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
+import Sequelize from "sequelize";
 
 interface Request {
   searchParam?: string;
@@ -99,54 +100,6 @@ const ListTicketsServiceKanban = async ({
     ...whereCondition,
     "$contact.isGroup$": false
   };
-
-  // ✅ CORRECCIÓN CRÍTICA: INCLUIR TICKETS CON ETIQUETAS KANBAN ACTIVAS
-  // Cuando se llama desde el Kanban, incluir automáticamente tickets con etiquetas kanban
-  let ticketIdsConEtiquetasKanban: number[] = [];
-  
-  if (!Array.isArray(tags) || tags.length === 0) {
-    try {
-      console.log("🔄 [Kanban] Iniciando corrección para incluir tickets con etiquetas kanban...");
-      
-      // Obtener todas las etiquetas kanban activas para esta empresa
-      const etiquetasKanban = await Tag.findAll({
-        where: {
-          kanban: 1,
-          companyId: companyId
-        },
-        attributes: ['id', 'name'],
-        raw: true
-      });
-
-      console.log(`🔄 [Kanban] Etiquetas kanban encontradas: ${etiquetasKanban.length}`, 
-        etiquetasKanban.map(tag => `${tag.name} (ID: ${tag.id})`));
-
-      if (etiquetasKanban.length > 0) {
-        const tagIds = etiquetasKanban.map(tag => tag.id);
-        
-        // Obtener todos los tickets que tienen estas etiquetas kanban
-        const ticketsConEtiquetasKanban = await TicketTag.findAll({
-          where: {
-            tagId: { [Op.in]: tagIds }
-          },
-          attributes: ['ticketId'],
-          raw: true
-        });
-
-        console.log(`🔄 [Kanban] Tickets con etiquetas kanban encontrados: ${ticketsConEtiquetasKanban.length}`);
-
-        if (ticketsConEtiquetasKanban.length > 0) {
-          ticketIdsConEtiquetasKanban = ticketsConEtiquetasKanban.map(tt => tt.ticketId);
-          
-          console.log(`🔄 [Kanban] Modificando consulta para incluir ${ticketIdsConEtiquetasKanban.length} tickets con etiquetas kanban`);
-          console.log(`🔄 [Kanban] Consulta modificada - tickets a incluir:`, ticketIdsConEtiquetasKanban.slice(0, 5));
-        }
-      }
-    } catch (error) {
-      console.error("❌ [Kanban] Error obteniendo etiquetas kanban:", error);
-      // Si hay error, continuar con la lógica original
-    }
-  }
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
@@ -271,162 +224,90 @@ const ListTicketsServiceKanban = async ({
     companyId
   };
 
-  // ✅ CORRECCIÓN FINAL: INCLUIR TICKETS CON ETIQUETAS KANBAN
-  // Si tenemos tickets con etiquetas kanban, modificar la consulta para incluirlos
-  if (ticketIdsConEtiquetasKanban.length > 0) {
-    console.log(`🔄 [Kanban] Aplicando corrección final - incluyendo ${ticketIdsConEtiquetasKanban.length} tickets con etiquetas kanban`);
+  // ✅ SOLUCIÓN: Cambiar orden para primera página balanceada
+  let orderClause;
+  
+  if (+pageNumber === 1) {
+    // ✅ Primera página: Ordenar por prioridad (tickets con etiquetas kanban primero)
+    console.log(`🔄 [Kanban] Primera página - Aplicando orden por prioridad`);
     
-    // ✅ CORRECCIÓN AGRESIVA: FORZAR INCLUSIÓN DE TODOS LOS TICKETS KANBAN
-    // En lugar de usar Op.or complejo, vamos a hacer una consulta separada y combinar resultados
-    
+    // ✅ SOLUCIÓN SIMPLE: Hacer dos consultas separadas y combinar
     try {
       console.log(`🔄 [Kanban] Ejecutando consulta separada para tickets con etiquetas kanban...`);
       
-      // Hacer una consulta separada para tickets con etiquetas kanban (SIN LIMIT)
-      const ticketsKanban = await Ticket.findAndCountAll({
+      // 1. Obtener tickets con etiquetas kanban (prioridad alta)
+      const ticketsConEtiquetas = await Ticket.findAndCountAll({
         where: {
-          id: { [Op.in]: ticketIdsConEtiquetasKanban },
-          companyId: companyId
-          // ✅ REMOVIDO: status: { [Op.or]: ["pending", "open"] }
-          // Ahora incluye TODOS los tickets con etiquetas kanban
+          ...whereCondition,
+          id: {
+            [Op.in]: Sequelize.literal(`(
+              SELECT DISTINCT tt.ticketId 
+              FROM TicketTags tt 
+              JOIN Tags t ON tt.tagId = t.id 
+              WHERE t.kanban = 1 AND t.companyId = ${companyId}
+            )`)
+          }
         },
         include: includeCondition,
         distinct: true,
+        limit: 20, // Solo 20 para no saturar
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
       
-      console.log(`🔄 [Kanban] Consulta separada - tickets kanban encontrados: ${ticketsKanban.rows.length}`);
+      console.log(`🔄 [Kanban] Tickets con etiquetas encontrados: ${ticketsConEtiquetas.rows.length}`);
       
-      // ✅ DEBUG: Verificar si las etiquetas se cargaron correctamente
-      if (ticketsKanban.rows.length > 0) {
-        console.log(`🔄 [Kanban] DEBUG - Verificando etiquetas en consulta separada:`);
-        ticketsKanban.rows.slice(0, 3).forEach((ticket, index) => {
-          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
-          console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
-          console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
-        });
-      }
-      
-      // Hacer la consulta original para tickets sin etiquetas kanban (SIN LIMIT)
-      const ticketsOriginales = await Ticket.findAndCountAll({
-        where: whereCondition,
+      // 2. Obtener tickets sin etiquetas (prioridad baja)
+      const ticketsSinEtiquetas = await Ticket.findAndCountAll({
+        where: {
+          ...whereCondition,
+          id: {
+            [Op.notIn]: Sequelize.literal(`(
+              SELECT DISTINCT tt.ticketId 
+              FROM TicketTags tt 
+              JOIN Tags t ON tt.tagId = t.id 
+              WHERE t.kanban = 1 AND t.companyId = ${companyId}
+            )`)
+          }
+        },
         include: includeCondition,
         distinct: true,
+        limit: 20, // Solo 20 para no saturar
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
       
-      console.log(`🔄 [Kanban] Consulta original - tickets encontrados: ${ticketsOriginales.rows.length}`);
+      console.log(`🔄 [Kanban] Tickets sin etiquetas encontrados: ${ticketsSinEtiquetas.rows.length}`);
       
-      // ✅ DEBUG: Verificar si las etiquetas se cargaron en consulta original
-      if (ticketsOriginales.rows.length > 0) {
-        console.log(`🔄 [Kanban] DEBUG - Verificando etiquetas en consulta original:`);
-        ticketsOriginales.rows.slice(0, 3).forEach((ticket, index) => {
-          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
-          console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
-          console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
-        });
-      }
+      // 3. Combinar resultados: tickets con etiquetas PRIMERO + tickets sin etiquetas
+      const todosLosTickets = [...ticketsConEtiquetas.rows, ...ticketsSinEtiquetas.rows];
       
-      // Combinar resultados: tickets con etiquetas PRIMERO + tickets originales
-      const todosLosTickets = [...ticketsKanban.rows, ...ticketsOriginales.rows];
-      
-      // Eliminar duplicados por ID (mantener los primeros que aparezcan)
+      // 4. Eliminar duplicados por ID
       const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
         index === self.findIndex(t => t.id === ticket.id)
       );
       
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
       
-      // ✅ DEBUG: Verificar distribución de tickets por tipo
-      const ticketsConEtiquetas = ticketsUnicos.filter(t => t.tags && t.tags.length > 0);
-      const ticketsSinEtiquetas = ticketsUnicos.filter(t => !t.tags || t.tags.length === 0);
-      
-      console.log(`🔄 [Kanban] Distribución final:`);
-      console.log(`  - Tickets CON etiquetas: ${ticketsConEtiquetas.length}`);
-      console.log(`  - Tickets SIN etiquetas (ABIERTOS): ${ticketsSinEtiquetas.length}`);
-      
-      // ✅ DEBUG: Mostrar algunos ejemplos de tickets sin etiquetas
-      if (ticketsSinEtiquetas.length > 0) {
-        console.log(`🔄 [Kanban] Ejemplos de tickets ABIERTOS (sin etiquetas):`);
-        ticketsSinEtiquetas.slice(0, 5).forEach((ticket, index) => {
-          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}): status=${ticket.status}, lastMessage="${ticket.lastMessage?.substring(0, 50)}..."`);
-        });
-      }
-      
-      console.log(`🔄 [Kanban] Tickets por etiqueta:`, ticketsUnicos.map(t => ({
-        id: t.id,
-        tags: t.tags?.map(tag => tag.name) || []
-      })).slice(0, 10));
-      
-      // ✅ SOLUCIÓN COMPLETA: Primera página siempre incluye TODOS los tickets sin etiquetas
-      // Si es la primera página, forzar inclusión de tickets sin etiquetas
-      const esPrimeraPagina = +pageNumber === 1;
-      
-      if (esPrimeraPagina) {
-        console.log(`🔄 [Kanban] Primera página detectada - Forzando inclusión de TODOS los tickets sin etiquetas`);
-        
-        // Hacer consulta especial para primera página: incluir TODOS los tickets sin etiquetas
-        const ticketsSinEtiquetas = await Ticket.findAndCountAll({
-          where: {
-            companyId: companyId,
-            status: { [Op.or]: ["pending", "open"] }
-          },
-          include: includeCondition,
-          distinct: true,
-          order: [["updatedAt", "DESC"]],
-          subQuery: false
-        });
-        
-        console.log(`🔄 [Kanban] Primera página - Tickets sin etiquetas encontrados: ${ticketsSinEtiquetas.rows.length}`);
-        
-        // Filtrar solo los que realmente no tienen etiquetas
-        const ticketsRealmenteSinEtiquetas = ticketsSinEtiquetas.rows.filter(ticket => 
-          !ticket.tags || ticket.tags.length === 0
-        );
-        
-        console.log(`🔄 [Kanban] Primera página - Tickets realmente sin etiquetas: ${ticketsRealmenteSinEtiquetas.length}`);
-        
-        // Combinar: tickets sin etiquetas + tickets con etiquetas kanban
-        const todosLosTickets = [...ticketsRealmenteSinEtiquetas, ...ticketsKanban.rows];
-        
-        // Eliminar duplicados por ID
-        const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
-          index === self.findIndex(t => t.id === ticket.id)
-        );
-        
-        console.log(`🔄 [Kanban] Primera página - Resultado final: ${ticketsUnicos.length} tickets únicos`);
-        
-        // Aplicar limit solo al resultado final
-        const limit = 40;
-        const hasMore = ticketsUnicos.length > limit;
-        
-        return {
-          tickets: ticketsUnicos.slice(0, limit),
-          count: ticketsUnicos.length,
-          hasMore
-        };
-      }
-      
-      // Para páginas siguientes, usar la lógica original
-      console.log(`🔄 [Kanban] Página ${pageNumber} - Usando lógica de paginación normal`);
-      
-      // Aplicar limit solo al resultado final
+      // 5. Aplicar limit solo al resultado final
       const limit = 40;
-      const offset = limit * (+pageNumber - 1);
-      const hasMore = ticketsUnicos.length > offset + limit;
+      const hasMore = ticketsUnicos.length > limit;
       
       return {
-        tickets: ticketsUnicos.slice(offset, offset + limit),
+        tickets: ticketsUnicos.slice(0, limit),
         count: ticketsUnicos.length,
         hasMore
       };
       
     } catch (error) {
       console.error("❌ [Kanban] Error en consulta separada:", error);
-      // Si falla, continuar con la lógica original
+      // Si falla, usar orden cronológico normal
+      console.log(`🔄 [Kanban] Fallback a orden cronológico normal`);
+      orderClause = [["updatedAt", "DESC"]];
     }
+  } else {
+    // ✅ Páginas siguientes: Orden cronológico normal
+    orderClause = [["updatedAt", "DESC"]];
   }
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({
@@ -435,7 +316,7 @@ const ListTicketsServiceKanban = async ({
     distinct: true,
     limit,
     offset,
-    order: [["updatedAt", "DESC"]],
+    order: orderClause,
     subQuery: false
   });
   
