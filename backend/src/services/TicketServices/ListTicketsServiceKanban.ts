@@ -96,9 +96,10 @@ const ListTicketsServiceKanban = async ({
 
   // ✅ FILTRAR SOLO CONTACTOS INDIVIDUALES (NO GRUPOS DE WHATSAPP)
   // Kanban está diseñado exclusivamente para contactos directos
+  // ✅ CORREGIDO: Usar nombre correcto de tabla Contact (mayúscula)
   whereCondition = {
     ...whereCondition,
-    "$contact.isGroup$": false
+    "$Contact.isGroup$": false
   };
 
   if (searchParam) {
@@ -126,13 +127,13 @@ const ListTicketsServiceKanban = async ({
       ...whereCondition,
       [Op.or]: [
         {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
+          "$Contact.name$": where(
+            fn("LOWER", col("Contact.name")),
             "LIKE",
             `%${sanitizedSearchParam}%`
           )
         },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
+        { "$Contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
         {
           "$message.body$": where(
             fn("LOWER", col("body")),
@@ -302,7 +303,7 @@ const ListTicketsServiceKanban = async ({
       const consultaConContact = await Ticket.findAll({
         where: {
           id: { [Op.in]: idsConEtiquetas },
-          "$contact.isGroup$": false
+          "$Contact.isGroup$": false
         },
         include: [{
           model: Contact,
