@@ -231,22 +231,29 @@ const ListTicketsServiceKanban = async ({
     // ✅ Primera página: Ordenar por prioridad (tickets con etiquetas kanban primero)
     console.log(`🔄 [Kanban] Primera página - Aplicando orden por prioridad`);
     
-    // ✅ SOLUCIÓN SIMPLE: Hacer dos consultas separadas y combinar
     try {
       console.log(`🔄 [Kanban] Ejecutando consulta separada para tickets con etiquetas kanban...`);
       
-      // 1. Obtener tickets con etiquetas kanban (prioridad alta)
+      // 1. Obtener IDs de tickets con etiquetas kanban primero
+      const ticketIdsConEtiquetas = await TicketTag.findAll({
+        attributes: ['ticketId'],
+        include: [{
+          model: Tag,
+          as: 'tag',
+          where: { kanban: 1, companyId: companyId },
+          attributes: []
+        }],
+        raw: true
+      });
+      
+      const idsConEtiquetas = ticketIdsConEtiquetas.map(t => t.ticketId);
+      console.log(`🔄 [Kanban] IDs de tickets con etiquetas kanban: ${idsConEtiquetas.length}`);
+      
+      // 2. Obtener tickets con etiquetas kanban (prioridad alta)
       const ticketsConEtiquetas = await Ticket.findAndCountAll({
         where: {
           ...whereCondition,
-          id: {
-            [Op.in]: Sequelize.literal(`(
-              SELECT DISTINCT tt.ticketId 
-              FROM TicketTags tt 
-              JOIN Tags t ON tt.tagId = t.id 
-              WHERE t.kanban = 1 AND t.companyId = ${companyId}
-            )`)
-          }
+          id: { [Op.in]: idsConEtiquetas }
         },
         include: includeCondition,
         distinct: true,
@@ -257,18 +264,11 @@ const ListTicketsServiceKanban = async ({
       
       console.log(`🔄 [Kanban] Tickets con etiquetas encontrados: ${ticketsConEtiquetas.rows.length}`);
       
-      // 2. Obtener tickets sin etiquetas (prioridad baja)
+      // 3. Obtener tickets sin etiquetas (prioridad baja)
       const ticketsSinEtiquetas = await Ticket.findAndCountAll({
         where: {
           ...whereCondition,
-          id: {
-            [Op.notIn]: Sequelize.literal(`(
-              SELECT DISTINCT tt.ticketId 
-              FROM TicketTags tt 
-              JOIN Tags t ON tt.tagId = t.id 
-              WHERE t.kanban = 1 AND t.companyId = ${companyId}
-            )`)
-          }
+          id: { [Op.notIn]: idsConEtiquetas }
         },
         include: includeCondition,
         distinct: true,
@@ -279,17 +279,17 @@ const ListTicketsServiceKanban = async ({
       
       console.log(`🔄 [Kanban] Tickets sin etiquetas encontrados: ${ticketsSinEtiquetas.rows.length}`);
       
-      // 3. Combinar resultados: tickets con etiquetas PRIMERO + tickets sin etiquetas
+      // 4. Combinar resultados: tickets con etiquetas PRIMERO + tickets sin etiquetas
       const todosLosTickets = [...ticketsConEtiquetas.rows, ...ticketsSinEtiquetas.rows];
       
-      // 4. Eliminar duplicados por ID
+      // 5. Eliminar duplicados por ID
       const ticketsUnicos = todosLosTickets.filter((ticket, index, self) => 
         index === self.findIndex(t => t.id === ticket.id)
       );
       
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
       
-      // 5. Aplicar limit solo al resultado final
+      // 6. Aplicar limit solo al resultado final
       const limit = 40;
       const hasMore = ticketsUnicos.length > limit;
       
