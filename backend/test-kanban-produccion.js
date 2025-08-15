@@ -123,8 +123,9 @@ async function testKanbanProduccion() {
       [Op.or]: [{ userId: userId }, { status: "pending" }],
       queueId: { [Op.or]: [[], null] }, // queueIds vacío
       status: { [Op.or]: ["pending", "open"] },
-      companyId: companyId,
-      "$Contact.isGroup$": false
+      companyId: companyId
+      // ✅ CORREGIDO: Remover filtro problemático de Contact.isGroup
+      // "$Contact.isGroup$": false
     };
     
     const whereConditionSinStatus = { ...whereCondition };
