@@ -74,7 +74,8 @@ const ListTicketsServiceKanban = async ({
       as: "tags",
       attributes: ["id", "name", "color"],
       through: { attributes: [] }, // ✅ FORZAR CARGA DE RELACIÓN MANY-TO-MANY
-      required: false // ✅ NO REQUERIR QUE TENGAN ETIQUETAS
+      required: false, // ✅ NO REQUERIR QUE TENGAN ETIQUETAS
+      separate: false // ✅ NO SEPARAR LA CONSULTA
     },
     {
       model: Whatsapp,
@@ -295,6 +296,16 @@ const ListTicketsServiceKanban = async ({
       });
       
       console.log(`🔄 [Kanban] Consulta separada - tickets kanban encontrados: ${ticketsKanban.rows.length}`);
+      
+      // ✅ DEBUG: Verificar si las etiquetas se cargaron correctamente
+      if (ticketsKanban.rows.length > 0) {
+        console.log(`🔄 [Kanban] DEBUG - Verificando etiquetas en consulta separada:`);
+        ticketsKanban.rows.slice(0, 3).forEach((ticket, index) => {
+          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`);
+          console.log(`    - Tags count: ${ticket.tags?.length || 0}`);
+          console.log(`    - Tags:`, ticket.tags?.map(tag => `${tag.name} (${tag.id})`) || []);
+        });
+      }
       
       // Hacer la consulta original para tickets sin etiquetas kanban (SIN LIMIT)
       const ticketsOriginales = await Ticket.findAndCountAll({
