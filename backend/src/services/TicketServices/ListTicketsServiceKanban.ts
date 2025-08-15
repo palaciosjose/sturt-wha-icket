@@ -99,17 +99,24 @@ const ListTicketsServiceKanban = async ({
 
   // ✅ CORRECCIÓN CRÍTICA: INCLUIR TICKETS CON ETIQUETAS KANBAN ACTIVAS
   // Cuando se llama desde el Kanban, incluir automáticamente tickets con etiquetas kanban
+  let ticketIdsConEtiquetasKanban: number[] = [];
+  
   if (!Array.isArray(tags) || tags.length === 0) {
     try {
+      console.log("🔄 [Kanban] Iniciando corrección para incluir tickets con etiquetas kanban...");
+      
       // Obtener todas las etiquetas kanban activas para esta empresa
       const etiquetasKanban = await Tag.findAll({
         where: {
           kanban: 1,
           companyId: companyId
         },
-        attributes: ['id'],
+        attributes: ['id', 'name'],
         raw: true
       });
+
+      console.log(`🔄 [Kanban] Etiquetas kanban encontradas: ${etiquetasKanban.length}`, 
+        etiquetasKanban.map(tag => `${tag.name} (ID: ${tag.id})`));
 
       if (etiquetasKanban.length > 0) {
         const tagIds = etiquetasKanban.map(tag => tag.id);
@@ -123,22 +130,17 @@ const ListTicketsServiceKanban = async ({
           raw: true
         });
 
+        console.log(`🔄 [Kanban] Tickets con etiquetas kanban encontrados: ${ticketsConEtiquetasKanban.length}`);
+
         if (ticketsConEtiquetasKanban.length > 0) {
-          const ticketIdsConEtiquetas = ticketsConEtiquetasKanban.map(tt => tt.ticketId);
+          ticketIdsConEtiquetasKanban = ticketsConEtiquetasKanban.map(tt => tt.ticketId);
           
-          // ✅ CORRECCIÓN: SIMPLIFICAR LA LÓGICA - NO USAR Op.or COMPLEJO
-          // Solo asegurar que la consulta incluya todos los tickets necesarios
-          // La condición base ya incluye todos los tickets, no necesitamos restringir
-          
-          // logger.dashboard.debug('🔄 Kanban: Incluyendo tickets con etiquetas kanban:', {
-          //   etiquetasKanban: tagIds,
-          //   ticketsConEtiquetas: ticketIdsConEtiquetas.length,
-          //   totalTickets: localTickets?.length || 0
-          // });
+          console.log(`🔄 [Kanban] Modificando consulta para incluir ${ticketIdsConEtiquetasKanban.length} tickets con etiquetas kanban`);
+          console.log(`🔄 [Kanban] Consulta modificada - tickets a incluir:`, ticketIdsConEtiquetasKanban.slice(0, 5));
         }
       }
     } catch (error) {
-      console.error("Error obteniendo etiquetas kanban:", error);
+      console.error("❌ [Kanban] Error obteniendo etiquetas kanban:", error);
       // Si hay error, continuar con la lógica original
     }
   }
@@ -266,6 +268,25 @@ const ListTicketsServiceKanban = async ({
     companyId
   };
 
+  // ✅ CORRECCIÓN FINAL: INCLUIR TICKETS CON ETIQUETAS KANBAN
+  // Si tenemos tickets con etiquetas kanban, modificar la consulta para incluirlos
+  if (ticketIdsConEtiquetasKanban.length > 0) {
+    console.log(`🔄 [Kanban] Aplicando corrección final - incluyendo ${ticketIdsConEtiquetasKanban.length} tickets con etiquetas kanban`);
+    
+    // Modificar la condición para incluir tickets con etiquetas kanban
+    whereCondition = {
+      ...whereCondition,
+      [Op.or]: [
+        // Tickets que cumplen las condiciones originales
+        whereCondition,
+        // Tickets con etiquetas kanban (deben incluirse siempre)
+        { id: { [Op.in]: ticketIdsConEtiquetasKanban } }
+      ]
+    };
+    
+    console.log(`🔄 [Kanban] Condición final modificada:`, JSON.stringify(whereCondition, null, 2));
+  }
+
   const { count, rows: tickets } = await Ticket.findAndCountAll({
     where: whereCondition,
     include: includeCondition,
@@ -275,6 +296,9 @@ const ListTicketsServiceKanban = async ({
     order: [["updatedAt", "DESC"]],
     subQuery: false
   });
+  
+  console.log(`🔄 [Kanban] Consulta final ejecutada - tickets encontrados: ${tickets.length}`);
+  
   const hasMore = count > offset + tickets.length;
 
   return {
