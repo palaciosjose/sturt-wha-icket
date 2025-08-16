@@ -233,7 +233,8 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   
   // ✅ DEBUG DETALLADO: Verificar estructura de tickets antes del filtrado
   React.useEffect(() => {
-    if (localTickets.length > 0) {
+    // ✅ CORREGIDO: Solo ejecutar una vez cuando se cargan los tickets inicialmente
+    if (localTickets.length > 0 && localTickets !== tickets) {
       console.log('🔍 [DEBUG DETALLADO] Estructura de tickets recibidos:');
       localTickets.slice(0, 5).forEach((ticket, index) => {
         console.log(`   Ticket ${index + 1} (ID: ${ticket.id}):`, {
@@ -247,7 +248,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         });
       });
     }
-  }, [localTickets]);
+  }, [localTickets, tickets]);
 
   // ✅ Crear un objeto para mapear etiquetas a sus tickets
   const ticketsPorEtiqueta = {};
@@ -283,8 +284,8 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
     
     ticketsPorEtiqueta[tag.id] = ticketsFiltrados;
     
-    // ✅ DEBUG: Verificar conteo de tickets por etiqueta
-    if (tag.id === 4) { // Etiqueta "4. compra realizada"
+    // ✅ DEBUG: Verificar conteo de tickets por etiqueta (solo una vez)
+    if (tag.id === 4 && localTickets !== tickets) { // Etiqueta "4. compra realizada"
       console.log(`🔍 [DEBUG] Etiqueta "${tag.name}" (ID: ${tag.id}):`, {
         totalTickets: localTickets.length,
         ticketsConEstaEtiqueta: ticketsFiltrados.length,
@@ -325,45 +326,48 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
 
   // ✅ Debug para verificar etiquetas kanban y tickets
   React.useEffect(() => {
-    logger.dashboard.debug('🔄 Kanban dinámico actualizado:', {
-      totalTickets: localTickets.length,
-      sinEtiquetas: ticketsSinEtiquetas.length,
-      etiquetasKanban: etiquetasKanban.map(tag => ({
-        id: tag.id,
-        name: tag.name,
-        kanban: tag.kanban,
-        tickets: ticketsPorEtiqueta[tag.id]?.length || 0
-      }))
-    });
-    
-    // ✅ DEBUG EXTENDIDO: Verificar tickets sin etiquetas
-    if (ticketsSinEtiquetas.length > 0) {
-      logger.dashboard.debug('🔄 [KanbanBoard] Tickets ABIERTOS encontrados:', 
-        ticketsSinEtiquetas.slice(0, 5).map(t => ({
-          id: t.id,
-          contactName: t.contact?.name,
-          tags: t.tags?.length || 0,
-          tagNames: t.tags?.map(tag => tag.name) || []
+    // ✅ CORREGIDO: Solo ejecutar cuando cambien los datos reales, no en cada render
+    if (localTickets.length > 0 && localTickets !== tickets) {
+      logger.dashboard.debug('🔄 Kanban dinámico actualizado:', {
+        totalTickets: localTickets.length,
+        sinEtiquetas: ticketsSinEtiquetas.length,
+        etiquetasKanban: etiquetasKanban.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          kanban: tag.kanban,
+          tickets: ticketsPorEtiqueta[tag.id]?.length || 0
         }))
-      );
-    } else {
-      logger.dashboard.warn('⚠️ [KanbanBoard] NO HAY TICKETS SIN ETIQUETAS - ABIERTOS estará vacío');
+      });
       
-      // ✅ DEBUG: Verificar estructura de tickets recibidos
-      if (localTickets.length > 0) {
-        logger.dashboard.debug('🔄 [KanbanBoard] Estructura de tickets recibidos:', 
-          localTickets.slice(0, 3).map(t => ({
+      // ✅ DEBUG EXTENDIDO: Verificar tickets sin etiquetas
+      if (ticketsSinEtiquetas.length > 0) {
+        logger.dashboard.debug('🔄 [KanbanBoard] Tickets ABIERTOS encontrados:', 
+          ticketsSinEtiquetas.slice(0, 5).map(t => ({
             id: t.id,
-            hasTags: !!t.tags,
-            tagsLength: t.tags?.length || 0,
-            tagsType: typeof t.tags,
-            tagsIsArray: Array.isArray(t.tags),
-            rawTags: t.tags
+            contactName: t.contact?.name,
+            tags: t.tags?.length || 0,
+            tagNames: t.tags?.map(tag => tag.name) || []
           }))
         );
+      } else {
+        logger.dashboard.warn('⚠️ [KanbanBoard] NO HAY TICKETS SIN ETIQUETAS - ABIERTOS estará vacío');
+        
+        // ✅ DEBUG: Verificar estructura de tickets recibidos
+        if (localTickets.length > 0) {
+          logger.dashboard.debug('🔄 [KanbanBoard] Estructura de tickets recibidos:', 
+            localTickets.slice(0, 3).map(t => ({
+              id: t.id,
+              hasTags: !!t.tags,
+              tagsLength: t.tags?.length || 0,
+              tagsType: typeof t.tags,
+              tagsIsArray: Array.isArray(t.tags),
+              rawTags: t.tags
+            }))
+          );
+        }
       }
     }
-  }, [localTickets, etiquetasKanban, ticketsPorEtiqueta, ticketsSinEtiquetas.length]);
+  }, [localTickets, tickets]); // ✅ CORREGIDO: Solo dependencias esenciales
 
   // ✅ CREAR COLUMNAS DINÁMICAMENTE
   const columns = [
