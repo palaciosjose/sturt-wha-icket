@@ -192,41 +192,8 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
     return !tieneEtiquetaKanban;
   });
   
-  // ✅ DEBUG INMEDIATO: Verificar tickets sin etiquetas
-  console.log('🔍 [DEBUG INMEDIATO] KanbanBoard - Tickets sin etiquetas:', {
-    totalTickets: localTickets.length,
-    ticketsSinEtiquetas: ticketsSinEtiquetas.length,
-    sampleTickets: localTickets.slice(0, 3).map(t => ({
-      id: t.id,
-      hasTags: !!t.tags,
-      tagsLength: t.tags?.length || 0,
-      tagsType: typeof t.tags,
-      tagsIsArray: Array.isArray(t.tags),
-      rawTags: t.tags
-    }))
-  });
-  
-  // ✅ DEBUG ADICIONAL: Verificar lógica de filtrado corregida
-  if (localTickets.length > 0) {
-    console.log('🔍 [DEBUG CORRECCIÓN] Verificando lógica de filtrado:');
-    const ticketsConEtiquetasKanban = localTickets.filter(ticket => 
-      ticket.tags && Array.isArray(ticket.tags) && ticket.tags.some(tag => tag && tag.kanban === 1)
-    );
-    const ticketsSinEtiquetasKanban = localTickets.filter(ticket => 
-      !ticket.tags || !Array.isArray(ticket.tags) || ticket.tags.length === 0 || 
-      !ticket.tags.some(tag => tag && tag.kanban === 1)
-    );
-    
-    console.log('   - Tickets con etiquetas kanban:', ticketsConEtiquetasKanban.length);
-    console.log('   - Tickets sin etiquetas kanban (ABIERTOS):', ticketsSinEtiquetasKanban.length);
-    console.log('   - Total verificado:', ticketsConEtiquetasKanban.length + ticketsSinEtiquetasKanban.length);
-    console.log('   - Total real:', localTickets.length);
-    
-    // Verificar que coincidan
-    if ((ticketsConEtiquetasKanban.length + ticketsSinEtiquetasKanban.length) !== localTickets.length) {
-      console.warn('⚠️ [DEBUG] DISCREPANCIA EN FILTRADO DETECTADA');
-    }
-  }
+  // ✅ CORREGIDO: Eliminados logs que causaban bucle infinito
+  // Los logs solo se ejecutan en useEffect con condiciones estrictas
   
   // ✅ Filtrar solo etiquetas que tienen kanban activado
   const etiquetasKanban = tags.filter(tag => tag.kanban === 1);
@@ -235,17 +202,16 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   React.useEffect(() => {
     // ✅ CORREGIDO: Solo ejecutar una vez cuando se cargan los tickets inicialmente
     if (localTickets.length > 0 && localTickets !== tickets) {
-      console.log('🔍 [DEBUG DETALLADO] Estructura de tickets recibidos:');
-      localTickets.slice(0, 5).forEach((ticket, index) => {
-        console.log(`   Ticket ${index + 1} (ID: ${ticket.id}):`, {
-          hasTags: !!ticket.tags,
-          tagsType: typeof ticket.tags,
-          tagsIsArray: Array.isArray(ticket.tags),
-          tagsLength: ticket.tags?.length || 0,
-          rawTags: ticket.tags,
-          // Verificar si tiene la etiqueta "4. compra realizada"
-          hasCompraRealizada: ticket.tags?.some(tag => tag.id === 4) || false
-        });
+      logger.dashboard.debug('🔍 [DEBUG] Estructura de tickets recibidos:', {
+        totalTickets: localTickets.length,
+        sampleTickets: localTickets.slice(0, 3).map(t => ({
+          id: t.id,
+          hasTags: !!t.tags,
+          tagsType: typeof t.tags,
+          tagsIsArray: Array.isArray(t.tags),
+          tagsLength: t.tags?.length || 0,
+          hasCompraRealizada: t.tags?.some(tag => tag.id === 4) || false
+        }))
       });
     }
   }, [localTickets, tickets]);
@@ -286,7 +252,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
     
     // ✅ DEBUG: Verificar conteo de tickets por etiqueta (solo una vez)
     if (tag.id === 4 && localTickets !== tickets) { // Etiqueta "4. compra realizada"
-      console.log(`🔍 [DEBUG] Etiqueta "${tag.name}" (ID: ${tag.id}):`, {
+      logger.dashboard.debug(`🔍 [DEBUG] Etiqueta "${tag.name}" (ID: ${tag.id}):`, {
         totalTickets: localTickets.length,
         ticketsConEstaEtiqueta: ticketsFiltrados.length,
         ticketsIds: ticketsFiltrados.map(t => t.id)
@@ -309,16 +275,16 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
       });
       
       if (ticketsConEtiqueta4.length !== ticketsFiltrados.length) {
-        console.warn(`⚠️ [DEBUG] DISCREPANCIA EN ETIQUETA ${tag.name}:`);
-        console.warn(`   - Filtrado directo: ${ticketsConEtiqueta4.length}`);
-        console.warn(`   - Filtrado por función: ${ticketsFiltrados.length}`);
+        logger.dashboard.warn(`⚠️ [DEBUG] DISCREPANCIA EN ETIQUETA ${tag.name}:`);
+        logger.dashboard.warn(`   - Filtrado directo: ${ticketsConEtiqueta4.length}`);
+        logger.dashboard.warn(`   - Filtrado por función: ${ticketsFiltrados.length}`);
         
         // Mostrar tickets que se perdieron
         const ticketsPerdidos = ticketsConEtiqueta4.filter(t1 => 
           !ticketsFiltrados.some(t2 => t2.id === t1.id)
         );
         if (ticketsPerdidos.length > 0) {
-          console.warn(`   - Tickets perdidos:`, ticketsPerdidos.map(t => t.id));
+          logger.dashboard.warn(`   - Tickets perdidos:`, ticketsPerdidos.map(t => t.id));
         }
       }
     }
