@@ -49,8 +49,7 @@ const ListTicketsServiceKanban = async ({
   companyId
 }: Request): Promise<Response> => {
   let whereCondition: Filterable["where"] = {
-    [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] }
+    companyId: companyId
   };
   let includeCondition: Includeable[];
 
@@ -230,10 +229,11 @@ const ListTicketsServiceKanban = async ({
   const limit = 40;
   const offset = limit * (+pageNumber - 1);
 
-  whereCondition = {
-    ...whereCondition,
-    companyId
-  };
+  // ✅ whereCondition ya tiene companyId desde la inicialización
+  // whereCondition = {
+  //   ...whereCondition,
+  //   companyId
+  // };
 
   // ✅ SOLUCIÓN: Cambiar orden para primera página balanceada
   let orderClause;
