@@ -46,9 +46,18 @@ const ListContactsService = async ({
       }
     ]
   };
+
+  // 🔍 DEBUG: Ver qué se está enviando a la base de datos
+  console.log("🔍 ListContactsService - DEBUG:");
+  console.log("📍 companyId:", companyId);
+  console.log("📍 searchParam:", searchParam);
+  console.log("📍 whereCondition:", JSON.stringify(whereCondition, null, 2));
   const limit = 30;
   const offset = limit * (+pageNumber - 1);
 
+  // 🔍 DEBUG: Ver la consulta SQL que se ejecuta
+  console.log("🔍 ListContactsService - Ejecutando consulta...");
+  
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
     limit,
@@ -62,6 +71,12 @@ const ListContactsService = async ({
     offset,
     order: [["name", "ASC"]]
   });
+
+  // 🔍 DEBUG: Ver los resultados
+  console.log("🔍 ListContactsService - Resultados:");
+  console.log("📍 Total encontrado:", count);
+  console.log("📍 Contactos retornados:", contacts.length);
+  console.log("📍 Primeros 3 contactos:", contacts.slice(0, 3).map(c => ({ id: c.id, name: c.name, number: c.number })));
 
   const hasMore = count > offset + contacts.length;
 
