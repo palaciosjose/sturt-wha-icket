@@ -6,7 +6,7 @@ async function testApiKanban() {
 
   try {
     // Simular exactamente la llamada del frontend
-    const response = await axios.get("http://localhost:8080/ticket/kanban", {
+    const response = await axios.get("http://localhost:4142/ticket/kanban", {
       params: {
         teste: true
       }
