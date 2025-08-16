@@ -252,15 +252,31 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   // ✅ Crear un objeto para mapear etiquetas a sus tickets
   const ticketsPorEtiqueta = {};
   etiquetasKanban.forEach(tag => {
-    // ✅ CORREGIDO: Mejorar lógica de filtrado para evitar pérdida de tickets
+    // ✅ CORREGIDO: Lógica de filtrado más flexible para evitar pérdida de tickets
     const ticketsFiltrados = localTickets.filter(ticket => {
-      // Verificar que el ticket tenga tags y sea un array
-      if (!ticket.tags || !Array.isArray(ticket.tags)) {
+      // Verificar que el ticket tenga tags
+      if (!ticket.tags) {
+        return false;
+      }
+      
+      // Convertir tags a array si no lo es (para mayor compatibilidad)
+      let tagsArray = ticket.tags;
+      if (!Array.isArray(tagsArray)) {
+        // Si tags es un objeto, intentar convertirlo a array
+        if (typeof tagsArray === 'object' && tagsArray !== null) {
+          tagsArray = Object.values(tagsArray);
+        } else {
+          return false;
+        }
+      }
+      
+      // Verificar que el array tenga elementos
+      if (tagsArray.length === 0) {
         return false;
       }
       
       // Buscar si alguna de las etiquetas del ticket coincide con la etiqueta actual
-      return ticket.tags.some(ticketTag => 
+      return tagsArray.some(ticketTag => 
         ticketTag && ticketTag.id === tag.id
       );
     });
@@ -276,10 +292,20 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
       });
       
       // ✅ DEBUG EXTENDIDO: Verificar que no se pierdan tickets
-      const ticketsConEtiqueta4 = localTickets.filter(ticket => 
-        ticket.tags && Array.isArray(ticket.tags) && 
-        ticket.tags.some(tag => tag && tag.id === 4)
-      );
+      const ticketsConEtiqueta4 = localTickets.filter(ticket => {
+        if (!ticket.tags) return false;
+        
+        let tagsArray = ticket.tags;
+        if (!Array.isArray(tagsArray)) {
+          if (typeof tagsArray === 'object' && tagsArray !== null) {
+            tagsArray = Object.values(tagsArray);
+          } else {
+            return false;
+          }
+        }
+        
+        return tagsArray.some(tag => tag && tag.id === 4);
+      });
       
       if (ticketsConEtiqueta4.length !== ticketsFiltrados.length) {
         console.warn(`⚠️ [DEBUG] DISCREPANCIA EN ETIQUETA ${tag.name}:`);
