@@ -30,8 +30,6 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-
-
 const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
   logger.transferModal.debug("🎯 TransferTicketModalCustom renderizado - modalOpen:", modalOpen);
   const history = useHistory();
@@ -51,106 +49,95 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
   const { user } = useContext(AuthContext);
   const { companyId, whatsappId } = user;
 
+  // ✅ CORREGIDO: Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMounted.current = false;
     };
   }, []);
 
+  // ✅ CORREGIDO: useEffect optimizado sin memory leak
   useEffect(() => {
-    setLoading(true);
-    const delayDebounceFn = setTimeout(() => {
-      const fetchContacts = async () => {
-        api
-          .get(`/whatsapp`, { params: { companyId, session: 0 } })
-          .then(({ data }) => setWhatsapps(data));
-      };
+    if (!modalOpen) return;
 
-      if (whatsappId !== null && whatsappId !== undefined) {
-        setSelectedWhatsapp(whatsappId)
-      }
-
-      if (user.queues.length === 1) {
-        setSelectedQueue(user.queues[0].id)
-      }
-      fetchContacts();
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [companyId, user.queues, whatsappId])
-
-  useEffect(() => {
-    if (isMounted.current) {
-      const loadQueues = async () => {
-        const list = await findAllQueues();
-        setAllQueues(list);
-        setQueues(list);
-      };
-      loadQueues();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ✅ CARGAR USUARIOS AUTOMÁTICAMENTE AL ABRIR EL MODAL
-  useEffect(() => {
-    if (!modalOpen) {
-      setLoading(false);
-      return;
-    }
-
-    const fetchUsers = async () => {
+    const initializeModal = async () => {
+      if (!isMounted.current) return;
+      
       setLoading(true);
       try {
-        logger.transferModal.debug("🔍 Buscando usuarios...");
-        const { data } = await api.get("/users/", {
-          params: { 
-            searchParam: searchParam || "", // Si no hay búsqueda, traer todos
-            limit: 10 // Limitar a 10 usuarios inicialmente
-          },
-        });
-        logger.transferModal.debug("✅ Usuarios encontrados:", data.users);
-        setOptions(data.users);
-        setLoading(false);
-      } catch (err) {
-        logger.transferModal.error("❌ Error al buscar usuarios:", err);
-        setLoading(false);
-        toastError(err);
+        // Cargar whatsapps
+        const { data } = await api.get(`/whatsapp`, { params: { companyId, session: 0 } });
+        if (isMounted.current) {
+          setWhatsapps(data);
+        }
+
+        // Configurar valores por defecto
+        if (isMounted.current) {
+          if (whatsappId !== null && whatsappId !== undefined) {
+            setSelectedWhatsapp(whatsappId);
+          }
+          if (user.queues.length === 1) {
+            setSelectedQueue(user.queues[0].id);
+          }
+        }
+
+        // Cargar colas
+        const list = await findAllQueues();
+        if (isMounted.current) {
+          setAllQueues(list);
+          setQueues(list);
+        }
+
+        // Cargar usuarios iniciales
+        await fetchUsers("");
+        
+      } catch (error) {
+        if (isMounted.current) {
+          logger.transferModal.error("❌ Error inicializando modal:", error);
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
     };
 
-    // ✅ CARGAR INMEDIATAMENTE AL ABRIR EL MODAL
-    logger.transferModal.debug("🚀 Modal abierto, cargando usuarios...");
-    fetchUsers();
-  }, [modalOpen, searchParam]);
+    initializeModal();
+  }, [modalOpen, companyId, user.queues, whatsappId, findAllQueues]);
 
-  // ✅ BÚSQUEDA CON DEBOUNCE
-  useEffect(() => {
-    if (!modalOpen) {
-      return;
+  // ✅ CORREGIDO: Función de búsqueda optimizada
+  const fetchUsers = async (searchTerm) => {
+    if (!isMounted.current) return;
+    
+    try {
+      logger.transferModal.debug("🔍 Buscando usuarios...");
+      const { data } = await api.get("/users/", {
+        params: { 
+          searchParam: searchTerm || "",
+          limit: 10
+        },
+      });
+      
+      if (isMounted.current) {
+        logger.transferModal.debug("✅ Usuarios encontrados:", data.users);
+        setOptions(data.users);
+      }
+    } catch (err) {
+      if (isMounted.current) {
+        logger.transferModal.error("❌ Error al buscar usuarios:", err);
+        toastError(err);
+      }
     }
+  };
+
+  // ✅ CORREGIDO: Búsqueda con debounce optimizada
+  useEffect(() => {
+    if (!modalOpen) return;
 
     const delayDebounceFn = setTimeout(() => {
-      const fetchUsers = async () => {
-        setLoading(true);
-        try {
-          logger.transferModal.debug("🔍 Buscando usuarios con parámetro:", searchParam);
-          const { data } = await api.get("/users/", {
-            params: { 
-              searchParam: searchParam || "", // Si está vacío, traer todos
-              limit: 10
-            },
-          });
-          logger.transferModal.debug("✅ Usuarios encontrados en búsqueda:", data.users);
-          setOptions(data.users);
-          setLoading(false);
-        } catch (err) {
-          logger.transferModal.error("❌ Error en búsqueda:", err);
-          setLoading(false);
-          toastError(err);
-        }
-      };
-
-      fetchUsers();
+      if (isMounted.current) {
+        fetchUsers(searchParam);
+      }
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
@@ -168,6 +155,9 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
     e.preventDefault();
     if (!ticketid) return;
     if (!selectedQueue || selectedQueue === "") return;
+    
+    if (!isMounted.current) return;
+    
     setLoading(true);
     try {
       let data = {};
@@ -186,14 +176,19 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
       }
 
       if (selectedWhatsapp) {
-        data.whatsappId = selectedWhatsapp
+        data.whatsappId = selectedWhatsapp;
       }
+      
       await api.put(`/tickets/${ticketid}`, data);
 
-      history.push(`/tickets`);
+      if (isMounted.current) {
+        history.push(`/tickets`);
+      }
     } catch (err) {
-      setLoading(false);
-      toastError(err);
+      if (isMounted.current) {
+        setLoading(false);
+        toastError(err);
+      }
     }
   };
 
@@ -207,8 +202,10 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
           <Autocomplete
             style={{ width: 400, marginBottom: 20 }}
             getOptionLabel={(option) => option?.name || ""}
-                            value={selectedUser || ''}
+            value={selectedUser || ''}
             onChange={(e, newValue) => {
+              if (!isMounted.current) return;
+              
               logger.transferModal.debug("👤 Usuario seleccionado:", newValue);
               setSelectedUser(newValue);
               if (newValue != null && Array.isArray(newValue.queues)) {
@@ -221,8 +218,6 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
             options={options}
             filterOptions={(options, { inputValue }) => {
               logger.transferModal.debug("🔍 Filtrando opciones, inputValue:", inputValue);
-              // ✅ FILTRO MEJORADO: Buscar por nombre y email
-              // Si el input está vacío, mostrar todas las opciones
               if (!inputValue || inputValue.trim() === "") {
                 return options;
               }
@@ -240,7 +235,8 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
             loading={loading}
             open={autocompleteOpen}
             onOpen={() => {
-              // ✅ ABRIR AUTCOMPLETE Y CARGAR USUARIOS
+              if (!isMounted.current) return;
+              
               logger.transferModal.debug("📱 Autocomplete abierto, options.length:", options.length);
               setAutocompleteOpen(true);
               if (options.length === 0) {
@@ -249,11 +245,13 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
               }
             }}
             onClose={() => {
+              if (!isMounted.current) return;
+              
               logger.transferModal.debug("📱 Autocomplete cerrado");
               setAutocompleteOpen(false);
             }}
             ListboxProps={{
-              style: { maxHeight: 200 }, // ✅ SCROLL CON ALTURA MÁXIMA
+              style: { maxHeight: 200 },
             }}
             renderInput={(params) => (
               <TextField
@@ -262,10 +260,11 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
                 variant="outlined"
                 autoFocus
                 onChange={(e) => {
+                  if (!isMounted.current) return;
+                  
                   const value = e.target.value;
                   logger.transferModal.debug("✏️ Input cambiado:", value);
                   setSearchParam(value);
-                  // ✅ Si se borra todo el texto, forzar actualización
                   if (!value || value.trim() === "") {
                     logger.transferModal.debug("🔄 Campo vacío, actualizando lista...");
                   }
@@ -311,7 +310,10 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
             </InputLabel>
             <Select
               value={selectedQueue}
-              onChange={(e) => setSelectedQueue(e.target.value)}
+              onChange={(e) => {
+                if (!isMounted.current) return;
+                setSelectedQueue(e.target.value);
+              }}
               label={i18n.t("transferTicketModal.fieldQueuePlaceholder")}
             >
               {queues.map((queue) => (
@@ -321,7 +323,6 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
               ))}
             </Select>
           </FormControl>
-          {/* CONEXAO */}
           <Grid container spacing={2} style={{marginTop: '15px'}}>
             <Grid xs={12} item>
               <Select
@@ -331,7 +332,8 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
                 variant="outlined"
                 value={selectedWhatsapp}
                 onChange={(e) => {
-                  setSelectedWhatsapp(e.target.value)
+                  if (!isMounted.current) return;
+                  setSelectedWhatsapp(e.target.value);
                 }}
                 MenuProps={{
                   anchorOrigin: {
@@ -358,7 +360,6 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid }) => {
                       <ListItemText
                         primary={
                           <>
-                            {/* {IconChannel(whatsapp.channel)} */}
                             <Typography component="span" style={{ fontSize: 14, marginLeft: "10px", display: "inline-flex", alignItems: "center", lineHeight: "2" }}>
                               {whatsapp.name} &nbsp; <p className={(whatsapp.status) === 'CONNECTED' ? classes.online : classes.offline} >({whatsapp.status})</p>
                             </Typography>
