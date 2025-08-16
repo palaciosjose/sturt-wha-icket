@@ -53,6 +53,12 @@ send_alert() {
     
     # Log de alertas para monitoreo
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ALERTA: $subject - $message" >> /tmp/watoolx-alerts.log
+    
+    # Enviar alerta por WhatsApp si está disponible
+    if command -v /home/watoolxoficial/scripts/send-whatsapp-alert.sh &> /dev/null; then
+        /home/watoolxoficial/scripts/send-whatsapp-alert.sh send "$subject" "$message" >/dev/null 2>&1 &
+        log_message "INFO" "📱 Alerta enviada por WhatsApp en segundo plano"
+    fi
 }
 
 # Función de limpieza de logs binarios

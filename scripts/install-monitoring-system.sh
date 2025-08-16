@@ -299,7 +299,7 @@ EOF
     chmod +x "$SCRIPTS_DIR/send-alert.sh"
     
     # Agregar al cron para verificar alertas cada 5 minutos
-    echo "*/5 * * * * root $SCRIPTS_DIR/send-alert.sh >/dev/null 2>&1" >> /etc/cron.d/watoolx-monitoring
+    echo "*/5 * * * * root $SCRIPTS_DIR/send-whatsapp-alert.sh process >/dev/null 2>&1" >> /etc/cron.d/watoolx-monitoring
     
     log_message "INFO" "✅ Sistema de alertas configurado correctamente"
 }
