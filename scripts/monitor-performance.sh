@@ -79,7 +79,7 @@ auto_recovery() {
             # Limpiar cache de MySQL si es necesario (solo si está disponible)
             if command -v mysql &> /dev/null; then
                 log_message "INFO" "🔄 Limpiando cache de MySQL..."
-                mysql -u root -pwatoolx2024 -e "FLUSH PRIVILEGES; FLUSH TABLES; FLUSH LOGS;" 2>/dev/null || true
+                mysql -u root -watoolx -e "FLUSH PRIVILEGES; FLUSH TABLES; FLUSH LOGS;" 2>/dev/null || true
             fi
             
             # Reiniciar servicios si es crítico
@@ -197,7 +197,7 @@ deep_analysis() {
     # 4. Estado de la base de datos
     echo -e "${BLUE}=== ESTADO DE MYSQL ===${NC}" | tee -a "$LOG_FILE"
     if command -v mysql &> /dev/null; then
-        mysql -u root -pwatoolx2024 -e "SHOW PROCESSLIST;" 2>/dev/null | tee -a "$LOG_FILE"
+        mysql -u root -watoolx -e "SHOW PROCESSLIST;" 2>/dev/null | tee -a "$LOG_FILE"
     else
         echo "MySQL no disponible" | tee -a "$LOG_FILE"
     fi

@@ -9,7 +9,7 @@
 THRESHOLD_DISK=80
 THRESHOLD_MYSQL_SIZE=50
 LOG_FILE="/var/log/watoolx-mysql-monitor.log"
-ALERT_EMAIL="admin@watoolx.com"
+ALERT_EMAIL="leowin8@gmail.com"
 BACKUP_DIR="/home/watoolxoficial/backups/mysql"
 
 # Colores para output
