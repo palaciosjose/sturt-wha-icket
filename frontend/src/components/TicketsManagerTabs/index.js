@@ -275,7 +275,8 @@ const TicketsManagerTabs = () => {
 
     if (searchedTerm === "") {
       setSearchParam(searchedTerm);
-      setTab("open");
+      // ✅ ELIMINADO: setTab("open") - Ahora se mantiene en pestaña "search"
+      // El usuario se queda en la pestaña de búsqueda aunque el campo esté vacío
       return;
     }
 

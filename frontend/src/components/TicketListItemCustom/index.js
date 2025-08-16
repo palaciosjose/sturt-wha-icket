@@ -368,7 +368,7 @@ const TicketListItemCustom = ({ ticket }) => {
             read: 1,
             fromMe: true,
             mediaUrl: "",
-            body: `*Mensagem Automática:*\n${msg.trim()}`,
+            body: `${i18n.t("tickets.automaticMessages.title")}:\n${msg.trim()}`,
         };
         try {
             await api.post(`/messages/${id}`, message);

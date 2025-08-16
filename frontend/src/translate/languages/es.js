@@ -630,6 +630,14 @@ const messages = {
         buttons: {
           showAll: "Todos",
         },
+        // ✅ NUEVAS TRADUCCIONES PARA MENSAJES AUTOMÁTICOS
+        automaticMessages: {
+          title: "Mensaje Automático",
+          callsDisabled: "Las llamadas de voz y video están deshabilitadas para este WhatsApp, favor enviar un mensaje de texto. Gracias",
+          transferToDepartment: "Has sido transferido al departamento *{department}*\nespera, ya vamos a atenderte!",
+          transferToAgent: "Has sido transferido al atendente *{agent}*\nespera, ya vamos a atenderte!",
+          transferToDepartmentAndAgent: "Has sido transferido al departamento *{department}* y contarás con la presencia de *{agent}*\nespera, ya vamos a atenderte!",
+        },
       },
       transferTicketModal: {
         title: "Transferir Ticket",
