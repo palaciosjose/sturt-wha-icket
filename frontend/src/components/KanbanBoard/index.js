@@ -201,12 +201,50 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   // ✅ Filtrar solo etiquetas que tienen kanban activado
   const etiquetasKanban = tags.filter(tag => tag.kanban === 1);
   
+  // ✅ DEBUG DETALLADO: Verificar estructura de tickets antes del filtrado
+  React.useEffect(() => {
+    if (localTickets.length > 0) {
+      console.log('🔍 [DEBUG DETALLADO] Estructura de tickets recibidos:');
+      localTickets.slice(0, 5).forEach((ticket, index) => {
+        console.log(`   Ticket ${index + 1} (ID: ${ticket.id}):`, {
+          hasTags: !!ticket.tags,
+          tagsType: typeof ticket.tags,
+          tagsIsArray: Array.isArray(ticket.tags),
+          tagsLength: ticket.tags?.length || 0,
+          rawTags: ticket.tags,
+          // Verificar si tiene la etiqueta "4. compra realizada"
+          hasCompraRealizada: ticket.tags?.some(tag => tag.id === 4) || false
+        });
+      });
+    }
+  }, [localTickets]);
+
   // ✅ Crear un objeto para mapear etiquetas a sus tickets
   const ticketsPorEtiqueta = {};
   etiquetasKanban.forEach(tag => {
-    ticketsPorEtiqueta[tag.id] = localTickets.filter(ticket => 
-      ticket.tags && ticket.tags.some(ticketTag => ticketTag.id === tag.id)
-    );
+    // ✅ CORREGIDO: Mejorar lógica de filtrado para evitar pérdida de tickets
+    const ticketsFiltrados = localTickets.filter(ticket => {
+      // Verificar que el ticket tenga tags y sea un array
+      if (!ticket.tags || !Array.isArray(ticket.tags)) {
+        return false;
+      }
+      
+      // Buscar si alguna de las etiquetas del ticket coincide con la etiqueta actual
+      return ticket.tags.some(ticketTag => 
+        ticketTag && ticketTag.id === tag.id
+      );
+    });
+    
+    ticketsPorEtiqueta[tag.id] = ticketsFiltrados;
+    
+    // ✅ DEBUG: Verificar conteo de tickets por etiqueta
+    if (tag.id === 4) { // Etiqueta "4. compra realizada"
+      console.log(`🔍 [DEBUG] Etiqueta "${tag.name}" (ID: ${tag.id}):`, {
+        totalTickets: localTickets.length,
+        ticketsConEstaEtiqueta: ticketsFiltrados.length,
+        ticketsIds: ticketsFiltrados.map(t => t.id)
+      });
+    }
   });
 
   // ✅ Debug para verificar etiquetas kanban y tickets
