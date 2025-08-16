@@ -400,7 +400,7 @@ const ListTicketsServiceKanban = async ({
         where: whereConditionConEtiquetas,
         include: includeCondition,
         distinct: true,
-        limit: 51, // ✅ MOSTRAR TODOS los tickets con etiquetas kanban disponibles
+        limit: 100, // ✅ CORREGIDO: Mostrar TODOS los tickets con etiquetas kanban (antes era 51)
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
@@ -418,7 +418,7 @@ const ListTicketsServiceKanban = async ({
         },
         include: includeCondition,
         distinct: true,
-        limit: 50, // ✅ CAMBIADO: De 20 a 50 tickets por página
+        limit: 100, // ✅ CORREGIDO: De 50 a 100 tickets por página (antes era 50)
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
@@ -436,7 +436,7 @@ const ListTicketsServiceKanban = async ({
       console.log(`🔄 [Kanban] Resultado final combinado: ${ticketsUnicos.length} tickets únicos`);
       
       // 6. Aplicar limit solo al resultado final
-      const limit = 100; // ✅ Aumentar el límite para mostrar más tickets
+      const limit = 200; // ✅ CORREGIDO: Aumentar el límite para mostrar más tickets (antes era 100)
       const hasMore = ticketsUnicos.length > limit;
       
       return {
