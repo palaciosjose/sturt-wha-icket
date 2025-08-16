@@ -32,6 +32,10 @@ const ListContactsService = async ({
     ],
     companyId: {
       [Op.eq]: companyId
+    },
+    // ✅ FILTRO: Excluir grupos de WhatsApp (con sufijo @g.us)
+    number: {
+      [Op.notLike]: '%@g.us%'
     }
   };
   const limit = 30;
