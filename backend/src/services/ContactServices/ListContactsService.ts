@@ -64,6 +64,16 @@ const ListContactsService = async ({
   
   // 🔍 DEBUG: Ver si hay algún problema con la consulta
   try {
+    // 🔍 DEBUG: Mostrar la consulta SQL que se va a ejecutar
+    console.log("🔍 ListContactsService - whereCondition completo:", whereCondition);
+    
+    // 🔍 DEBUG: Verificar si hay algún problema con Sequelize
+    console.log("🔍 ListContactsService - Op.and:", Op.and);
+    console.log("🔍 ListContactsService - Op.notLike:", Op.notLike);
+    
+    // 🔍 DEBUG: Mostrar la consulta SQL que se va a ejecutar
+    console.log("🔍 ListContactsService - whereCondition completo:", whereCondition);
+    
     const { count, rows: contacts } = await Contact.findAndCountAll({
       where: whereCondition,
       limit,
@@ -85,6 +95,19 @@ const ListContactsService = async ({
     console.log("🔍 ListContactsService - Grupos encontrados:", gruposEncontrados.length);
     if (gruposEncontrados.length > 0) {
       console.log("🔍 ListContactsService - Ejemplos de grupos:", gruposEncontrados.slice(0, 3).map(c => ({ id: c.id, name: c.name, number: c.number })));
+    }
+    
+    // 🔍 DEBUG: Verificar TODOS los números para entender qué está pasando
+    console.log("🔍 ListContactsService - TODOS los números de contactos:");
+    contacts.forEach((contact, index) => {
+      console.log(`  ${index + 1}. ID: ${contact.id}, Name: ${contact.name}, Number: ${contact.number}`);
+    });
+    
+    // 🔍 DEBUG: Verificar si hay números largos que podrían ser grupos
+    const numerosLargos = contacts.filter(c => c.number.length > 15);
+    console.log("🔍 ListContactsService - Números largos (>15 dígitos):", numerosLargos.length);
+    if (numerosLargos.length > 0) {
+      console.log("🔍 ListContactsService - Ejemplos de números largos:", numerosLargos.slice(0, 5).map(c => ({ id: c.id, name: c.name, number: c.number })));
     }
     
     // 🔍 DEBUG: Ver los resultados
