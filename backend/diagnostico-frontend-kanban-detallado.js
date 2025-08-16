@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const db = require("./dist/database");
+const db = require("./dist/database").default;
 
 async function diagnosticoFrontendKanbanDetallado() {
   try {
