@@ -286,7 +286,7 @@ const ListTicketsServiceKanban = async ({
         id: { [Op.in]: idsConEtiquetas }
       };
       
-      console.log(`🔄 [Kanban] DEBUG - whereConditionConEtiquetas:`, JSON.stringify(whereConditionConEtiquetas, null, 2));
+                  console.log(`🔄 [Kanban] DEBUG - whereConditionConEtiquetas:`, whereConditionConEtiquetas);
       console.log(`🔄 [Kanban] DEBUG - idsConEtiquetas (primeros 5):`, idsConEtiquetas.slice(0, 5));
       
       // ✅ VERIFICAR CONSULTA SQL GENERADA
@@ -379,8 +379,8 @@ const ListTicketsServiceKanban = async ({
       // ✅ VERIFICAR CONTENIDO EXACTO DEL WHERE CONDITION
       console.log(`🔄 [Kanban] === ANÁLISIS DETALLADO DEL WHERE CONDITION ===`);
       console.log(`🔄 [Kanban] whereCondition original:`, JSON.stringify(whereCondition, null, 2));
-      console.log(`🔄 [Kanban] whereConditionConEtiquetas:`, JSON.stringify(whereConditionConEtiquetas, null, 2));
-      console.log(`🔄 [Kanban] whereCondition final aplicado:`, JSON.stringify(whereConditionConEtiquetas, null, 2));
+                  console.log(`🔄 [Kanban] whereConditionConEtiquetas:`, whereConditionConEtiquetas);
+                  console.log(`🔄 [Kanban] whereCondition final aplicado:`, whereConditionConEtiquetas);
       console.log(`🔄 [Kanban] === FIN DEL ANÁLISIS ===`);
       
       // ✅ VERIFICAR CONTENIDO EXACTO DEL INCLUDE CONDITION
@@ -406,7 +406,7 @@ const ListTicketsServiceKanban = async ({
       });
       
       console.log(`🔄 [Kanban] DEBUG - Consulta SQL ejecutada para tickets con etiquetas`);
-      console.log(`🔄 [Kanban] DEBUG - whereCondition final:`, JSON.stringify(whereConditionConEtiquetas, null, 2));
+                  console.log(`🔄 [Kanban] DEBUG - whereCondition final:`, whereConditionConEtiquetas);
       
       console.log(`🔄 [Kanban] Tickets con etiquetas encontrados: ${ticketsConEtiquetas.rows.length}`);
       
