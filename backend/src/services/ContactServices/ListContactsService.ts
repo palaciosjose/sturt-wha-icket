@@ -62,33 +62,49 @@ const ListContactsService = async ({
   // 🔍 DEBUG: Ver la consulta SQL que se ejecuta
   console.log("🔍 ListContactsService - Ejecutando consulta...");
   
-  const { count, rows: contacts } = await Contact.findAndCountAll({
-    where: whereCondition,
-    limit,
-    include: [
-      {
-        model: Ticket,
-        as: "tickets",
-        attributes: ["id", "status", "createdAt", "updatedAt"]
-      }
-    ],
-    offset,
-    order: [["name", "ASC"]]
-  });
+  // 🔍 DEBUG: Ver si hay algún problema con la consulta
+  try {
+    const { count, rows: contacts } = await Contact.findAndCountAll({
+      where: whereCondition,
+      limit,
+      include: [
+        {
+          model: Ticket,
+          as: "tickets",
+          attributes: ["id", "status", "createdAt", "updatedAt"]
+        }
+      ],
+      offset,
+      order: [["name", "ASC"]]
+    });
+    
+    console.log("🔍 ListContactsService - Consulta ejecutada exitosamente");
+    
+    // 🔍 DEBUG: Verificar si hay grupos en los resultados
+    const gruposEncontrados = contacts.filter(c => c.number.includes('@g.us'));
+    console.log("🔍 ListContactsService - Grupos encontrados:", gruposEncontrados.length);
+    if (gruposEncontrados.length > 0) {
+      console.log("🔍 ListContactsService - Ejemplos de grupos:", gruposEncontrados.slice(0, 3).map(c => ({ id: c.id, name: c.name, number: c.number })));
+    }
+    
+    // 🔍 DEBUG: Ver los resultados
+    console.log("🔍 ListContactsService - Resultados:");
+    console.log("📍 Total encontrado:", count);
+    console.log("📍 Contactos retornados:", contacts.length);
+    console.log("📍 Primeros 3 contactos:", contacts.slice(0, 3).map(c => ({ id: c.id, name: c.name, number: c.number })));
 
-  // 🔍 DEBUG: Ver los resultados
-  console.log("🔍 ListContactsService - Resultados:");
-  console.log("📍 Total encontrado:", count);
-  console.log("📍 Contactos retornados:", contacts.length);
-  console.log("📍 Primeros 3 contactos:", contacts.slice(0, 3).map(c => ({ id: c.id, name: c.name, number: c.number })));
+    const hasMore = count > offset + contacts.length;
 
-  const hasMore = count > offset + contacts.length;
-
-  return {
-    contacts,
-    count,
-    hasMore
-  };
+    return {
+      contacts,
+      count,
+      hasMore
+    };
+    
+  } catch (error) {
+    console.error("❌ ListContactsService - Error en la consulta:", error);
+    throw error;
+  }
 };
 
 export default ListContactsService;
