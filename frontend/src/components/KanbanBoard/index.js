@@ -180,9 +180,17 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
   }, [tickets]);
 
   // ✅ LÓGICA DINÁMICA: Separar tickets por etiquetas que tienen kanban=true
-  const ticketsSinEtiquetas = localTickets.filter(ticket => 
-    !ticket.tags || ticket.tags.length === 0
-  );
+  // ✅ CORREGIDO: Tickets sin etiquetas = tickets que NO tienen etiquetas con kanban=1
+  const ticketsSinEtiquetas = localTickets.filter(ticket => {
+    // Si el ticket no tiene tags, va a ABIERTOS
+    if (!ticket.tags || !Array.isArray(ticket.tags) || ticket.tags.length === 0) {
+      return true;
+    }
+    
+    // Si el ticket tiene tags, verificar que NINGUNO sea kanban=1
+    const tieneEtiquetaKanban = ticket.tags.some(tag => tag && tag.kanban === 1);
+    return !tieneEtiquetaKanban;
+  });
   
   // ✅ DEBUG INMEDIATO: Verificar tickets sin etiquetas
   console.log('🔍 [DEBUG INMEDIATO] KanbanBoard - Tickets sin etiquetas:', {
@@ -197,6 +205,28 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
       rawTags: t.tags
     }))
   });
+  
+  // ✅ DEBUG ADICIONAL: Verificar lógica de filtrado corregida
+  if (localTickets.length > 0) {
+    console.log('🔍 [DEBUG CORRECCIÓN] Verificando lógica de filtrado:');
+    const ticketsConEtiquetasKanban = localTickets.filter(ticket => 
+      ticket.tags && Array.isArray(ticket.tags) && ticket.tags.some(tag => tag && tag.kanban === 1)
+    );
+    const ticketsSinEtiquetasKanban = localTickets.filter(ticket => 
+      !ticket.tags || !Array.isArray(ticket.tags) || ticket.tags.length === 0 || 
+      !ticket.tags.some(tag => tag && tag.kanban === 1)
+    );
+    
+    console.log('   - Tickets con etiquetas kanban:', ticketsConEtiquetasKanban.length);
+    console.log('   - Tickets sin etiquetas kanban (ABIERTOS):', ticketsSinEtiquetasKanban.length);
+    console.log('   - Total verificado:', ticketsConEtiquetasKanban.length + ticketsSinEtiquetasKanban.length);
+    console.log('   - Total real:', localTickets.length);
+    
+    // Verificar que coincidan
+    if ((ticketsConEtiquetasKanban.length + ticketsSinEtiquetasKanban.length) !== localTickets.length) {
+      console.warn('⚠️ [DEBUG] DISCREPANCIA EN FILTRADO DETECTADA');
+    }
+  }
   
   // ✅ Filtrar solo etiquetas que tienen kanban activado
   const etiquetasKanban = tags.filter(tag => tag.kanban === 1);
@@ -244,6 +274,26 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         ticketsConEstaEtiqueta: ticketsFiltrados.length,
         ticketsIds: ticketsFiltrados.map(t => t.id)
       });
+      
+      // ✅ DEBUG EXTENDIDO: Verificar que no se pierdan tickets
+      const ticketsConEtiqueta4 = localTickets.filter(ticket => 
+        ticket.tags && Array.isArray(ticket.tags) && 
+        ticket.tags.some(tag => tag && tag.id === 4)
+      );
+      
+      if (ticketsConEtiqueta4.length !== ticketsFiltrados.length) {
+        console.warn(`⚠️ [DEBUG] DISCREPANCIA EN ETIQUETA ${tag.name}:`);
+        console.warn(`   - Filtrado directo: ${ticketsConEtiqueta4.length}`);
+        console.warn(`   - Filtrado por función: ${ticketsFiltrados.length}`);
+        
+        // Mostrar tickets que se perdieron
+        const ticketsPerdidos = ticketsConEtiqueta4.filter(t1 => 
+          !ticketsFiltrados.some(t2 => t2.id === t1.id)
+        );
+        if (ticketsPerdidos.length > 0) {
+          console.warn(`   - Tickets perdidos:`, ticketsPerdidos.map(t => t.id));
+        }
+      }
     }
   });
 
