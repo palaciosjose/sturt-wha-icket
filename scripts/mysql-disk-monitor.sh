@@ -12,12 +12,22 @@ LOG_FILE="/var/log/watoolx-mysql-monitor.log"
 ALERT_EMAIL="leowin8@gmail.com"
 BACKUP_DIR="/home/watoolxoficial/backups/mysql"
 
+# Credenciales MySQL
+MYSQL_USER="root"
+MYSQL_PASSWORD="mysql1122"
+MYSQL_DATABASE="watoolx"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Función de conexión MySQL
+mysql_connect() {
+    mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -D "$MYSQL_DATABASE" "$@"
+}
 
 # Función de logging
 log_message() {
@@ -64,7 +74,7 @@ cleanup_binary_logs() {
     cp /etc/mysql/mysql.conf.d/mysqld.cnf "$BACKUP_DIR/mysqld.cnf.backup.$(date +%Y%m%d_%H%M%S)"
     
     # Limpiar logs binarios antiguos (más de 7 días)
-    local logs_cleaned=$(mysql -u root -p -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" 2>/dev/null | grep -c "Query OK")
+    local logs_cleaned=$(mysql_connect -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" 2>/dev/null | grep -c "Query OK")
     
     if [ $? -eq 0 ]; then
         log_message "INFO" "✅ Logs binarios limpiados exitosamente"
@@ -208,11 +218,11 @@ preventive_maintenance() {
     log_message "INFO" "🗂️ Logs de aplicaciones limpiados (más de 30 días)"
     
     # Verificar y reparar MySQL si es necesario
-    if mysqlcheck -u root -p --all-databases --check >/dev/null 2>&1; then
+    if mysqlcheck -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" --all-databases --check >/dev/null 2>&1; then
         log_message "INFO" "✅ Verificación de MySQL completada"
     else
         log_message "WARN" "⚠️ Se detectaron problemas en MySQL, iniciando reparación..."
-        mysqlcheck -u root -p --all-databases --repair >/dev/null 2>&1
+        mysqlcheck -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" --all-databases --repair >/dev/null 2>&1
     fi
 }
 

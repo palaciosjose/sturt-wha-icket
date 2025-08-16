@@ -11,12 +11,22 @@ THRESHOLD_MEMORY=85
 LOG_FILE="/var/log/watoolx-performance.log"
 ALERT_EMAIL="leowin8@gmail.com"
 
+# Credenciales MySQL
+MYSQL_USER="root"
+MYSQL_PASSWORD="mysql1122"
+MYSQL_DATABASE="watoolx"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Función de conexión MySQL
+mysql_connect() {
+    mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -D "$MYSQL_DATABASE" "$@"
+}
 
 # Función de logging con colores
 log_message() {
@@ -77,10 +87,10 @@ auto_recovery() {
             log_message "INFO" "🔄 Iniciando recuperación automática para memoria alta..."
             
             # Limpiar cache de MySQL si es necesario (solo si está disponible)
-            if command -v mysql &> /dev/null; then
-                log_message "INFO" "🔄 Limpiando cache de MySQL..."
-                mysql -u root -watoolx -e "FLUSH PRIVILEGES; FLUSH TABLES; FLUSH LOGS;" 2>/dev/null || true
-            fi
+if command -v mysql &> /dev/null; then
+    log_message "INFO" "🔄 Limpiando cache de MySQL..."
+    mysql_connect -e "FLUSH PRIVILEGES; FLUSH TABLES; FLUSH LOGS;" 2>/dev/null || true
+fi
             
             # Reiniciar servicios si es crítico
             local mem_usage=$(free | awk 'NR==2{printf "%.0f", $3*100/$2}')
@@ -196,11 +206,11 @@ deep_analysis() {
     
     # 4. Estado de la base de datos
     echo -e "${BLUE}=== ESTADO DE MYSQL ===${NC}" | tee -a "$LOG_FILE"
-    if command -v mysql &> /dev/null; then
-        mysql -u root -watoolx -e "SHOW PROCESSLIST;" 2>/dev/null | tee -a "$LOG_FILE"
-    else
-        echo "MySQL no disponible" | tee -a "$LOG_FILE"
-    fi
+if command -v mysql &> /dev/null; then
+    mysql_connect -e "SHOW PROCESSLIST;" 2>/dev/null | tee -a "$LOG_FILE"
+else
+    echo "MySQL no disponible" | tee -a "$LOG_FILE"
+fi
     
     # 5. Logs del sistema recientes
     echo -e "${BLUE}=== LOGS DEL SISTEMA RECIENTES ===${NC}" | tee -a "$LOG_FILE"
