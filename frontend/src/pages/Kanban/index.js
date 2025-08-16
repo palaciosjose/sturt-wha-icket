@@ -31,136 +31,106 @@ const Kanban = () => {
   const [tags, setTags] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { user } = useContext(AuthContext);
   const jsonString = user.queues.map(queue => queue.UserQueue.queueId);
 
-  const fetchTags = useCallback(async (retryCount = 0) => {
-    if (isLoading) return; // Evitar requests múltiples
-    
+  // ✅ CORREGIDO: Función simplificada sin dependencias circulares
+  const fetchTags = useCallback(async () => {
     try {
-      setIsLoading(true);
       logger.dashboard.debug("🔄 Cargando tags de Kanban...");
       const response = await api.get("/tags/kanban");
       const fetchedTags = response.data.lista || []; 
       setTags(fetchedTags);
       logger.dashboard.debug("✅ Tags cargados:", fetchedTags.length);
-      // Fetch tickets after fetching tags
-      await fetchTickets(jsonString);
+      return fetchedTags;
     } catch (error) {
       // ✅ MANEJO SILENCIOSO DE ERRORES DE AUTENTICACIÓN
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         logger.dashboard.debug("🔄 Error de autenticación silenciado:", error.response.status);
-        // No mostrar error en consola para evitar spam
-        return;
+        return [];
       }
       
-      // Solo mostrar errores que no sean de autenticación
       logger.dashboard.error("❌ Error cargando tags:", error);
-      
-      // Retry con backoff exponencial para errores de red
-      if (retryCount < 3 && (error.code === 'ERR_INSUFFICIENT_RESOURCES' || error.message?.includes('ERR_INSUFFICIENT_RESOURCES'))) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        logger.dashboard.warn(`🔄 Reintentando en ${delay}ms (intento ${retryCount + 1}/3)`);
-        setTimeout(() => {
-          fetchTags(retryCount + 1);
-        }, delay);
-        return;
-      }
-      
-      // Continuar sin tags si hay error después de retries
-      logger.dashboard.warn("⚠️ Continuando sin tags después de errores");
-      await fetchTickets(jsonString);
-    } finally {
-      setIsLoading(false);
+      return [];
     }
-  }, [jsonString, isLoading]);
+  }, []);
 
-  useEffect(() => {
-    // Agregar delay para evitar requests simultáneos
-    const timer = setTimeout(() => {
-      fetchTags();
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, [fetchTags]);
-
-  const fetchTickets = async (jsonString) => {
+  // ✅ CORREGIDO: Función simplificada sin dependencias circulares
+  const fetchTickets = useCallback(async () => {
     try {
       logger.dashboard.debug("🔄 Cargando tickets de Kanban...");
       
-      // ✅ SOLUCIÓN ÓPTIMA: NO filtrar por queueIds para tickets con etiquetas kanban
-      // Los tickets con etiquetas kanban deben mostrarse independientemente de la cola del usuario
       const { data } = await api.get("/ticket/kanban", {
         params: {
-          // ✅ REMOVIDO: queueIds que estaba filtrando tickets incorrectamente
-          // queueIds: JSON.stringify(jsonString),
           teste: true
         }
       });
       
-      // ✅ DEBUG DETALLADO: Verificar datos recibidos del backend
-      logger.dashboard.debug("🔄 [Frontend] Datos recibidos del backend:", {
-        totalTickets: data.tickets?.length || 0,
-        count: data.count,
-        hasMore: data.hasMore,
-        sampleTickets: data.tickets?.slice(0, 3).map(t => ({
-          id: t.id,
-          tags: t.tags?.length || 0,
-          tagNames: t.tags?.map(tag => tag.name) || []
-        })) || []
-      });
-      
-      // ✅ DEBUG: Verificar distribución de tickets por tipo
-      const ticketsConEtiquetas = data.tickets?.filter(t => t.tags && t.tags.length > 0) || [];
-      const ticketsSinEtiquetas = data.tickets?.filter(t => !t.tags || t.tags.length === 0) || [];
-      
-      logger.dashboard.debug("🔄 [Frontend] Distribución de tickets:", {
-        conEtiquetas: ticketsConEtiquetas.length,
-        sinEtiquetas: ticketsSinEtiquetas.length,
-        total: data.tickets?.length || 0
-      });
-      
-      // ✅ DEBUG: Verificar tickets sin etiquetas (ABIERTOS)
-      if (ticketsSinEtiquetas.length > 0) {
-        logger.dashboard.debug("🔄 [Frontend] Ejemplos de tickets ABIERTOS:", 
-          ticketsSinEtiquetas.slice(0, 5).map(t => ({
-            id: t.id,
-            contactName: t.contact?.name,
-            lastMessage: t.lastMessage?.substring(0, 50) + '...'
-          }))
-        );
-      } else {
-        logger.dashboard.warn("⚠️ [Frontend] NO HAY TICKETS SIN ETIQUETAS (ABIERTOS)");
+      // ✅ DEBUG: Solo una vez al cargar
+      if (!isInitialized) {
+        logger.dashboard.debug("🔄 [Frontend] Datos recibidos del backend:", {
+          totalTickets: data.tickets?.length || 0,
+          count: data.count,
+          hasMore: data.hasMore
+        });
+        
+        const ticketsConEtiquetas = data.tickets?.filter(t => t.tags && t.tags.length > 0) || [];
+        const ticketsSinEtiquetas = data.tickets?.filter(t => !t.tags || t.tags.length === 0) || [];
+        
+        logger.dashboard.debug("🔄 [Frontend] Distribución de tickets:", {
+          conEtiquetas: ticketsConEtiquetas.length,
+          sinEtiquetas: ticketsSinEtiquetas.length,
+          total: data.tickets?.length || 0
+        });
       }
       
-      setTickets(data.tickets);
-      
-      // ✅ DEBUG INMEDIATO: Verificar datos recibidos
-      console.log('🔍 [DEBUG INMEDIATO] Kanban - Datos recibidos del backend:', {
-        totalTickets: data.tickets?.length || 0,
-        count: data.count,
-        hasMore: data.hasMore,
-        sampleTickets: data.tickets?.slice(0, 3).map(t => ({
-          id: t.id,
-          hasTags: !!t.tags,
-          tagsLength: t.tags?.length || 0,
-          tagsType: typeof t.tags,
-          tagsIsArray: Array.isArray(t.tags),
-          rawTags: t.tags
-        })) || []
-      });
-      
+      setTickets(data.tickets || []);
       logger.dashboard.debug("✅ Tickets cargados:", data.tickets?.length || 0);
+      
     } catch (err) {
       logger.dashboard.error("❌ Error cargando tickets:", err);
-      // Si es error de autenticación, no hacer nada (ya manejado por interceptor)
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         logger.dashboard.warn("🔄 Error de autenticación, manejado por interceptor");
         return;
       }
       setTickets([]);
     }
-  };
+  }, [isInitialized]);
+
+  // ✅ CORREGIDO: useEffect optimizado sin bucle infinito
+  useEffect(() => {
+    let isMounted = true;
+    
+    const initializeData = async () => {
+      if (isMounted && !isInitialized) {
+        setIsLoading(true);
+        try {
+          // Cargar tags primero
+          await fetchTags();
+          // Luego cargar tickets
+          await fetchTickets();
+          setIsInitialized(true);
+        } catch (error) {
+          logger.dashboard.error("❌ Error inicializando datos:", error);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
+      }
+    };
+
+    // Delay inicial para evitar requests simultáneos
+    const timer = setTimeout(() => {
+      initializeData();
+    }, 500);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, []); // ✅ Sin dependencias para evitar bucle infinito
 
   const handleCardMove = async (cardId, sourceLaneId, targetLaneId) => {
     try {
@@ -188,9 +158,6 @@ const Kanban = () => {
         
         toast.success('Ticket movido a ABIERTOS exitosamente!');
         logger.dashboard.debug("✅ Ticket movido a ABIERTOS");
-        
-        // ✅ CORREGIDO: NO recargar datos para evitar bucle infinito
-        // El estado se actualiza localmente en KanbanBoard
         return;
       }
       
@@ -237,9 +204,6 @@ const Kanban = () => {
       }
       
       logger.dashboard.debug("✅ Ticket movido exitosamente");
-      
-      // ✅ CORREGIDO: NO recargar datos para evitar bucle infinito
-      // El estado se actualiza localmente en KanbanBoard
       
     } catch (err) {
       logger.dashboard.error("❌ Error moviendo ticket:", err);
