@@ -30,10 +30,8 @@ const Kanban = () => {
 
   const [tags, setTags] = useState([]);
   const [tickets, setTickets] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const { user } = useContext(AuthContext);
-  const jsonString = user.queues.map(queue => queue.UserQueue.queueId);
 
   // ✅ CORREGIDO: Función simplificada sin dependencias circulares
   const fetchTags = useCallback(async () => {
@@ -98,24 +96,23 @@ const Kanban = () => {
     }
   }, [isInitialized]);
 
-  // ✅ CORREGIDO: useEffect optimizado sin bucle infinito
+  // ✅ CORREGIDO: useEffect optimizado sin bucle infinito y con dependencias correctas
   useEffect(() => {
     let isMounted = true;
     
     const initializeData = async () => {
       if (isMounted && !isInitialized) {
-        setIsLoading(true);
         try {
           // Cargar tags primero
           await fetchTags();
           // Luego cargar tickets
           await fetchTickets();
-          setIsInitialized(true);
-        } catch (error) {
-          logger.dashboard.error("❌ Error inicializando datos:", error);
-        } finally {
           if (isMounted) {
-            setIsLoading(false);
+            setIsInitialized(true);
+          }
+        } catch (error) {
+          if (isMounted) {
+            logger.dashboard.error("❌ Error inicializando datos:", error);
           }
         }
       }
@@ -130,7 +127,7 @@ const Kanban = () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, []); // ✅ Sin dependencias para evitar bucle infinito
+  }, [fetchTags, fetchTickets, isInitialized]); // ✅ Dependencias correctas
 
   const handleCardMove = async (cardId, sourceLaneId, targetLaneId) => {
     try {
