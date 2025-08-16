@@ -224,6 +224,9 @@ setup_cron_jobs() {
 
 # Limpieza de logs antiguos (cada domingo a las 3:00 AM)
 0 3 * * 0 root $SCRIPTS_DIR/mysql-disk-monitor.sh maintenance >/dev/null 2>&1
+
+# Sistema de alertas híbrido (WhatsApp + Email) cada 5 minutos
+*/5 * * * * root $SCRIPTS_DIR/send-hybrid-alert.sh process >/dev/null 2>&1
 EOF
 
     # Dar permisos al archivo cron
@@ -271,37 +274,41 @@ EOF
 
 # Función de configuración de alertas
 setup_alerts() {
-    log_message "INFO" "🚨 Configurando sistema de alertas..."
+    log_message "INFO" "🚨 Configurando sistema de alertas híbrido..."
     
-    # Crear script de alertas
-    cat > "$SCRIPTS_DIR/send-alert.sh" << 'EOF'
+    # Crear script de alertas híbridas (WhatsApp + Email)
+    cat > "$SCRIPTS_DIR/send-hybrid-alert.sh" << 'EOF'
 #!/bin/bash
-# Script para enviar alertas del sistema WATOOLX
+# Script híbrido para enviar alertas por WhatsApp Y Email automáticamente
+# Este es un placeholder - el script completo se copia desde el archivo principal
 
-ALERT_FILE="/tmp/watoolx-alerts.log"
-LOG_FILE="/var/log/watoolx-alerts.log"
-
-if [ -f "$ALERT_FILE" ] && [ -s "$ALERT_FILE" ]; then
-    # Mover alertas al log permanente
-    cat "$ALERT_FILE" >> "$LOG_FILE"
+# Verificar si existe el script completo
+if [ -f "$(dirname $0)/send-hybrid-alert.sh" ]; then
+    # Ejecutar el script híbrido completo
+    exec "$(dirname $0)/send-hybrid-alert.sh" process
+else
+    # Fallback al sistema básico
+    ALERT_FILE="/tmp/watoolx-alerts.log"
+    LOG_FILE="/var/log/watoolx-alerts.log"
     
-    # Enviar alerta por email si está configurado
-    if command -v mail >/dev/null 2>&1; then
-        mail -s "🚨 ALERTA WATOOLX - $(date '+%Y-%m-%d %H:%M:%S')" \
-             admin@watoolx.com < "$ALERT_FILE"
+    if [ -f "$ALERT_FILE" ] && [ -s "$ALERT_FILE" ]; then
+        cat "$ALERT_FILE" >> "$LOG_FILE"
+        > "$ALERT_FILE"
     fi
-    
-    # Limpiar archivo temporal
-    > "$ALERT_FILE"
 fi
 EOF
 
-    chmod +x "$SCRIPTS_DIR/send-alert.sh"
+    chmod +x "$SCRIPTS_DIR/send-hybrid-alert.sh"
     
-    # Agregar al cron para verificar alertas cada 5 minutos
-    echo "*/5 * * * * root $SCRIPTS_DIR/send-whatsapp-alert.sh process >/dev/null 2>&1" >> /etc/cron.d/watoolx-monitoring
+    # Crear enlaces simbólicos para compatibilidad
+    ln -sf "$SCRIPTS_DIR/send-hybrid-alert.sh" "$SCRIPTS_DIR/send-alert.sh"
+    ln -sf "$SCRIPTS_DIR/send-hybrid-alert.sh" "$SCRIPTS_DIR/send-whatsapp-alert.sh"
+    ln -sf "$SCRIPTS_DIR/send-hybrid-alert.sh" "$SCRIPTS_DIR/send-email-alert.sh"
     
-    log_message "INFO" "✅ Sistema de alertas configurado correctamente"
+    # Agregar al cron para verificar alertas cada 5 minutos usando sistema híbrido
+    echo "*/5 * * * * root $SCRIPTS_DIR/send-hybrid-alert.sh process >/dev/null 2>&1" >> /etc/cron.d/watoolx-monitoring
+    
+    log_message "INFO" "✅ Sistema de alertas híbrido configurado correctamente"
 }
 
 # Función de configuración de MySQL

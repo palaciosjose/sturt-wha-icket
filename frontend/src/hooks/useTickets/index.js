@@ -21,6 +21,7 @@ const useTickets = ({
 
   useEffect(() => {
     setLoading(true);
+    // ✅ REDUCIDO DE 500ms A 100ms PARA BÚSQUEDA MÁS INSTANTÁNEA
     const delayDebounceFn = setTimeout(() => {
       const fetchTickets = async () => {
         try {
@@ -47,7 +48,7 @@ const useTickets = ({
         }
       };
       fetchTickets();
-    }, 500);
+    }, 100); // ✅ REDUCIDO A 100ms
     return () => clearTimeout(delayDebounceFn);
   }, [
     searchParam,

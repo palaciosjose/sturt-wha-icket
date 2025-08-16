@@ -279,9 +279,10 @@ const TicketsManagerTabs = () => {
       return;
     }
 
+    // ✅ REDUCIDO DE 500ms A 100ms PARA BÚSQUEDA MÁS INSTANTÁNEA
     searchTimeout = setTimeout(() => {
       setSearchParam(searchedTerm);
-    }, 500);
+    }, 100); // ✅ REDUCIDO A 100ms
   };
 
   const handleChangeTab = (e, newValue) => {
