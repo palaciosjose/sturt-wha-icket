@@ -91,9 +91,11 @@ const ListTicketsServiceKanban = async ({
 
   // ✅ CONSTRUIR WHERE CONDITION PARA KANBAN
   // ✅ CORREGIDO: Simplificar filtros para evitar restricciones excesivas
+  // ✅ NUEVO: Remover filtro de status para mostrar tickets abiertos Y cerrados
   whereCondition = {
-    companyId: companyId,
-    status: { [Op.or]: ["pending", "open"] }
+    companyId: companyId
+    // ✅ REMOVIDO: Filtro de status para mostrar todos los tickets (abiertos + cerrados)
+    // status: { [Op.or]: ["pending", "open"] }
     // ✅ REMOVIDO: Filtros restrictivos de userId y queueId que causaban 0 resultados
     // [Op.or]: [{ userId: userId }, { status: "pending" }],
     // queueId: { [Op.or]: [[], null] }
@@ -441,7 +443,7 @@ const ListTicketsServiceKanban = async ({
         },
         include: includeCondition,
         distinct: true,
-        limit: 20, // Solo 20 para no saturar
+        limit: 50, // ✅ CAMBIADO: De 20 a 50 tickets por página
         order: [["updatedAt", "DESC"]],
         subQuery: false
       });
