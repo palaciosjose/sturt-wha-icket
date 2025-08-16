@@ -1444,6 +1444,25 @@ const messages = {
       kanban: {
         open: "En Abierto",
       },
+      // ✅ NUEVAS TRADUCCIONES PARA REPORTE DE ETIQUETAS
+      tagsReport: {
+        title: "ETIQUETAS POR PERIODO",
+        filters: {
+          start: "Inicio",
+          end: "Fin",
+          filter: "FILTRAR",
+        },
+        messages: {
+          loading: "Cargando datos...",
+          noData: "No hay datos de etiquetas para el período seleccionado",
+          error: "Error al cargar el reporte de etiquetas",
+        },
+        chart: {
+          yAxisTitle: "Número de Tickets",
+          xAxisTitle: "Etiquetas",
+          tooltip: "tickets",
+        },
+      },
       updateVersion: {
         title: "Actualizar Versión",
         buttons: {

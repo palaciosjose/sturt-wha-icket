@@ -36,6 +36,7 @@ import hubNotificaMeRoutes from "./hubNotificaMeRoutes";
 import hubWebhookRoutes from "./hubWebhookRoutes";
 import messageHubRoutes from "./messageHubRoutes";
 import systemRoutes from "./systemRoutes";
+import tagsReportRoutes from "./tagsReportRoutes";
 
 const routes = Router();
 
@@ -75,5 +76,6 @@ routes.use("/hub-notificame", hubNotificaMeRoutes);
 routes.use("/hub-webhook", hubWebhookRoutes);
 routes.use("/message-hub", messageHubRoutes);
 routes.use("/system", systemRoutes);
+routes.use(tagsReportRoutes);
 
 export default routes;

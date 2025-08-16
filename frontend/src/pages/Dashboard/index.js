@@ -37,6 +37,7 @@ import { ChatsUser } from "./ChartsUser"
 import { isEmpty } from "lodash";
 import moment from "moment";
 import { ChartsDate } from "./ChartsDate";
+import { TagsReport } from "./TagsReport";
 import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles((theme) => ({
@@ -817,6 +818,13 @@ const Dashboard = () => {
           <Grid item xs={12}>
             <Paper className={classes.fixedHeightPaper2}>
               <ChartsDate />
+            </Paper>
+          </Grid>
+
+          {/* ✅ NUEVO REPORTE: ETIQUETAS POR PERIODO */}
+          <Grid item xs={12}>
+            <Paper className={classes.fixedHeightPaper2}>
+              <TagsReport />
             </Paper>
           </Grid>
 
