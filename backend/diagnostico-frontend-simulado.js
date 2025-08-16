@@ -29,7 +29,7 @@ async function diagnosticarFrontendSimulado() {
       include: [
         {
           model: Contact,
-          as: "Contact",
+          as: "contact",
           attributes: ["id", "name", "number", "isGroup"]
         },
         {
