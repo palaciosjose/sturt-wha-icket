@@ -333,7 +333,7 @@ const KanbanBoard = ({ tickets, tags, onCardMove, onCardClick }) => {
         }
       }
     }
-  }, [localTickets, tickets]); // ✅ CORREGIDO: Solo dependencias esenciales
+  }, [localTickets, tickets, etiquetasKanban, ticketsPorEtiqueta, ticketsSinEtiquetas]); // ✅ CORREGIDO: Dependencias completas
 
   // ✅ CREAR COLUMNAS DINÁMICAMENTE
   const columns = [
