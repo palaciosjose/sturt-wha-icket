@@ -20,23 +20,31 @@ const ListContactsService = async ({
   companyId
 }: Request): Promise<Response> => {
   const whereCondition = {
-    [Op.or]: [
+    [Op.and]: [
       {
-        name: Sequelize.where(
-          Sequelize.fn("LOWER", Sequelize.col("name")),
-          "LIKE",
-          `%${searchParam.toLowerCase().trim()}%`
-        )
+        [Op.or]: [
+          {
+            name: Sequelize.where(
+              Sequelize.fn("LOWER", Sequelize.col("name")),
+              "LIKE",
+              `%${searchParam.toLowerCase().trim()}%`
+            )
+          },
+          { number: { [Op.like]: `%${searchParam.toLowerCase().trim()}%` } }
+        ]
       },
-      { number: { [Op.like]: `%${searchParam.toLowerCase().trim()}%` } }
-    ],
-    companyId: {
-      [Op.eq]: companyId
-    },
-    // ✅ FILTRO: Excluir grupos de WhatsApp (con sufijo @g.us)
-    number: {
-      [Op.notLike]: '%@g.us%'
-    }
+      {
+        companyId: {
+          [Op.eq]: companyId
+        }
+      },
+      {
+        // ✅ FILTRO: Excluir grupos de WhatsApp (con sufijo @g.us)
+        number: {
+          [Op.notLike]: '%@g.us%'
+        }
+      }
+    ]
   };
   const limit = 30;
   const offset = limit * (+pageNumber - 1);
