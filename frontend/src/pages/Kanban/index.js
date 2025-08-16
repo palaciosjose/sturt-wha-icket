@@ -189,10 +189,8 @@ const Kanban = () => {
         toast.success('Ticket movido a ABIERTOS exitosamente!');
         logger.dashboard.debug("✅ Ticket movido a ABIERTOS");
         
-        // Recargar datos después del movimiento
-        setTimeout(() => {
-          fetchTags();
-        }, 500);
+        // ✅ CORREGIDO: NO recargar datos para evitar bucle infinito
+        // El estado se actualiza localmente en KanbanBoard
         return;
       }
       
@@ -240,10 +238,8 @@ const Kanban = () => {
       
       logger.dashboard.debug("✅ Ticket movido exitosamente");
       
-      // Recargar datos después del movimiento
-      setTimeout(() => {
-        fetchTags();
-      }, 500);
+      // ✅ CORREGIDO: NO recargar datos para evitar bucle infinito
+      // El estado se actualiza localmente en KanbanBoard
       
     } catch (err) {
       logger.dashboard.error("❌ Error moviendo ticket:", err);
