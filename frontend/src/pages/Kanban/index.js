@@ -87,9 +87,13 @@ const Kanban = () => {
   const fetchTickets = async (jsonString) => {
     try {
       logger.dashboard.debug("🔄 Cargando tickets de Kanban...");
+      
+      // ✅ SOLUCIÓN ÓPTIMA: NO filtrar por queueIds para tickets con etiquetas kanban
+      // Los tickets con etiquetas kanban deben mostrarse independientemente de la cola del usuario
       const { data } = await api.get("/ticket/kanban", {
         params: {
-          queueIds: JSON.stringify(jsonString),
+          // ✅ REMOVIDO: queueIds que estaba filtrando tickets incorrectamente
+          // queueIds: JSON.stringify(jsonString),
           teste: true
         }
       });
