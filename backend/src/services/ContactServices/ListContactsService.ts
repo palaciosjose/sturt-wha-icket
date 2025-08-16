@@ -51,7 +51,11 @@ const ListContactsService = async ({
   console.log("🔍 ListContactsService - DEBUG:");
   console.log("📍 companyId:", companyId);
   console.log("📍 searchParam:", searchParam);
-  console.log("📍 whereCondition:", JSON.stringify(whereCondition, null, 2));
+  console.log("📍 whereCondition keys:", Object.keys(whereCondition));
+  console.log("📍 whereCondition Op.and:", whereCondition[Op.and] ? "✅ PRESENTE" : "❌ AUSENTE");
+  console.log("📍 whereCondition Op.or:", whereCondition[Op.and]?.[0]?.[Op.or] ? "✅ PRESENTE" : "❌ AUSENTE");
+  console.log("📍 whereCondition companyId:", whereCondition[Op.and]?.[1]?.companyId ? "✅ PRESENTE" : "❌ AUSENTE");
+  console.log("📍 whereCondition number filter:", whereCondition[Op.and]?.[2]?.number ? "✅ PRESENTE" : "❌ AUSENTE");
   const limit = 30;
   const offset = limit * (+pageNumber - 1);
 
