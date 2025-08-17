@@ -164,22 +164,20 @@ MIME-Version: 1.0
 </html>
 EOF
 
-    # Enviar email usando curl con Gmail SMTP
-    local response=$(curl -s --mail-from "$GMAIL_USER@gmail.com" \
-        --mail-rcpt "$ADMIN_EMAIL" \
-        --upload-file "$temp_email" \
-        --ssl-reqd \
-        --user "$GMAIL_USER@gmail.com:$GMAIL_PASS" \
-        smtps://smtp.gmail.com:465 2>&1)
+    # Enviar email usando sendmail
+    local email_content=$(cat "$temp_email")
     
     # Limpiar archivo temporal
     rm -f "$temp_email"
+    
+    # Enviar usando sendmail
+    echo "$email_content" | sendmail -t
     
     if [ $? -eq 0 ]; then
         log_message "INFO" "✅ Alerta enviada por email exitosamente a $ADMIN_EMAIL"
         return 0
     else
-        log_message "ERROR" "❌ Error al enviar email: $response"
+        log_message "ERROR" "❌ Error al enviar email usando sendmail"
         return 1
     fi
 }
