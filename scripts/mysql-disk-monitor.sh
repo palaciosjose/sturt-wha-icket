@@ -83,10 +83,17 @@ cleanup_binary_logs() {
     local space_before=$(df / | awk 'NR==2 {print $3}')
     
     # Limpiar logs binarios antiguos (más de 7 días)
-    mysql_connect -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" >/dev/null 2>&1
+    log_message "DEBUG" "🔍 Ejecutando PURGE BINARY LOGS..."
     
-    if [ $? -eq 0 ]; then
+    # Ejecutar comando MySQL directamente para mejor control
+    local mysql_output=$(mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" 2>&1)
+    local mysql_exit_code=$?
+    
+    if [ $mysql_exit_code -eq 0 ]; then
         log_message "INFO" "✅ Logs binarios limpiados exitosamente"
+        
+        # Esperar un momento para que MySQL procese la limpieza
+        sleep 2
         
         # Verificar espacio después de limpiar
         local space_after=$(df / | awk 'NR==2 {print $3}')
@@ -94,12 +101,16 @@ cleanup_binary_logs() {
         
         log_message "INFO" "💾 Espacio liberado: ${space_freed}KB"
         
+        # Verificar logs binarios restantes
+        local remaining_logs=$(mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "SHOW BINARY LOGS;" 2>/dev/null | wc -l)
+        log_message "DEBUG" "📊 Logs binarios restantes: $((remaining_logs - 1)) archivos"
+        
         # Limpiar archivos de coredump si existen
         cleanup_coredumps
         
         return 0
     else
-        log_message "ERROR" "❌ Error al limpiar logs binarios"
+        log_message "ERROR" "❌ Error al limpiar logs binarios: $mysql_output"
         return 1
     fi
 }
