@@ -2,8 +2,8 @@
 # /home/watoolxoficial/scripts/send-email-alert.sh
 # Script para enviar alertas por email usando Gmail SMTP
 # Autor: Asistente AI + Equipo de Desarrollo
-# Fecha: 16 de Agosto 2025
-# Versión: 1.0
+# Fecha: 17 de Agosto 2025
+# Versión: 2.0 - Sistema de Alertas Híbridas
 
 # Configuración
 ALERT_FILE="/tmp/watoolx-alerts.log"
@@ -65,7 +65,7 @@ send_email_alert() {
     cat > "$temp_email" << EOF
 From: WATOOLX Monitor <$GMAIL_USER@gmail.com>
 To: $ADMIN_EMAIL
-Subject: $subject
+Subject: 🚨 ALERTA WATOOLX - $subject
 Content-Type: text/html; charset=UTF-8
 MIME-Version: 1.0
 
@@ -74,36 +74,91 @@ MIME-Version: 1.0
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .alert { background: #ff4444; color: white; padding: 15px; border-radius: 5px; }
-        .info { background: #f0f0f0; padding: 10px; border-radius: 3px; margin: 10px 0; }
-        .success { background: #44ff44; color: black; padding: 10px; border-radius: 3px; }
-        .timestamp { color: #666; font-size: 12px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 300; }
+        .header h2 { margin: 10px 0 0 0; font-size: 18px; font-weight: 300; opacity: 0.9; }
+        .alert-section { background: linear-gradient(135deg, #ff4444, #cc0000); color: white; padding: 25px; text-align: center; }
+        .alert-section h3 { margin: 0; font-size: 24px; font-weight: 400; }
+        .content { padding: 30px; }
+        .info-box { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #007bff; }
+        .info-box h4 { margin: 0 0 15px 0; color: #007bff; font-size: 18px; }
+        .message-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .message-box pre { white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e9ecef; margin: 0; overflow-x: auto; }
+        .system-info { background: #e8f5e8; border: 1px solid #c3e6c3; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .system-info h4 { margin: 0 0 15px 0; color: #28a745; font-size: 18px; }
+        .footer { background: #343a40; color: white; padding: 20px; text-align: center; font-size: 12px; }
+        .badge { background: #6f42c1; color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; display: inline-block; margin-bottom: 20px; }
+        .metric { display: inline-block; margin: 10px 20px 10px 0; padding: 10px 15px; background: white; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .metric strong { color: #007bff; }
     </style>
 </head>
 <body>
-    <div class="alert">
-        <h2>🚨 ALERTA WATOOLX 🚨</h2>
-        <h3>$subject</h3>
-    </div>
-    
-    <div class="info">
-        <pre style="white-space: pre-wrap; font-family: monospace;">$message</pre>
-    </div>
-    
-    <div class="info">
-        <strong>⏰ Fecha:</strong> $(date '+%Y-%m-%d %H:%M:%S')<br>
-        <strong>🖥️ Servidor:</strong> $(hostname)<br>
-        <strong>🌐 IP:</strong> $(curl -s ifconfig.me 2>/dev/null || echo 'N/A')<br>
-        <strong>🔧 Sistema:</strong> WATOOLX v2.0
-    </div>
-    
-    <div class="success">
-        <strong>✅ Esta alerta fue generada automáticamente por el sistema de monitoreo WATOOLX</strong>
-    </div>
-    
-    <div class="timestamp">
-        Enviado automáticamente el $(date '+%Y-%m-%d %H:%M:%S UTC')
+    <div class="container">
+        <div class="header">
+            <div class="badge">🔔 SISTEMA DE ALERTAS WATOOLX</div>
+            <h1>🚨 ALERTA DEL SISTEMA</h1>
+            <h2>Monitoreo Automático v2.0</h2>
+        </div>
+        
+        <div class="alert-section">
+            <h3>$subject</h3>
+        </div>
+        
+        <div class="content">
+            <div class="info-box">
+                <h4>📋 Detalles del Incidente</h4>
+                <div class="message-box">
+                    <pre>$message</pre>
+                </div>
+            </div>
+            
+            <div class="system-info">
+                <h4>🖥️ Información del Sistema</h4>
+                <div class="metric">
+                    <strong>⏰ Fecha:</strong><br>
+                    $(date '+%Y-%m-%d %H:%M:%S')
+                </div>
+                <div class="metric">
+                    <strong>🖥️ Servidor:</strong><br>
+                    $(hostname)
+                </div>
+                <div class="metric">
+                    <strong>🌐 IP:</strong><br>
+                    $(curl -s ifconfig.me 2>/dev/null || echo 'N/A')
+                </div>
+                <div class="metric">
+                    <strong>🔧 Sistema:</strong><br>
+                    WATOOLX v2.0
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h4>📊 Métricas del Sistema</h4>
+                <div class="metric">
+                    <strong>💾 Disco:</strong><br>
+                    $(df / | awk 'NR==2 {print $5 " usado"}')
+                </div>
+                <div class="metric">
+                    <strong>🧠 Memoria:</strong><br>
+                    $(free -h | awk 'NR==2 {print $3 "/" $2}')
+                </div>
+                <div class="metric">
+                    <strong>⚡ CPU:</strong><br>
+                    $(uptime | awk '{print $10}' | sed 's/,//')
+                </div>
+                <div class="metric">
+                    <strong>🗄️ MySQL:</strong><br>
+                    $(du -sh /var/lib/mysql 2>/dev/null | awk '{print $1}' || echo 'N/A')
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <strong>✅ Alerta generada automáticamente por el sistema de monitoreo WATOOLX</strong><br>
+            <small>Enviado el $(date '+%Y-%m-%d %H:%M:%S UTC') - Sistema de Alertas Híbridas</small>
+        </div>
     </div>
 </body>
 </html>
@@ -174,32 +229,55 @@ send_immediate_alert() {
 setup_gmail() {
     log_message "INFO" "🔧 Configurando Gmail para alertas..."
     
-    echo "=== CONFIGURACIÓN DE GMAIL PARA ALERTAS ==="
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║              CONFIGURACIÓN DE GMAIL PARA ALERTAS              ║${NC}"
+    echo -e "${BLUE}║                        WATOOLX v2.0                          ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "IMPORTANTE: Para usar Gmail necesitas:"
-    echo "1. Activar verificación en 2 pasos"
-    echo "2. Generar contraseña de aplicación"
-    echo "3. Usar esa contraseña aquí (NO tu contraseña normal)"
+    echo -e "${YELLOW}⚠️  IMPORTANTE: Para usar Gmail necesitas:${NC}"
+    echo -e "${YELLOW}   1. Activar verificación en 2 pasos en tu cuenta de Google${NC}"
+    echo -e "${YELLOW}   2. Generar contraseña de aplicación${NC}"
+    echo -e "${YELLOW}   3. Usar esa contraseña aquí (NO tu contraseña normal)${NC}"
     echo ""
-    echo "📧 Gmail (ejemplo: tuemail@gmail.com):"
+    echo -e "${BLUE}📋 Pasos para generar App Password:${NC}"
+    echo -e "${BLUE}   1. Ve a https://myaccount.google.com/security${NC}"
+    echo -e "${BLUE}   2. Activa 'Verificación en 2 pasos' si no está activada${NC}"
+    echo -e "${BLUE}   3. Ve a 'Contraseñas de aplicación'${NC}"
+    echo -e "${BLUE}   4. Selecciona 'Otra' y escribe 'WATOOLX'${NC}"
+    echo -e "${BLUE}   5. Copia la contraseña generada${NC}"
+    echo ""
+    
+    echo -e "${GREEN}📧 Gmail (ejemplo: tuemail@gmail.com):${NC}"
     read -p "Email: " gmail_user
     
     echo ""
-    echo "🔑 Contraseña de aplicación (NO tu contraseña normal):"
+    echo -e "${GREEN}🔑 Contraseña de aplicación (NO tu contraseña normal):${NC}"
     read -s -p "Contraseña: " gmail_pass
     echo ""
     
     echo ""
-    echo "📬 Email del administrador (donde recibir alertas):"
+    echo -e "${GREEN}📬 Email del administrador (donde recibir alertas):${NC}"
     read -p "Email admin: " admin_email
     
     if [ ! -z "$gmail_user" ] && [ ! -z "$gmail_pass" ] && [ ! -z "$admin_email" ]; then
         # Crear archivo de configuración
         cat > "$CONFIG_FILE" << EOF
 # Configuración de Gmail para alertas WATOOLX
+# Archivo: .email-config
+# Última actualización: $(date '+%Y-%m-%d %H:%M:%S')
+
+# Credenciales de Gmail (App Password)
 GMAIL_USER="$gmail_user"
 GMAIL_PASS="$gmail_pass"
+
+# Email del administrador que recibirá las alertas
 ADMIN_EMAIL="$admin_email"
+
+# Nota: Para GMAIL, necesitas usar "App Password" no tu contraseña normal
+# 1. Activa 2FA en tu cuenta de Google
+# 2. Ve a "Contraseñas de aplicación"
+# 3. Genera una contraseña para "WATOOLX"
+# 4. Usa esa contraseña en GMAIL_PASS
 EOF
         
         chmod 600 "$CONFIG_FILE"
@@ -254,23 +332,53 @@ Este es un mensaje de prueba del sistema de monitoreo WATOOLX.
 
 # Función para mostrar estado
 show_status() {
-    echo "=== ESTADO DEL SISTEMA DE ALERTAS EMAIL ==="
-    echo "📁 Configuración: $(if [ -f "$CONFIG_FILE" ]; then echo "✅ Configurado"; else echo "❌ No configurado"; fi)"
-    
-    if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
-        echo "📧 Gmail: $GMAIL_USER@gmail.com"
-        echo "📬 Admin: $ADMIN_EMAIL"
-    fi
-    
-    echo "📝 Log: $LOG_FILE"
-    echo "🚨 Alertas pendientes: $(if [ -f "$ALERT_FILE" ] && [ -s "$ALERT_FILE" ]; then echo "SÍ"; else echo "NO"; fi)"
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║                ESTADO DEL SISTEMA DE ALERTAS                 ║${NC}"
+    echo -e "${BLUE}║                        WATOOLX v2.0                          ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
+    # Estado de configuración
     if [ -f "$CONFIG_FILE" ]; then
-        echo "✅ Sistema listo para enviar alertas por email"
+        echo -e "${GREEN}✅ CONFIGURACIÓN: Configurado${NC}"
+        source "$CONFIG_FILE"
+        echo -e "${BLUE}   📧 Gmail: $GMAIL_USER@gmail.com${NC}"
+        echo -e "${BLUE}   📬 Admin: $ADMIN_EMAIL${NC}"
     else
-        echo "❌ Sistema no configurado. Ejecuta: $0 setup"
+        echo -e "${RED}❌ CONFIGURACIÓN: No configurado${NC}"
+        echo -e "${YELLOW}   💡 Ejecuta: $0 setup${NC}"
+    fi
+    
+    echo ""
+    
+    # Estado de logs
+    echo -e "${BLUE}📝 LOGS: $LOG_FILE${NC}"
+    if [ -f "$LOG_FILE" ]; then
+        local log_size=$(du -h "$LOG_FILE" 2>/dev/null | awk '{print $1}' || echo "0B")
+        echo -e "${BLUE}   📊 Tamaño: $log_size${NC}"
+    fi
+    
+    echo ""
+    
+    # Estado de alertas pendientes
+    if [ -f "$ALERT_FILE" ] && [ -s "$ALERT_FILE" ]; then
+        local alert_count=$(wc -l < "$ALERT_FILE")
+        echo -e "${YELLOW}🚨 ALERTAS PENDIENTES: SÍ ($alert_count alertas)${NC}"
+        echo -e "${YELLOW}   💡 Ejecuta: $0 process para procesarlas${NC}"
+    else
+        echo -e "${GREEN}🚨 ALERTAS PENDIENTES: NO${NC}"
+    fi
+    
+    echo ""
+    
+    # Estado del sistema
+    if [ -f "$CONFIG_FILE" ]; then
+        echo -e "${GREEN}🎉 SISTEMA: Listo para enviar alertas por email${NC}"
+        echo -e "${GREEN}   💡 Prueba con: $0 test${NC}"
+        echo -e "${GREEN}   💡 Monitoreo: $0 monitor${NC}"
+    else
+        echo -e "${RED}❌ SISTEMA: No configurado${NC}"
+        echo -e "${RED}   💡 Configura con: $0 setup${NC}"
     fi
 }
 
@@ -329,11 +437,11 @@ main() {
 }
 
 # Banner
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║                WATOOLX EMAIL ALERTS                         ║"
-echo "║                        v1.0 - 2025                          ║"
-echo "║                    Sistema de Alertas                        ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║                WATOOLX EMAIL ALERTS                         ║${NC}"
+echo -e "${BLUE}║                        v2.0 - 2025                          ║${NC}"
+echo -e "${BLUE}║                    Sistema de Alertas Híbridas               ║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
 
 # Verificar si se ejecuta como root
 if [ "$EUID" -ne 0 ]; then

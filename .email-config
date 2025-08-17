@@ -1,0 +1,17 @@
+# Configuración de Email para Sistema de Alertas Híbridas WATOOLX
+# Archivo: .email-config
+# Ubicación: /home/watoolxoficial/
+# Última actualización: 2025-08-17
+
+# Credenciales de Gmail (App Password)
+GMAIL_USER="leowin8@gmail.com"
+GMAIL_PASS="uhbs jawt xsim ovna"
+
+# Email del administrador que recibirá las alertas
+ADMIN_EMAIL="teamworkg01@gmail.com"
+
+# Nota: Para GMAIL, necesitas usar "App Password" no tu contraseña normal
+# 1. Activa 2FA en tu cuenta de Google
+# 2. Ve a "Contraseñas de aplicación"
+# 3. Genera una contraseña para "WATOOLX"
+# 4. Usa esa contraseña en GMAIL_PASS
