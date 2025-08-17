@@ -79,14 +79,16 @@ cleanup_binary_logs() {
     # Backup de configuración actual
     cp /etc/mysql/mysql.conf.d/mysqld.cnf "$BACKUP_DIR/mysqld.cnf.backup.$(date +%Y%m%d_%H%M%S)"
     
+    # Verificar espacio antes de limpiar
+    local space_before=$(df / | awk 'NR==2 {print $3}')
+    
     # Limpiar logs binarios antiguos (más de 7 días)
-    local logs_cleaned=$(mysql_connect -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" 2>/dev/null | grep -c "Query OK")
+    mysql_connect -e "PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);" >/dev/null 2>&1
     
     if [ $? -eq 0 ]; then
         log_message "INFO" "✅ Logs binarios limpiados exitosamente"
         
-        # Verificar espacio liberado
-        local space_before=$(df / | awk 'NR==2 {print $3}')
+        # Verificar espacio después de limpiar
         local space_after=$(df / | awk 'NR==2 {print $3}')
         local space_freed=$((space_before - space_after))
         

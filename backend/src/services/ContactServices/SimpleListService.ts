@@ -24,16 +24,7 @@ const SimpleListService = async ({ name, companyId }: SearchContactParams): Prom
 
   options.where = {
     ...options.where,
-    companyId,
-    // ✅ FILTRO: Excluir grupos de WhatsApp (con sufijo @g.us)
-    [Op.and]: [
-      options.where,
-      {
-        number: {
-          [Op.notLike]: '%@g.us%'
-        }
-      }
-    ]
+    companyId
   }
 
   const contacts = await Contact.findAll(options);

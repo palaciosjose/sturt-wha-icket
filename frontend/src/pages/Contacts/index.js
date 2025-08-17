@@ -604,10 +604,7 @@ function getDateLastMessage(contact) {
           </TableHead>
           <TableBody>
             <>
-              {/* ✅ FILTRO: Excluir grupos de WhatsApp (con sufijo @g.us) */}
-              {contacts
-                .filter(contact => !contact.number.includes('@g.us'))
-                .map((contact) => (
+              {contacts.map((contact) => (
                 <TableRow key={contact.id}>
                   <TableCell style={{ paddingRight: 0 }}>
                     <Checkbox
