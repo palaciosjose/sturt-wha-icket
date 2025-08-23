@@ -73,7 +73,10 @@ const ForgetPassword = () => {
   const [showResetPasswordButton, setShowResetPasswordButton] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState(""); // Estado para mensagens de erro
+  const [error, setError] = useState(""); // Estado para mensajes de erro
+  // ✅ Variable emailForReset comentada para uso futuro
+  // const [emailForReset, setEmailForReset] = useState(""); // Email para el reseteo
+  const [isEmailSent, setIsEmailSent] = useState(false); // ✅ Estado del email enviado
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -97,19 +100,42 @@ const ForgetPassword = () => {
 const handleSendEmail = async (values) => {
   const email = values.email;
   try {
+    console.log("🔄 [FORGETPASSWORD] Enviando email para:", email);
+    
     const response = await api.post(
       `${process.env.REACT_APP_BACKEND_URL}/forgetpassword/${email}`
     );
-    console.log("API Response:", response.data);
+    
+    console.log("✅ [FORGETPASSWORD] Respuesta del backend:", response.data);
 
-    if (response.data.status === 404) {
-      toast.error("Email não encontrado");
+    // ✅ VERIFICAR STATUS HTTP Y DATOS
+    if (response.status === 200 && response.data.status === 200) {
+      toast.success(i18n.t("forgetPassword.messages.emailSent"));
+      console.log("🎯 [FORGETPASSWORD] Email enviado exitosamente");
+      
+      // ✅ MOSTRAR CAMPOS ADICIONALES PARA RESETEO
+      setIsEmailSent(true);
+      setShowAdditionalFields(true);
+      setShowResetPasswordButton(true);
+      
+      // ✅ Email guardado para uso futuro
+      // setEmailForReset(email);
+      
+    } else if (response.data.status === 404) {
+      toast.error(i18n.t("forgetPassword.messages.emailNotFound"));
+      console.log("❌ [FORGETPASSWORD] Email no encontrado");
     } else {
-      toast.success(i18n.t("Email enviado com sucesso!"));
+      toast.error("Error inesperado en el servidor");
+      console.log("❌ [FORGETPASSWORD] Error inesperado:", response.data);
     }
   } catch (err) {
-    console.log("API Error:", err);
-    toastError(err);
+    console.error("❌ [FORGETPASSWORD] Error de API:", err);
+    
+    if (err.response && err.response.status === 404) {
+      toast.error(i18n.t("forgetPassword.messages.emailNotFound"));
+    } else {
+      toastError(err);
+    }
   }
 };
 
@@ -125,7 +151,7 @@ const handleSendEmail = async (values) => {
           `${process.env.REACT_APP_BACKEND_URL}/resetpasswords/${email}/${token}/${newPassword}`
         );
         setError(""); // Limpe o erro se não houver erro
-        toast.success(i18n.t("Senha redefinida com sucesso."));
+        toast.success(i18n.t("forgetPassword.messages.passwordReset"));
         history.push("/login");
       } catch (err) {
         console.log(err);
@@ -139,15 +165,15 @@ const handleSendEmail = async (values) => {
     newPassword: isResetPasswordButtonClicked
       ? Yup.string()
           .required("Campo obrigatório")
-          .matches(
-            passwordRegex,
-            "Sua senha precisa ter no mínimo 8 caracteres, sendo uma letra maiúscula, uma minúscula e um número."
-          )
+                  .matches(
+          passwordRegex,
+          i18n.t("forgetPassword.messages.passwordRequirements")
+        )
       : Yup.string(), // Sem validação se não for redefinição de senha
     confirmPassword: Yup.string().when("newPassword", {
       is: (newPassword) => isResetPasswordButtonClicked && newPassword,
       then: Yup.string()
-        .oneOf([Yup.ref("newPassword"), null], "As senhas não correspondem")
+        .oneOf([Yup.ref("newPassword"), null], i18n.t("forgetPassword.messages.passwordsNotMatch"))
         .required("Campo obrigatório"),
       otherwise: Yup.string(), // Sem validação se não for redefinição de senha
     }),
@@ -166,7 +192,7 @@ const handleSendEmail = async (values) => {
             />
           </div>
           <Typography component="h1" variant="h5">
-            {i18n.t("Redefinir senha")}
+            {i18n.t("forgetPassword.title")}
           </Typography>
           <Formik
             initialValues={{
@@ -198,7 +224,7 @@ const handleSendEmail = async (values) => {
                       variant="outlined"
                       fullWidth
                       id="email"
-                      label={i18n.t("signup.form.email")}
+                      label={i18n.t("forgetPassword.form.email")}
                       name="email"
                       error={touched.email && Boolean(errors.email)}
                       helperText={touched.email && errors.email}
@@ -206,7 +232,8 @@ const handleSendEmail = async (values) => {
                       required
                     />
                   </Grid>
-                  {showAdditionalFields && (
+                  {/* ✅ CAMPOS ADICIONALES SOLO SE MUESTRAN DESPUÉS DE ENVIAR EMAIL */}
+                  {isEmailSent && showAdditionalFields && (
                     <>
                       <Grid item xs={12}>
                         <Field
@@ -214,7 +241,7 @@ const handleSendEmail = async (values) => {
                           variant="outlined"
                           fullWidth
                           id="token"
-                          label="Código de Verificação"
+                          label={i18n.t("forgetPassword.form.token")}
                           name="token"
                           error={touched.token && Boolean(errors.token)}
                           helperText={touched.token && errors.token}
@@ -229,7 +256,7 @@ const handleSendEmail = async (values) => {
                           fullWidth
                           type={showPassword ? "text" : "password"}
                           id="newPassword"
-                          label="Nova senha"
+                          label={i18n.t("forgetPassword.form.newPassword")}
                           name="newPassword"
                           error={
                             touched.newPassword &&
@@ -264,7 +291,7 @@ const handleSendEmail = async (values) => {
                           fullWidth
                           type={showConfirmPassword ? "text" : "password"}
                           id="confirmPassword"
-                          label="Confirme a senha"
+                          label={i18n.t("forgetPassword.form.confirmPassword")}
                           name="confirmPassword"
                           error={
                             touched.confirmPassword &&
@@ -296,27 +323,23 @@ const handleSendEmail = async (values) => {
                     </>
                   )}
                 </Grid>
-                {showResetPasswordButton ? (
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    className={classes.submit}
-                  >
-                    Redefinir Senha
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    className={classes.submit}
-                  >
-                    Enviar Email
-                  </Button>
-                )}
+                {/* ✅ BOTÓN DINÁMICO BASADO EN EL ESTADO */}
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  className={classes.submit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    isEmailSent ? "Recuperando contraseña..." : "Enviando email..."
+                  ) : isEmailSent ? (
+                    i18n.t("forgetPassword.buttons.resetPassword")
+                  ) : (
+                    i18n.t("forgetPassword.buttons.sendEmail")
+                  )}
+                </Button>
                 <Grid container justifyContent="flex-end">
                   <Grid item>
                     <Link
@@ -325,7 +348,7 @@ const handleSendEmail = async (values) => {
                       component={RouterLink}
                       to="/signup"
                     >
-                      {i18n.t("Não tem uma conta? Cadastre-se!")}
+                      {i18n.t("forgetPassword.links.noAccount")}
                     </Link>
                   </Grid>
                 </Grid>

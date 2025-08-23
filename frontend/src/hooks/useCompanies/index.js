@@ -20,11 +20,16 @@ const useCompanies = () => {
     }
 
     const list = async (id) => {
-        const { data } = await api.request({
-            url: `/companies/list`,
-            method: 'GET'
-        });
-        return data;
+        try {
+            const { data } = await api.request({
+                url: `/companies/list`,
+                method: 'GET'
+            });
+            return data;
+        } catch (error) {
+            console.error("❌ [useCompanies.list] Error:", error);
+            throw error;
+        }
     }
 
     const find = async (id) => {

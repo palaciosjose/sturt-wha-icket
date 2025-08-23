@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import api from "../../services/api";
-import { AuthContext } from "../../context/Auth/AuthContext";
+// ✅ AuthContext comentado para uso futuro
+// import { AuthContext } from "../../context/Auth/AuthContext";
 import { toast } from "react-toastify";
 import { useHistory } from 'react-router-dom';
 import KanbanBoard from "../../components/KanbanBoard";
@@ -31,7 +32,8 @@ const Kanban = () => {
   const [tags, setTags] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const { user } = useContext(AuthContext);
+  // ✅ Variable user disponible para uso futuro
+  // const { user } = useContext(AuthContext);
 
   // ✅ CORREGIDO: Función simplificada sin dependencias circulares
   const fetchTags = useCallback(async () => {

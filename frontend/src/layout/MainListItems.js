@@ -4,7 +4,8 @@ import { Link as RouterLink } from "react-router-dom";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
-import ListSubheader from "@material-ui/core/ListSubheader";
+// ✅ ListSubheader eliminado - Ya no se usa
+// import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
 import { Badge } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
@@ -41,12 +42,13 @@ import { FaBell } from 'react-icons/fa';
 import { getVersionText } from "../config/version";
 
 const useStyles = makeStyles((theme) => ({
-  ListSubheader: {
-    height: 26,
-    marginTop: "-15px",
-    marginBottom: "-10px",
-  },
-    logoutButton: {
+  // ✅ ListSubheader eliminado - Ya no se usa
+  // ListSubheader: {
+  //   height: 26,
+  //   marginTop: "-15px",
+  //   marginBottom: "-10px",
+  // },
+  logoutButton: {
     borderRadius: 10,
     marginTop: 10,
     backgroundColor: theme.palette.sair.main,
@@ -55,7 +57,45 @@ const useStyles = makeStyles((theme) => ({
       backgroundColor: "#f44336", // Rojo para el hover
       color: "white",
     },
-	},
+  },
+  // 🎯 LIST ITEM MEJORADO
+  listItem: {
+    borderRadius: '8px',
+    margin: '2px 8px',
+    transition: 'all 0.3s ease-in-out',
+    '&:hover': {
+      backgroundColor: '#E8F2FF !important', // ✅ Fondo azul muy claro que combina con la barra azul del subtítulo
+      transform: 'translateX(4px)',
+      boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)', // ✅ Sombra azul sutil
+      '& .MuiListItemText-primary': {
+        color: '#1E40AF !important', // ✅ Texto azul oscuro que combina con el tema
+        fontWeight: '500', // ✅ Texto más prominente en hover
+      },
+    },
+  },
+  // ✅ SUBHEADER ELIMINADO - Ya no se usa
+  // subheader: {
+  //   position: "relative",
+  //   fontSize: "17px",
+  //   textAlign: "left",
+  //   paddingLeft: 20,
+  //   fontWeight: 'bold',
+  //   color: '#FFFFFF !important',
+  //   backgroundColor: '#374151',
+  //   borderRadius: '6px',
+  //   margin: '8px 4px',
+  //   '&::before': {
+  //     content: '""',
+  //     position: 'absolute',
+  //     left: '8px',
+  //     top: '50%',
+  //     transform: 'translateY(-50%)',
+  //     width: '4px',
+  //     height: '20px',
+  //     borderRadius: '2px',
+  //     backgroundColor: '#3B82F6',
+  //   },
+  // },
 }));
 
 
@@ -79,6 +119,118 @@ function ListItemLink(props) {
     </li>
   );
 }
+
+// ✅ FUNCIONES PARA ICONOS PERSONALIZADOS CON HOVER
+const renderIconAtendimento = (IconComponent) => {
+  return (
+    <IconComponent 
+      style={{ 
+        color: '#3B82F6',
+        transition: 'all 0.3s ease-in-out',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.color = '#1E40AF';
+        e.target.style.transform = 'scale(1.1)';
+        e.target.style.filter = 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.3))';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.color = '#3B82F6';
+        e.target.style.transform = 'scale(1)';
+        e.target.style.filter = 'none';
+      }}
+    />
+  );
+};
+
+const renderIconGerencia = (IconComponent) => {
+  return (
+    <IconComponent 
+      style={{ 
+        color: '#10B981',
+        transition: 'all 0.3s ease-in-out',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.color = '#059669';
+        e.target.style.transform = 'scale(1.1)';
+        e.target.style.filter = 'drop-shadow(0 4px 8px rgba(16, 185, 129, 0.3))';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.color = '#10B981';
+        e.target.style.transform = 'scale(1)';
+        e.target.style.filter = 'none';
+      }}
+    />
+  );
+};
+
+const renderIconCampanhas = (IconComponent) => {
+  return (
+    <IconComponent 
+      style={{ 
+        color: '#F59E0B',
+        transition: 'all 0.3s ease-in-out',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.color = '#D97706';
+        e.target.style.transform = 'scale(1.1)';
+        e.target.style.filter = 'drop-shadow(0 4px 8px rgba(245, 158, 11, 0.3))';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.color = '#F59E0B';
+        e.target.style.transform = 'scale(1)';
+        e.target.style.filter = 'none';
+      }}
+    />
+  );
+};
+
+const renderIconAdministracao = (IconComponent) => {
+  return (
+    <IconComponent 
+      style={{ 
+        color: '#EF4444',
+        transition: 'all 0.3s ease-in-out',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.color = '#DC2626';
+        e.target.style.transform = 'scale(1.1)';
+        e.target.style.filter = 'drop-shadow(0 4px 8px rgba(239, 68, 68, 0.3))';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.color = '#EF4444';
+        e.target.style.transform = 'scale(1)';
+        e.target.style.filter = 'none';
+      }}
+    />
+  );
+};
+
+// ✅ Función para iconos especiales (puede ser útil en el futuro)
+// const renderIconEspecial = (IconComponent) => {
+//   return (
+//     <IconComponent 
+//       style={{ 
+//         color: '#8B5CF6',
+//         transition: 'all 0.3s ease-in-out',
+//         cursor: 'pointer'
+//       }}
+//       onMouseEnter={(e) => {
+//         e.target.style.color = '#7C3AED';
+//         e.target.style.transform = 'scale(1.1)';
+//         e.target.style.filter = 'drop-shadow(0 4px 8px rgba(139, 92, 246, 0.3))';
+//       }}
+//       onMouseLeave={(e) => {
+//         e.target.style.color = '#8B5CF6';
+//         e.target.style.transform = 'scale(1)';
+//         e.target.style.filter = 'none';
+//       }}
+//     />
+//   );
+// };
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CHATS") {
@@ -318,60 +470,56 @@ const MainListItems = (props) => {
         }}
         no={() => (
           <>
-            <ListSubheader
-              hidden={collapsed}
-              style={{
-                position: "relative",
-                fontSize: "17px",
-                textAlign: "left",
-                paddingLeft: 20
-              }}
-              inset
-              color="inherit">
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.atendimento")} </Typography>
-            </ListSubheader>
+            {/* ✅ SUBTÍTULO "ATENCIONES" ELIMINADO PARA MEJORAR ESTÉTICA */}
             <>
 
               <ListItemLink
                 to="/tickets"
                 primary={i18n.t("mainDrawer.listItems.tickets")}
-                icon={<WhatsAppIcon />}
+                icon={renderIconAtendimento(WhatsAppIcon)}
+                className={classes.listItem}
               />
               <ListItemLink
                 to="/quick-messages"
                 primary={i18n.t("mainDrawer.listItems.quickMessages")}
-                icon={<FlashOnIcon />}
+                icon={renderIconAtendimento(FlashOnIcon)}
+                className={classes.listItem}
               />
               {showKanban && (
                 <ListItemLink
                   to="/kanban"
                   primary="Kanban"
-                  icon={<LoyaltyRoundedIcon />}
+                  icon={renderIconAtendimento(LoyaltyRoundedIcon)}
+                  className={classes.listItem}
                 />
               )}
               <ListItemLink
                 to="/todolist"
                 primary={i18n.t("hardcodedElements.tarefas")}
-                icon={<BorderColorIcon />}
+                icon={renderIconAtendimento(BorderColorIcon)}
+                className={classes.listItem}
               />
               <ListItemLink
                 to="/contacts"
                 primary={i18n.t("mainDrawer.listItems.contacts")}
-                icon={<ContactPhoneOutlinedIcon />}
+                icon={renderIconAtendimento(ContactPhoneOutlinedIcon)}
+                className={classes.listItem}
               />
               {showSchedules && (
                 <>
                   <ListItemLink
                     to="/schedules"
                     primary={i18n.t("mainDrawer.listItems.schedules")}
-                    icon={<Schedule />}
+                    icon={renderIconAtendimento(Schedule)}
+                    className={classes.listItem}
                   />
                 </>
               )}
               <ListItemLink
                 to="/tags"
                 primary={i18n.t("mainDrawer.listItems.tags")}
-                icon={<LocalOfferIcon />}
+                icon={renderIconAtendimento(LocalOfferIcon)}
+                className={classes.listItem}
               />
               {showInternalChat && (
                 <>
@@ -380,16 +528,18 @@ const MainListItems = (props) => {
                     primary={i18n.t("mainDrawer.listItems.chats")}
                     icon={
                       <Badge color="secondary" variant="dot" invisible={invisible}>
-                        <ForumIcon />
+                        {renderIconAtendimento(ForumIcon)}
                       </Badge>
                     }
+                    className={classes.listItem}
                   />
                 </>
               )}
               <ListItemLink
                 to="/helps"
                 primary={i18n.t("mainDrawer.listItems.helps")}
-                icon={<HelpOutlineIcon />}
+                icon={renderIconAtendimento(HelpOutlineIcon)}
+                className={classes.listItem}
               />
             </>
           </>
@@ -401,25 +551,14 @@ const MainListItems = (props) => {
         perform={"drawer-admin-items:view"}
         yes={() => (
           <>
-            <ListSubheader
-              hidden={collapsed}
-              style={{
-                position: "relative",
-                fontSize: "17px",
-                textAlign: "left",
-                paddingLeft: 20
-              }}
-              inset
-              color="inherit">
-
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.gerencia")} </Typography>
-            </ListSubheader>
+            {/* ✅ SUBTÍTULO "GESTIÓN" ELIMINADO PARA MEJORAR ESTÉTICA */}
 
             <ListItemLink
               small
               to="/"
               primary="Dashboard"
-              icon={<DashboardOutlinedIcon />}
+              icon={renderIconGerencia(DashboardOutlinedIcon)}
+              className={classes.listItem}
             />
           </>
         )}
@@ -432,31 +571,22 @@ const MainListItems = (props) => {
 
             {showCampaigns && (
               <>
-                <ListSubheader
-                  hidden={collapsed}
-                  style={{
-                    position: "relative",
-                    fontSize: "17px",
-                    textAlign: "left",
-                    paddingLeft: 20
-                  }}
-                  inset
-                  color="inherit">
-                  <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.campanhas")} </Typography>
-                </ListSubheader>
+                            {/* ✅ SUBTÍTULO "CAMPAÑAS" ELIMINADO PARA MEJORAR ESTÉTICA */}
 
                 <ListItemLink
                   small
                   to="/campaigns"
                   primary={i18n.t("hardcodedElements.listagem")}
-                  icon={<ListIcon />}
+                  icon={renderIconCampanhas(ListIcon)}
+                  className={classes.listItem}
                 />
 
                 <ListItemLink
                   small
                   to="/contact-lists"
                   primary={i18n.t("Listas de Contatos")}
-                  icon={<PeopleIcon />}
+                  icon={renderIconCampanhas(PeopleIcon)}
+                  className={classes.listItem}
                 />
 
 
@@ -464,7 +594,8 @@ const MainListItems = (props) => {
                   small
                   to="/campaigns-config"
                   primary={i18n.t("hardcodedElements.configuracoes")}
-                  icon={<ListIcon />}
+                  icon={renderIconCampanhas(ListIcon)}
+                  className={classes.listItem}
                 />
 
 
@@ -526,36 +657,28 @@ const MainListItems = (props) => {
               </>
             )}
 
-            <ListSubheader
-              hidden={collapsed}
-              style={{
-                position: "relative",
-                fontSize: "17px",
-                textAlign: "left",
-                paddingLeft: 20
-              }}
-              inset
-              color="inherit">
-              <Typography variant="overline" style={{ fontWeight: 'normal' }}>  {i18n.t("hardcodedElements.administracao")} </Typography>
-            </ListSubheader>
+            {/* ✅ SUBTÍTULO "ADMINISTRACIÓN" ELIMINADO PARA MEJORAR ESTÉTICA */}
 
             {user.super && (
               <ListItemLink
                 to="/announcements"
                 primary={i18n.t("mainDrawer.listItems.annoucements")}
-                icon={<AnnouncementIcon />}
+                icon={renderIconAdministracao(AnnouncementIcon)}
+                className={classes.listItem}
               />
             )}
             <ListItemLink
               to="/hub-notificame"
               primary="Meta"
-              icon={<FaBell color="#607d8b" size={24} />}
+              icon={renderIconAdministracao(() => <FaBell size={24} />)}
+              className={classes.listItem}
             />
             {showOpenAi && (
               <ListItemLink
                 to="/prompts"
                 primary={i18n.t("mainDrawer.listItems.prompts")}
-                icon={<AllInclusive />}
+                icon={renderIconAdministracao(AllInclusive)}
+                className={classes.listItem}
               />
             )}
 
@@ -563,7 +686,8 @@ const MainListItems = (props) => {
               <ListItemLink
                 to="/queue-integration"
                 primary={i18n.t("mainDrawer.listItems.queueIntegration")}
-                icon={<DeviceHubOutlined />}
+                icon={renderIconAdministracao(DeviceHubOutlined)}
+                className={classes.listItem}
               />
             )}
             <ListItemLink
@@ -571,44 +695,51 @@ const MainListItems = (props) => {
               primary={i18n.t("mainDrawer.listItems.connections")}
               icon={
                 <Badge badgeContent={connectionWarning ? "!" : 0} color="error">
-                  <SyncAltIcon />
+                  {renderIconAdministracao(SyncAltIcon)}
                 </Badge>
               }
+              className={classes.listItem}
             />
             <ListItemLink
               to="/files"
               primary={i18n.t("mainDrawer.listItems.files")}
-              icon={<AttachFile />}
+              icon={renderIconAdministracao(AttachFile)}
+              className={classes.listItem}
             />
             <ListItemLink
               to="/queues"
               primary={i18n.t("mainDrawer.listItems.queues")}
-              icon={<AccountTreeOutlinedIcon />}
+              icon={renderIconAdministracao(AccountTreeOutlinedIcon)}
+              className={classes.listItem}
             />
             <ListItemLink
               to="/users"
               primary={i18n.t("mainDrawer.listItems.users")}
-              icon={<PeopleAltOutlinedIcon />}
+              icon={renderIconAdministracao(PeopleAltOutlinedIcon)}
+              className={classes.listItem}
             />
             {showExternalApi && (
               <>
                 <ListItemLink
                   to="/messages-api"
                   primary={i18n.t("mainDrawer.listItems.messagesAPI")}
-                  icon={<CodeRoundedIcon />}
+                  icon={renderIconAdministracao(CodeRoundedIcon)}
+                  className={classes.listItem}
                 />
               </>
             )}
             <ListItemLink
               to="/financeiro"
               primary={i18n.t("mainDrawer.listItems.financeiro")}
-              icon={<LocalAtmIcon />}
+              icon={renderIconAdministracao(LocalAtmIcon)}
+              className={classes.listItem}
             />
 
             <ListItemLink
               to="/settings"
               primary={i18n.t("mainDrawer.listItems.settings")}
-              icon={<SettingsOutlinedIcon />}
+              icon={renderIconAdministracao(SettingsOutlinedIcon)}
+              className={classes.listItem}
             />
 			
 			
@@ -649,7 +780,7 @@ const MainListItems = (props) => {
           button
           dense
           onClick={handleClickLogout}
-          className={classes.logoutButton}
+          className={`${classes.logoutButton} ${classes.listItem}`}
         >
           <ListItemIcon>
             <RotateRight />

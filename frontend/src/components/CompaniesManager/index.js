@@ -313,10 +313,10 @@ export function CompanyForm(props) {
                     margin="dense"
                   >
                     <MenuItem value="MENSAL">{i18n.t("companies.values.monthly")}</MenuItem>
-                    {/*<MenuItem value="BIMESTRAL">Bimestral</MenuItem>*/}
-                    {/*<MenuItem value="TRIMESTRAL">Trimestral</MenuItem>*/}
-                    {/*<MenuItem value="SEMESTRAL">Semestral</MenuItem>*/}
-                    {/*<MenuItem value="ANUAL">Anual</MenuItem>*/}
+                    <MenuItem value="BIMESTRAL">{i18n.t("companies.values.bimonthly")}</MenuItem>
+                    <MenuItem value="TRIMESTRAL">{i18n.t("companies.values.quarterly")}</MenuItem>
+                    <MenuItem value="SEMESTRAL">{i18n.t("companies.values.semiannual")}</MenuItem>
+                    <MenuItem value="ANUAL">{i18n.t("companies.values.annual")}</MenuItem>
                   </Field>
                 </FormControl>
               </Grid>
@@ -408,6 +408,20 @@ export function CompaniesManagerGrid(props) {
     return row.planId !== null ? row.plan.name : "-";
   };
 
+  const renderRecurrence = (recurrence) => {
+    if (!recurrence) return "-";
+    
+    const recurrenceMap = {
+      "MENSAL": i18n.t("companies.values.monthly"),
+      "BIMESTRAL": i18n.t("companies.values.bimonthly"),
+      "TRIMESTRAL": i18n.t("companies.values.quarterly"),
+      "SEMESTRAL": i18n.t("companies.values.semiannual"),
+      "ANUAL": i18n.t("companies.values.annual"),
+    };
+    
+    return recurrenceMap[recurrence] || recurrence;
+  };
+
   const renderCampaignsStatus = (row) => {
     if (
       has(row, "settings") &&
@@ -480,7 +494,7 @@ export function CompaniesManagerGrid(props) {
               <TableCell align="left">
                 {dateToClient(row.dueDate)}
                 <br />
-                <span>{row.recurrence}</span>
+                <span>{renderRecurrence(row.recurrence)}</span>
               </TableCell>
             </TableRow>
           ))}

@@ -114,6 +114,10 @@ const messages = {
           enabled: "Habilitadas",
           disabled: "Deshabilitadas",
           monthly: "Mensual",
+          bimonthly: "Bimestral",
+          quarterly: "Trimestral",
+          semiannual: "Semestral",
+          annual: "Anual",
         },
       },
       auth: {
@@ -1406,7 +1410,7 @@ const messages = {
         gerencia: "Gestión",
         campanhas: "Campañas",
         listagem: "Envío de mensajes",
-        configuracoes: "Configuraciones",
+        configuracoes: "Tiempos de Envío",
         administracao: "Administración",
         semFila: "Sin departamento",
         sair: "Salir",
@@ -1502,6 +1506,37 @@ const messages = {
           noUpdates: "No hay actualizaciones disponibles",
           updateFailed: "Error durante la actualización",
           localChanges: "Hay cambios locales sin commitear",
+        },
+      },
+      // ✅ NUEVAS TRADUCCIONES PARA RECUPERACIÓN DE CONTRASEÑA
+      forgetPassword: {
+        title: "Recuperar Contraseña",
+        form: {
+          email: "Correo Electrónico",
+          token: "Código de Verificación",
+          newPassword: "Nueva Contraseña",
+          confirmPassword: "Confirmar Contraseña",
+        },
+        buttons: {
+          sendEmail: "ENVIAR EMAIL",
+          resetPassword: "RECUPERAR CONTRASEÑA",
+        },
+        messages: {
+          emailSent: "Email enviado con éxito!",
+          passwordReset: "Contraseña recuperada exitosamente.",
+          emailNotFound: "Email no encontrado",
+          passwordsNotMatch: "Las contraseñas no coinciden",
+          passwordRequirements: "Tu contraseña debe tener al menos 8 caracteres, una letra mayúscula, una minúscula y un número.",
+        },
+        links: {
+          noAccount: "¿No tienes una cuenta? ¡Regístrate!",
+        },
+        validation: {
+          emailRequired: "El correo electrónico es obligatorio",
+          invalidEmail: "Correo electrónico inválido",
+          tokenRequired: "El código de verificación es obligatorio",
+          passwordRequired: "La contraseña es obligatoria",
+          confirmPasswordRequired: "La confirmación de contraseña es obligatoria",
         },
       },
     },

@@ -92,9 +92,13 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const list = async (req: Request, res: Response): Promise<Response> => {
-  const companies: Company[] = await FindAllCompaniesService();
-
-  return res.status(200).json(companies);
+  try {
+    const companies: Company[] = await FindAllCompaniesService();
+    return res.json(companies);
+  } catch (error) {
+    console.error("❌ [CompanyController.list] Error:", error);
+    throw error;
+  }
 };
 
 export const update = async (

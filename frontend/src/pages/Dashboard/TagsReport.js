@@ -91,7 +91,7 @@ export const options = {
 export const TagsReport = () => {
     const classes = useStyles();
     
-    // ✅ ESTABLECER FECHAS POR DEFECTO - Última semana
+    // ESTABLECER FECHAS POR DEFECTO - Última semana
     const defaultInitialDate = subDays(new Date(), 7);
     const [initialDate, setInitialDate] = useState(defaultInitialDate);
     const [finalDate, setFinalDate] = useState(new Date());
@@ -122,7 +122,7 @@ export const TagsReport = () => {
         }
     }, [initialDate, finalDate, companyId]);
 
-    // ✅ CARGAR DATOS AUTOMÁTICAMENTE AL MOUNT
+    // CARGAR DATOS AUTOMÁTICAMENTE AL MOUNT
     useEffect(() => {
         handleGetTagsReport();
     }, [handleGetTagsReport]);
@@ -144,7 +144,7 @@ export const TagsReport = () => {
     return (
         <Paper className={classes.paper}>
             <Typography component="h2" variant="h6" className={classes.title}>
-                🏷️ {i18n.t("tagsReport.title")} ({tagsData.total})
+                <span role="img" aria-label="etiquetas">🏷️</span> {i18n.t("tagsReport.title")} ({tagsData.total})
             </Typography>
             
             <div className={classes.filtersContainer}>

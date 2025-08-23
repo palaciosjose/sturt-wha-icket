@@ -1,9 +1,9 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/send-email-alert.sh
-# Script para enviar alertas por email usando Gmail SMTP
+# /home/watoolxoficial/scripts/send-email-alert-v2.sh
+# Script para enviar alertas por email usando Gmail SMTP directo
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 17 de Agosto 2025
-# Versión: 2.0 - Sistema de Alertas Híbridas
+# Versión: 2.0 - SMTP Directo Gmail
 
 # Configuración
 ALERT_FILE="/tmp/watoolx-alerts.log"
@@ -49,7 +49,7 @@ load_config() {
     return 0
 }
 
-# Función para enviar email usando Gmail SMTP
+# Función para enviar email usando SMTP directo de Gmail
 send_email_alert() {
     local subject="$1"
     local message="$2"
@@ -61,7 +61,7 @@ send_email_alert() {
     # Crear archivo temporal para el email
     local temp_email="/tmp/watoolx-alert-$(date +%s).eml"
     
-    # Crear contenido del email
+    # Crear contenido del email en formato MIME
     cat > "$temp_email" << EOF
 From: WATOOLX Monitor <$GMAIL_USER@gmail.com>
 To: $ADMIN_EMAIL
@@ -99,54 +99,39 @@ MIME-Version: 1.0
         <div class="header">
             <div class="badge">🔔 SISTEMA DE ALERTAS WATOOLX</div>
             <h1>🚨 ALERTA DEL SISTEMA</h1>
-            <h2>Monitoreo Automático v2.0</h2>
+            <h2>Monitoreo Automático - $(date '+%Y-%m-%d %H:%M:%S')</h2>
         </div>
         
         <div class="alert-section">
-            <h3>$subject</h3>
+            <h3>⚠️ $subject</h3>
         </div>
         
         <div class="content">
             <div class="info-box">
-                <h4>📋 Detalles del Incidente</h4>
-                <div class="message-box">
-                    <pre>$message</pre>
-                </div>
+                <h4>📋 Detalles de la Alerta</h4>
+                <p><strong>Asunto:</strong> $subject</p>
+                <p><strong>Fecha:</strong> $(date '+%Y-%m-%d %H:%M:%S UTC')</p>
+                <p><strong>Servidor:</strong> $(hostname)</p>
+            </div>
+            
+            <div class="message-box">
+                <h4>💬 Mensaje de la Alerta</h4>
+                <pre>$message</pre>
             </div>
             
             <div class="system-info">
-                <h4>🖥️ Información del Sistema</h4>
+                <h4>🖥️ Estado del Sistema</h4>
                 <div class="metric">
-                    <strong>⏰ Fecha:</strong><br>
-                    $(date '+%Y-%m-%d %H:%M:%S')
-                </div>
-                <div class="metric">
-                    <strong>🖥️ Servidor:</strong><br>
-                    $(hostname)
-                </div>
-                <div class="metric">
-                    <strong>🌐 IP:</strong><br>
-                    $(curl -s ifconfig.me 2>/dev/null || echo 'N/A')
-                </div>
-                <div class="metric">
-                    <strong>🔧 Sistema:</strong><br>
-                    WATOOLX v2.0
-                </div>
-            </div>
-            
-            <div class="info-box">
-                <h4>📊 Métricas del Sistema</h4>
-                <div class="metric">
-                    <strong>💾 Disco:</strong><br>
-                    $(df / | awk 'NR==2 {print $5 " usado"}')
+                    <strong>💻 CPU:</strong><br>
+                    $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 || echo 'N/A')%
                 </div>
                 <div class="metric">
                     <strong>🧠 Memoria:</strong><br>
-                    $(free -h | awk 'NR==2 {print $3 "/" $2}')
+                    $(free | awk 'NR==2{printf "%.1f%%", $3*100/$2}' || echo 'N/A')
                 </div>
                 <div class="metric">
-                    <strong>⚡ CPU:</strong><br>
-                    $(uptime | awk '{print $10}' | sed 's/,//')
+                    <strong>💾 Disco:</strong><br>
+                    $(df / | awk 'NR==2 {print $5}' || echo 'N/A')
                 </div>
                 <div class="metric">
                     <strong>🗄️ MySQL:</strong><br>
@@ -157,27 +142,136 @@ MIME-Version: 1.0
         
         <div class="footer">
             <strong>✅ Alerta generada automáticamente por el sistema de monitoreo WATOOLX</strong><br>
-            <small>Enviado el $(date '+%Y-%m-%d %H:%M:%S UTC') - Sistema de Alertas Híbridas</small>
+            <small>Enviado el $(date '+%Y-%m-%d %H:%M:%S UTC') - Sistema de Alertas por Email</small>
         </div>
     </div>
 </body>
 </html>
 EOF
 
-    # Enviar email usando sendmail
-    local email_content=$(cat "$temp_email")
+    # Enviar email usando curl con SMTP de Gmail
+    local smtp_response=$(curl -s --mail-from "$GMAIL_USER@gmail.com" \
+        --mail-rcpt "$ADMIN_EMAIL" \
+        --upload-file "$temp_email" \
+        --ssl-reqd \
+        --user "$GMAIL_USER@gmail.com:$GMAIL_PASS" \
+        --url "smtp://smtp.gmail.com:587" \
+        --mail-auth-login \
+        --tlsv1.2 \
+        2>&1)
+    
+    local curl_exit_code=$?
     
     # Limpiar archivo temporal
     rm -f "$temp_email"
     
-    # Enviar usando sendmail
-    echo "$email_content" | sendmail -t
-    
-    if [ $? -eq 0 ]; then
+    if [ $curl_exit_code -eq 0 ]; then
         log_message "INFO" "✅ Alerta enviada por email exitosamente a $ADMIN_EMAIL"
         return 0
     else
-        log_message "ERROR" "❌ Error al enviar email usando sendmail"
+        log_message "ERROR" "❌ Error al enviar email usando SMTP Gmail"
+        log_message "DEBUG" "🔍 Respuesta SMTP: $smtp_response"
+        return 1
+    fi
+}
+
+# Función alternativa usando Python si curl falla
+send_email_python() {
+    local subject="$1"
+    local message="$2"
+    
+    if ! load_config; then
+        return 1
+    fi
+    
+    # Crear script Python temporal
+    local python_script="/tmp/watoolx_email_$(date +%s).py"
+    
+    cat > "$python_script" << EOF
+#!/usr/bin/env python3
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import sys
+
+# Configuración
+gmail_user = "$GMAIL_USER"
+gmail_pass = "$GMAIL_PASS"
+admin_email = "$ADMIN_EMAIL"
+
+# Crear mensaje
+msg = MIMEMultipart('alternative')
+msg['From'] = f'WATOOLX Monitor <{gmail_user}@gmail.com>'
+msg['To'] = admin_email
+msg['Subject'] = f'🚨 ALERTA WATOOLX - {subject}'
+
+# Contenido HTML
+html_content = f'''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }}
+        .header {{ background: #667eea; color: white; padding: 20px; text-align: center; border-radius: 5px; }}
+        .alert {{ background: #ff4444; color: white; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0; }}
+        .content {{ background: #f8f9fa; padding: 15px; border-radius: 5px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 ALERTA WATOOLX</h1>
+            <p>Monitoreo Automático</p>
+        </div>
+        <div class="alert">
+            <h2>⚠️ {subject}</h2>
+        </div>
+        <div class="content">
+            <h3>📋 Detalles:</h3>
+            <p><strong>Fecha:</strong> {message}</p>
+            <p><strong>Servidor:</strong> $(hostname)</p>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+msg.attach(MIMEText(html_content, 'html'))
+
+try:
+    # Conectar a Gmail SMTP
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(gmail_user, gmail_pass)
+    
+    # Enviar email
+    text = msg.as_string()
+    server.sendmail(gmail_user, admin_email, text)
+    server.quit()
+    
+    print("SUCCESS")
+    sys.exit(0)
+    
+except Exception as e:
+    print(f"ERROR: {str(e)}")
+    sys.exit(1)
+EOF
+
+    # Ejecutar script Python
+    local python_result=$(python3 "$python_script" 2>&1)
+    local python_exit_code=$?
+    
+    # Limpiar script temporal
+    rm -f "$python_script"
+    
+    if [ $python_exit_code -eq 0 ] && echo "$python_result" | grep -q "SUCCESS"; then
+        log_message "INFO" "✅ Alerta enviada por email usando Python a $ADMIN_EMAIL"
+        return 0
+    else
+        log_message "ERROR" "❌ Error al enviar email usando Python"
+        log_message "DEBUG" "🔍 Error Python: $python_result"
         return 1
     fi
 }
@@ -198,8 +292,11 @@ process_pending_alerts() {
             local timestamp=$(echo "$line" | cut -d' ' -f1-3)
             local alert_type=$(echo "$line" | cut -d' ' -f6-)
             
-            # Enviar alerta por email
-            send_email_alert "ALERTA DEL SISTEMA WATOOLX" "$alert_type"
+            # Intentar enviar con curl primero, si falla usar Python
+            if ! send_email_alert "ALERTA DEL SISTEMA WATOOLX" "$alert_type"; then
+                log_message "WARN" "⚠️ Fallback a Python para envío de email"
+                send_email_python "ALERTA DEL SISTEMA WATOOLX" "$alert_type"
+            fi
             
             if [ $? -eq 0 ]; then
                 log_message "INFO" "✅ Alerta procesada por email: $alert_type"
@@ -220,7 +317,12 @@ send_immediate_alert() {
     local message="$2"
     
     log_message "INFO" "🚨 Enviando alerta inmediata por email..."
-    send_email_alert "$subject" "$message"
+    
+    # Intentar con curl primero, si falla usar Python
+    if ! send_email_alert "$subject" "$message"; then
+        log_message "WARN" "⚠️ Fallback a Python para envío de email"
+        send_email_python "$subject" "$message"
+    fi
 }
 
 # Función para configurar Gmail
@@ -285,7 +387,7 @@ EOF
         # Probar envío
         echo ""
         echo "🧪 Probando envío de email..."
-        send_email_alert "PRUEBA DEL SISTEMA" "Este es un mensaje de prueba del sistema de monitoreo WATOOLX. Si lo recibes, la configuración está correcta."
+        send_immediate_alert "PRUEBA DEL SISTEMA" "Este es un mensaje de prueba del sistema de monitoreo WATOOLX. Si lo recibes, la configuración está correcta."
         
         if [ $? -eq 0 ]; then
             echo "🎉 ¡Prueba exitosa! Revisa tu email"
@@ -317,7 +419,7 @@ Este es un mensaje de prueba del sistema de monitoreo WATOOLX.
 ⏰ Fecha: $(date '+%Y-%m-%d %H:%M:%S')
 🖥️ Servidor: $(hostname)"
 
-    send_email_alert "PRUEBA DEL SISTEMA WATOOLX" "$test_message"
+    send_immediate_alert "PRUEBA DEL SISTEMA WATOOLX" "$test_message"
     
     if [ $? -eq 0 ]; then
         log_message "INFO" "🎉 ¡Prueba exitosa! Revisa tu email"
@@ -350,9 +452,9 @@ show_status() {
     echo ""
     
     # Estado de logs
-    echo -e "${BLUE}📝 LOGS: $LOG_FILE${NC}"
     if [ -f "$LOG_FILE" ]; then
-        local log_size=$(du -h "$LOG_FILE" 2>/dev/null | awk '{print $1}' || echo "0B")
+        local log_size=$(du -h "$LOG_FILE" | cut -f1)
+        echo -e "${GREEN}📝 LOGS: Activos${NC}"
         echo -e "${BLUE}   📊 Tamaño: $log_size${NC}"
     fi
     
@@ -436,9 +538,9 @@ main() {
 
 # Banner
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                WATOOLX EMAIL ALERTS                         ║${NC}"
-echo -e "${BLUE}║                        v2.0 - 2025                          ║${NC}"
-echo -e "${BLUE}║                    Sistema de Alertas Híbridas               ║${NC}"
+echo -e "${BLUE}║                WATOOLX EMAIL ALERTS v2.0                     ║${NC}"
+echo -e "${BLUE}║                    SMTP Directo Gmail                        ║${NC}"
+echo -e "${BLUE}║                    Sistema de Alertas                        ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
 
 # Verificar si se ejecuta como root

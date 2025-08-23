@@ -7,10 +7,21 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const { email } = req.params as IndexQuery;
   const TokenSenha = uuid();
   const forgotPassword = await SendMail(email, TokenSenha);
-  if (!forgotPassword) {
-     return res.status(200).json({ message: "E-mail enviado com sucesso" });
+  
+  // ✅ LÓGICA CORREGIDA: Si hay error, devolver 404; si es éxito, devolver 200
+  if (forgotPassword && forgotPassword.status === 404) {
+     return res.status(404).json({ 
+       status: 404, 
+       message: forgotPassword.message || "Email não encontrado" 
+     });
   }
-  return res.status(404).json({ error: "E-mail enviado com sucesso" });
+  
+  // ✅ ÉXITO: Email enviado correctamente
+  return res.status(200).json({ 
+    status: 200, 
+    message: "E-mail enviado com sucesso",
+    token: TokenSenha // ✅ Token para desarrollo/testing
+  });
 };
 export const resetPasswords = async (
   req: Request,
