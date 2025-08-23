@@ -233,8 +233,9 @@ const UpdateVersionModal = ({ open, onClose }) => {
     }
   };
 
-  const handlePerformUpdate = async (type = 'basic') => {
-    if (!updateStatus?.hasUpdates) {
+  const handlePerformUpdate = async (type = 'basic', forceUpdate = false) => {
+    // Si no hay actualizaciones y no es forzado, mostrar error
+    if (!updateStatus?.hasUpdates && !forceUpdate) {
       setError("No hay actualizaciones disponibles");
       return;
     }
@@ -258,7 +259,8 @@ const UpdateVersionModal = ({ open, onClose }) => {
 
       const endpoint = type === 'full' ? "/system/perform-full-update" : "/system/perform-update";
       const { data } = await api.post(endpoint, {
-        previousVersion: updateStatus.currentVersion
+        previousVersion: updateStatus?.currentVersion || "N/A",
+        forceUpdate: forceUpdate
       });
 
       clearInterval(progressInterval);
@@ -511,6 +513,34 @@ const UpdateVersionModal = ({ open, onClose }) => {
                   <span role="img" aria-label="update">⚡</span> Actualización Completa
                 </Button>
               </Box>
+              
+              {/* Nueva opción: Actualización Forzada */}
+              <Paper style={{ 
+                padding: "12px", 
+                backgroundColor: "#fff8e1", 
+                border: "1px solid #ffc107",
+                marginTop: "16px"
+              }}>
+                <Typography variant="body2" style={{ color: "#f57f17", fontWeight: "bold" }}>
+                  <span role="img" aria-label="force">💪</span> {i18n.t("updateVersion.forceUpdate.title")}
+                </Typography>
+                <Typography variant="body2" style={{ color: "#e65100", fontSize: "0.875rem", marginTop: "4px" }}>
+                  {i18n.t("updateVersion.forceUpdate.description")}<br/>
+                  {i18n.t("updateVersion.forceUpdate.description2")}<br/>
+                  <span role="img" aria-label="warning">⚠️</span> {i18n.t("updateVersion.forceUpdate.description3")}
+                </Typography>
+                <Box style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={() => handlePerformUpdate('full', true)}
+                    className={classes.updateButton}
+                    style={{ borderColor: "#ffc107", color: "#f57f17" }}
+                  >
+                    <span role="img" aria-label="force">💪</span> {i18n.t("updateVersion.forceUpdate.button")}
+                  </Button>
+                </Box>
+              </Paper>
             </Paper>
           )}
           

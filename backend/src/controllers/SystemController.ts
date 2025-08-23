@@ -17,6 +17,76 @@ const projectRoot = (() => {
 
 const run = (command: string, cwd: string = projectRoot) => execAsync(command, { cwd });
 
+// Función para verificar si los cambios locales son críticos
+const areLocalChangesCritical = (gitStatus: string): boolean => {
+  const lines = gitStatus.split('\n').filter(line => line.trim());
+  
+  // Archivos que NO son críticos (pueden ser ignorados)
+  const nonCriticalPatterns = [
+    /^[MAD] backend\/dist\//,           // Archivos compilados del backend
+    /^[MAD] frontend\/build\//,         // Archivos compilados del frontend
+    /^[MAD] backend\/logs\//,           // Archivos de logs
+    /^[MAD] backend\/public\/fileList\//, // Archivos subidos por usuarios
+    /^[MAD] backend\/public\/.*\.(pdf|docx|xlsx|pptx|csv|jpeg|jpg|png|webp)$/, // Archivos multimedia
+    /^[MAD] \.env/,                     // Variables de entorno (pueden ser locales)
+    /^[MAD] ecosystem\.config\.js/,     // Configuración PM2 (puede ser local)
+    /^[MAD] package-lock\.json/,        // Lock files (pueden diferir)
+    /^[MAD] yarn\.lock/,                // Lock files de Yarn
+    /^[MAD] node_modules\//,            // Dependencias (no deberían estar en git)
+    /^[MAD] \.gitignore/,               // Gitignore puede ser local
+    /^[MAD] \.env\.local/,              // Variables de entorno locales
+    /^[MAD] \.env\.production/,         // Variables de entorno de producción
+    /^[MAD] \.env\.development/         // Variables de entorno de desarrollo
+  ];
+
+  // Verificar si hay cambios críticos (fuera de los patrones no críticos)
+  const hasCriticalChanges = lines.some(line => {
+    // Si es un archivo no rastreado (??), no es crítico
+    if (line.startsWith('??')) return false;
+    
+    // Si coincide con algún patrón no crítico, no es crítico
+    if (nonCriticalPatterns.some(pattern => pattern.test(line))) return false;
+    
+    // Si no coincide con ningún patrón no crítico, ES crítico
+    return true;
+  });
+
+  return hasCriticalChanges;
+};
+
+// Función para obtener solo cambios críticos
+const getCriticalChanges = (gitStatus: string): string => {
+  const lines = gitStatus.split('\n').filter(line => line.trim());
+  
+  const criticalLines = lines.filter(line => {
+    // Ignorar archivos no rastreados
+    if (line.startsWith('??')) return false;
+    
+    // Patrones de archivos no críticos
+    const nonCriticalPatterns = [
+      /^[MAD] backend\/dist\//,
+      /^[MAD] frontend\/build\//,
+      /^[MAD] backend\/logs\//,
+      /^[MAD] backend\/public\/fileList\//,
+      /^[MAD] backend\/public\/.*\.(pdf|docx|xlsx|pptx|csv|jpeg|jpg|png|webp)$/,
+      /^[MAD] \.env/,
+      /^[MAD] ecosystem\.config\.js/,
+      /^[MAD] package-lock\.json/,
+      /^[MAD] yarn\.lock/,
+      /^[MAD] node_modules\//,
+      /^[MAD] \.gitignore/,
+      /^[MAD] \.env\.local/,
+      /^[MAD] \.env\.production/,
+      /^[MAD] \.env\.development/
+    ];
+    
+    // Solo incluir si NO coincide con patrones no críticos
+    return !nonCriticalPatterns.some(pattern => pattern.test(line));
+  });
+  
+  return criticalLines.join('\n');
+};
+
 export const checkUpdates = async (req: Request, res: Response): Promise<Response> => {
   try {
     // Verificar si estamos en un repositorio git
@@ -74,19 +144,25 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
   try {
     console.log("🚀 Iniciando actualización del sistema...");
 
-    // 1. Verificar si hay cambios locales sin commitear (ignorar archivos no trackeados)
+    // 1. Verificar si hay cambios locales críticos
     const { stdout: gitStatus } = await run("git status --porcelain");
-    // Filtrar solo archivos modificados/staged (M, A, D, R, C, U) ignorando archivos no trackeados (??)
-    const trackedChanges = gitStatus.split('\n')
-      .filter(line => line.trim() && !line.startsWith('??'))
-      .join('\n');
+    const criticalChanges = getCriticalChanges(gitStatus);
     
-    if (trackedChanges.trim()) {
+    if (criticalChanges.trim()) {
+      console.log("⚠️ Cambios críticos detectados:", criticalChanges);
       return res.status(400).json({
-        error: "Hay cambios locales sin commitear",
-        details: "Por favor, haz commit o stash de los cambios antes de actualizar",
-        changes: trackedChanges
+        error: "Hay cambios locales críticos sin commitear",
+        details: "Por favor, haz commit o stash de los cambios críticos antes de actualizar",
+        changes: criticalChanges,
+        allChanges: gitStatus,
+        recommendation: "Los archivos de build, logs y configuración local no bloquean la actualización"
       });
+    }
+
+    // Si hay cambios no críticos, mostrar advertencia pero continuar
+    const allChanges = gitStatus.split('\n').filter(line => line.trim() && !line.startsWith('??')).join('\n');
+    if (allChanges.trim()) {
+      console.log("ℹ️ Cambios no críticos detectados (continuando actualización):", allChanges);
     }
 
     // 2. Verificar si hay actualizaciones disponibles
@@ -152,26 +228,39 @@ export const performUpdate = async (req: Request, res: Response): Promise<Respon
 export const performFullUpdate = async (req: Request, res: Response): Promise<Response> => {
   try {
     const forceRecompile = req.body?.forceRecompile;
+    const forceUpdate = req.body?.forceUpdate; // Nueva opción para forzar actualización
     
     if (forceRecompile) {
       console.log("🔄 Iniciando recompilación forzada del sistema...");
+    } else if (forceUpdate) {
+      console.log("🚀 Iniciando actualización forzada del sistema (ignorando cambios locales)...");
     } else {
       console.log("🚀 Iniciando actualización completa del sistema...");
     }
 
-    // 1. Verificar si hay cambios locales sin commitear (ignorar archivos no trackeados)
+    // 1. Verificar si hay cambios locales críticos (a menos que sea forzado)
     const { stdout: gitStatus } = await run("git status --porcelain");
-    // Filtrar solo archivos modificados/staged (M, A, D, R, C, U) ignorando archivos no trackeados (??)
-    const trackedChanges = gitStatus.split('\n')
-      .filter(line => line.trim() && !line.startsWith('??'))
-      .join('\n');
+    const criticalChanges = getCriticalChanges(gitStatus);
     
-    if (trackedChanges.trim()) {
+    if (criticalChanges.trim() && !forceUpdate) {
+      console.log("⚠️ Cambios críticos detectados:", criticalChanges);
       return res.status(400).json({
-        error: "Hay cambios locales sin commitear",
-        details: "Por favor, haz commit o stash de los cambios antes de actualizar",
-        changes: trackedChanges
+        error: "Hay cambios locales críticos sin commitear",
+        details: "Por favor, haz commit o stash de los cambios críticos antes de actualizar",
+        changes: criticalChanges,
+        allChanges: gitStatus,
+        recommendation: "Los archivos de build, logs y configuración local no bloquean la actualización. Usa 'forceUpdate: true' para ignorar cambios locales."
       });
+    }
+
+    // Si hay cambios no críticos, mostrar advertencia pero continuar
+    const allChanges = gitStatus.split('\n').filter(line => line.trim() && !line.startsWith('??')).join('\n');
+    if (allChanges.trim()) {
+      if (forceUpdate) {
+        console.log("⚠️ Actualización forzada: Ignorando cambios locales:", allChanges);
+      } else {
+        console.log("ℹ️ Cambios no críticos detectados (continuando actualización):", allChanges);
+      }
     }
 
     // 2. Verificar si hay actualizaciones disponibles (salvo si es recompilación forzada)

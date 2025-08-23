@@ -1507,6 +1507,13 @@ const messages = {
           updateFailed: "Error durante la actualización",
           localChanges: "Hay cambios locales sin commitear",
         },
+        forceUpdate: {
+          title: "Actualización Forzada",
+          description: "• Ignora cambios locales no críticos (logs, builds, archivos multimedia)",
+          description2: "• Útil cuando hay archivos generados automáticamente",
+          description3: "• Solo usar cuando sea necesario",
+          button: "Forzar Actualización Completa"
+        },
       },
       // ✅ NUEVAS TRADUCCIONES PARA RECUPERACIÓN DE CONTRASEÑA
       forgetPassword: {
