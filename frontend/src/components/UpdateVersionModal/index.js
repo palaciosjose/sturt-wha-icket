@@ -258,10 +258,20 @@ const UpdateVersionModal = ({ open, onClose }) => {
       }, 300);
 
       const endpoint = type === 'full' ? "/system/perform-full-update" : "/system/perform-update";
-      const { data } = await api.post(endpoint, {
-        previousVersion: updateStatus?.currentVersion || "N/A",
-        forceUpdate: forceUpdate
-      });
+      
+      // Para actualización completa, intentar primero sin forzar, luego con forzar si falla
+      let requestData = {
+        previousVersion: updateStatus?.currentVersion || "N/A"
+      };
+      
+      // Si es actualización completa, hacerla inteligente
+      if (type === 'full') {
+        requestData.forceUpdate = false; // Primero intentar normal
+      } else {
+        requestData.forceUpdate = forceUpdate;
+      }
+      
+      const { data } = await api.post(endpoint, requestData);
 
       clearInterval(progressInterval);
       setUpdateProgress(100);
@@ -281,6 +291,41 @@ const UpdateVersionModal = ({ open, onClose }) => {
       // La recarga se realizará cuando presione "CERRAR"
 
     } catch (err) {
+      // Para actualización completa, intentar automáticamente con modo forzado si falla por cambios locales
+      if (type === 'full' && err.response?.data?.error?.includes('cambios locales críticos')) {
+        console.log("🔄 Actualización completa falló por cambios locales, intentando modo forzado...");
+        
+        try {
+          // Intentar con modo forzado
+          const { data: forcedData } = await api.post(endpoint, {
+            previousVersion: updateStatus?.currentVersion || "N/A",
+            forceUpdate: true
+          });
+          
+          clearInterval(progressInterval);
+          setUpdateProgress(100);
+          
+          // Mostrar éxito con modo forzado
+          setUpdateStatus({
+            ...updateStatus,
+            updateCompleted: true,
+            newVersion: forcedData.newVersion,
+            newMessage: forcedData.newMessage + " (modo forzado)",
+            newAuthor: forcedData.newAuthor,
+            newDate: forcedData.newDate,
+            steps: forcedData.steps || []
+          });
+          
+          return; // Salir exitosamente
+        } catch (forcedErr) {
+          // Si también falla el modo forzado, mostrar error
+          setError(forcedErr.response?.data?.error || "Error durante actualización forzada");
+          toastError(forcedErr);
+          setUpdateProgress(0);
+          return;
+        }
+      }
+      
       // Manejo especial para errores de conexión durante reinicio
       if (err.code === 'ECONNABORTED' || err.message.includes('timeout') || err.message.includes('Network Error')) {
         // Esperar y verificar si la actualización se completó
@@ -474,9 +519,13 @@ const UpdateVersionModal = ({ open, onClose }) => {
               <Typography variant="body2" paragraph>
                 <strong>Actualización Básica:</strong> Solo actualiza el código fuente
               </Typography>
-              <Typography variant="body2" paragraph>
-                <strong>Actualización Completa:</strong> Actualiza código, dependencias, base de datos y recompila todo
-              </Typography>
+                             <Typography variant="body2" paragraph>
+                 <strong>Actualización Completa:</strong> Actualiza código, dependencias, base de datos y recompila todo
+                 <br/>
+                 <span style={{ color: "#2196f3", fontSize: "0.875rem" }}>
+                   <span role="img" aria-label="intelligent">🧠</span> <strong>INTELIGENTE:</strong> Automáticamente maneja archivos locales no críticos
+                 </span>
+               </Typography>
               
               {/* Información sobre reinicio de servicios */}
               <Paper style={{ 
@@ -514,33 +563,7 @@ const UpdateVersionModal = ({ open, onClose }) => {
                 </Button>
               </Box>
               
-              {/* Nueva opción: Actualización Forzada */}
-              <Paper style={{ 
-                padding: "12px", 
-                backgroundColor: "#fff8e1", 
-                border: "1px solid #ffc107",
-                marginTop: "16px"
-              }}>
-                <Typography variant="body2" style={{ color: "#f57f17", fontWeight: "bold" }}>
-                  <span role="img" aria-label="force">💪</span> {i18n.t("updateVersion.forceUpdate.title")}
-                </Typography>
-                <Typography variant="body2" style={{ color: "#e65100", fontSize: "0.875rem", marginTop: "4px" }}>
-                  {i18n.t("updateVersion.forceUpdate.description")}<br/>
-                  {i18n.t("updateVersion.forceUpdate.description2")}<br/>
-                  <span role="img" aria-label="warning">⚠️</span> {i18n.t("updateVersion.forceUpdate.description3")}
-                </Typography>
-                <Box style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => handlePerformUpdate('full', true)}
-                    className={classes.updateButton}
-                    style={{ borderColor: "#ffc107", color: "#f57f17" }}
-                  >
-                    <span role="img" aria-label="force">💪</span> {i18n.t("updateVersion.forceUpdate.button")}
-                  </Button>
-                </Box>
-              </Paper>
+
             </Paper>
           )}
           
