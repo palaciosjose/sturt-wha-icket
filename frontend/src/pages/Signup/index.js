@@ -125,7 +125,7 @@ const UserSchema = Yup.object().shape({
 	phone: Yup.string()
 		.min(10, "El teléfono debe tener al menos 10 dígitos")
 		.required("El teléfono es obligatorio"),
-	planId: Yup.number().default(4),
+	planId: Yup.number().optional(),
 });
 
 const SignUp = () => {
@@ -192,7 +192,7 @@ const SignUp = () => {
 
 
 
-	const initialState = { name: "", email: "", phone: "", password: "", planId: 4 };
+	const initialState = { name: "", email: "", phone: "", password: "" };
 
 	const [user] = useState(initialState);
 	const dueDate = useMemo(() => moment().add(trial, "day").format(), [trial]);

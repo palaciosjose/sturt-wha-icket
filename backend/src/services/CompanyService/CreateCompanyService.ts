@@ -57,12 +57,35 @@ const CreateCompanyService = async (
     throw new AppError(err.message);
   }
 
+  // ✅ LÓGICA INTELIGENTE: Buscar dinámicamente el plan GRATIS
+  let finalPlanId = planId;
+  
+  // Si no se especifica planId o es undefined, buscar automáticamente el plan GRATIS
+  if (!planId || planId === undefined) {
+    try {
+      const Plan = require("../../models/Plan").default;
+      const freePlan = await Plan.findOne({
+        where: { name: "Gratis" }
+      });
+      
+      if (freePlan) {
+        finalPlanId = freePlan.id;
+        console.log(`🎯 Plan GRATIS encontrado automáticamente: ID ${finalPlanId}`);
+      } else {
+        console.warn("⚠️ No se encontró plan GRATIS, usando planId original:", planId);
+      }
+    } catch (planError) {
+      console.warn("⚠️ Error al buscar plan GRATIS:", planError);
+      // Continuar con el planId original
+    }
+  }
+
   const company = await Company.create({
     name,
     phone,
     email,
     status,
-    planId,
+    planId: finalPlanId,
     dueDate,
     recurrence
   });
