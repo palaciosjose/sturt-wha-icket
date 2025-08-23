@@ -245,9 +245,13 @@ const UpdateVersionModal = ({ open, onClose }) => {
     setUpdateProgress(0);
     setUpdateType(type);
 
+    // Definir variables en el scope correcto
+    let progressInterval;
+    const endpoint = type === 'full' ? "/system/perform-full-update" : "/system/perform-update";
+
     try {
       // Simular progreso
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setUpdateProgress((prev) => {
           if (prev >= 90) {
             clearInterval(progressInterval);
@@ -256,8 +260,6 @@ const UpdateVersionModal = ({ open, onClose }) => {
           return prev + 5;
         });
       }, 300);
-
-      const endpoint = type === 'full' ? "/system/perform-full-update" : "/system/perform-update";
       
       // Para actualización completa, intentar primero sin forzar, luego con forzar si falla
       let requestData = {
@@ -373,6 +375,10 @@ const UpdateVersionModal = ({ open, onClose }) => {
         setUpdateProgress(0);
       }
     } finally {
+      // Limpiar el intervalo si existe
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
       setUpdating(false);
     }
   };
