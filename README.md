@@ -139,6 +139,62 @@ REACT_APP_BACKEND_URL=http://localhost:8080
 - Perfiles personalizables
 - Auditoría de acciones
 
+## 📆 Programaciones Recurrentes
+
+Watoolx permite definir tareas programadas que se ejecutan de forma automática. Es ideal para recordatorios o mensajes periódicos.
+
+**Parámetros principales:**
+- `frecuencia`: diaria, semanal o mensual.
+- `hora`: formato HH:MM en 24 horas.
+- `dias`: lista de días de la semana (cuando aplica).
+- `activo`: habilita o deshabilita la programación.
+
+```json
+{
+  "tarea": "Recordatorio de pago",
+  "frecuencia": "semanal",
+  "dias": ["lunes", "jueves"],
+  "hora": "09:00",
+  "activo": true
+}
+```
+
+![Ejemplo de programación](docs/recurrente.svg)
+
+## 📨 Envío de Mensajes con Multimedia
+
+Los mensajes pueden incluir imágenes, documentos o audio. Se admite una lista de archivos para enviar varios adjuntos en un solo mensaje.
+
+```json
+{
+  "numero": "+51999999999",
+  "mensaje": "Hola, adjunto los documentos solicitados",
+  "archivos": [
+    "./docs/contrato.pdf",
+    "./imagenes/foto1.jpg"
+  ]
+}
+```
+
+![Ejemplo de envío con multimedia](docs/multimedia.svg)
+
+## 🔄 Módulo "Actualizar"
+
+El módulo **Actualizar** mantiene la instancia al día sin tareas manuales. Incluye las siguientes opciones:
+
+- `sistema`: descarga la última versión del código.
+- `dependencias`: instala o actualiza paquetes de backend y frontend.
+- `base-datos`: ejecuta migraciones pendientes.
+- `reiniciar`: reinicia los servicios tras la actualización.
+
+Ejemplo de uso:
+
+```bash
+npm run actualizar -- --modo sistema
+```
+
+![Opciones del módulo Actualizar](docs/actualizar.svg)
+
 ## 🚀 Despliegue en Producción
 
 ### Usando el Script Automático
