@@ -19,6 +19,7 @@ interface ScheduleData {
   intervalUnit?: string;
   intervalValue?: number;
   repeatCount?: number;
+  fileListId?: number;
 }
 
 interface Request {
@@ -124,6 +125,7 @@ const UpdateUserService = async ({
     intervalUnit,
     intervalValue,
     repeatCount,
+    fileListId,
   } = scheduleData;
 
   console.log("🔍 [DEBUG] Validando schema...");
@@ -156,6 +158,7 @@ const UpdateUserService = async ({
     intervalUnit,
     intervalValue,
     repeatCount,
+    fileListId,
   });
 
   console.log("🔍 [DEBUG] Recargando schedule...");

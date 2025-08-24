@@ -16,6 +16,7 @@ import Ticket from "./Ticket";
 import User from "./User";
 import Whatsapp from "./Whatsapp";
 import ContactList from "./ContactList";
+import Files from "./Files";
 
 @Table
 class Schedule extends Model<Schedule> {
@@ -44,6 +45,10 @@ class Schedule extends Model<Schedule> {
   @ForeignKey(() => ContactList)
   @Column
   nestedListId: number;
+
+  @ForeignKey(() => Files)
+  @Column
+  fileListId: number;
 
   @ForeignKey(() => Ticket)
   @Column
@@ -78,6 +83,9 @@ class Schedule extends Model<Schedule> {
 
   @BelongsTo(() => ContactList, "nestedListId")
   nestedList: ContactList;
+
+  @BelongsTo(() => Files)
+  fileList: Files;
 
   @BelongsTo(() => Ticket)
   ticket: Ticket;
