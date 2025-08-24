@@ -17,6 +17,7 @@ import CampaignShipping from "./models/CampaignShipping";
 import Company from "./models/Company";
 import Contact from "./models/Contact";
 import ContactList from "./models/ContactList";
+import ContactList from "./models/ContactList";
 import ContactListItem from "./models/ContactListItem";
 import Message from "./models/Message";
 import Plan from "./models/Plan";
@@ -246,7 +247,10 @@ async function handleVerifySchedules(job) {
           [Op.lte]: now.format("YYYY-MM-DD HH:mm:ss") // Buscar agendamientos que YA DEBERÍAN haberse ejecutado
         }
       },
-      include: [{ model: Contact, as: "contact" }]
+      include: [
+        { model: Contact, as: "contact" },
+        { model: ContactList, as: "contactList" }
+      ]
     });
     
     if (count > 0) {
@@ -324,7 +328,8 @@ async function handleSendScheduledMessage(job) {
     scheduleRecord = await Schedule.findByPk(schedule.id, {
       include: [
         { model: Contact, as: "contact" },
-        { model: User, as: "user" }
+        { model: User, as: "user" },
+        { model: ContactList, as: "contactList" }
       ]
     });
     

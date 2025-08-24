@@ -30,6 +30,7 @@ import TableCell from "@material-ui/core/TableCell";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import IconButton from "@material-ui/core/IconButton";
+import Chip from "@material-ui/core/Chip";
 
 import "./Schedules.css"; // Importe o arquivo CSS
 
@@ -349,7 +350,7 @@ const Schedules = () => {
             events={schedules.map((schedule) => ({
                           title: (
               <div className="event-container">
-                <div style={eventTitleStyle}>{schedule.contact.name}</div>
+                <div style={eventTitleStyle}>{schedule.contact.name}{schedule.contactList ? ` (${schedule.contactList.name})` : ""}</div>
                 <DeleteOutlineIcon
                   onClick={() => {
                     setDeletingSchedule(schedule);
@@ -388,6 +389,7 @@ const Schedules = () => {
                 <TableCell align="center">Fecha</TableCell>
                 <TableCell align="center">Hora</TableCell>
                 <TableCell align="center">Contacto</TableCell>
+                <TableCell align="center">Grupo</TableCell>
                 <TableCell align="center">Conexión</TableCell>
                 <TableCell align="center">Mensaje</TableCell>
                 <TableCell align="center">Recurrencia</TableCell>
@@ -416,6 +418,9 @@ const Schedules = () => {
                     </TableCell>
                     <TableCell align="center">
                       {schedule.contact?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {schedule.contactList ? <Chip size="small" label={schedule.contactList.name} /> : '-'}
                     </TableCell>
                 <TableCell align="center">
                   {schedule.whatsapp?.name || 'N/A'}
