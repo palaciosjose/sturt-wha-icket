@@ -200,6 +200,7 @@ const messages = {
                                         intervalUnit: "Unit",
                                         intervalValue: "Value",
                                         repeatCount: "Repetitions",
+                                        fileList: "File List",
                                         useReminderSystem: "Type",
                                         useReminderSystemOptions: {
                                                 reminder: "Appointment",

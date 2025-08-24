@@ -142,6 +142,7 @@ const ScheduleSchema = Yup.object().shape({
                 .required("Obligatorio"),
         contactId: Yup.number().nullable(),
         contactListId: Yup.number().nullable(),
+        fileListId: Yup.number().nullable(),
         whatsappId: Yup.number().nullable().required("Obligatorio"),
         sendAt: Yup.string().required("Obligatorio"),
         intervalUnit: Yup.string().nullable(),
@@ -165,7 +166,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                 intervalUnit: "days",
                 intervalValue: 1,
                 repeatCount: 0,
-                useReminderSystem: true
+                useReminderSystem: true,
+                fileListId: null
         };
 
         const [schedule, setSchedule] = useState(initialState);
@@ -174,8 +176,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
         const [contactLists, setContactLists] = useState([]);
         const [currentContactList, setCurrentContactList] = useState(null);
         const [whatsapps, setWhatsapps] = useState([]);
-	const [currentWhatsapp, setCurrentWhatsapp] = useState(null);
-	const [attachment, setAttachment] = useState(null);
+        const [currentWhatsapp, setCurrentWhatsapp] = useState(null);
+        const [fileLists, setFileLists] = useState([]);
+        const [currentFileList, setCurrentFileList] = useState(null);
+        const [attachment, setAttachment] = useState(null);
 	const attachmentFile = useRef(null);
 	const [confirmationOpen, setConfirmationOpen] = useState(false);
 	const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
@@ -185,14 +189,23 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const [scheduleConfirmationOpen, setScheduleConfirmationOpen] = useState(false);
 	const [scheduleToConfirm, setScheduleToConfirm] = useState(null);
 
-	useEffect(() => {
-		if (contactId && contacts.length) {
-			const contact = contacts.find(c => c.id === contactId);
-			if (contact) {
-				setCurrentContact(contact);
-			}
-		}
-	}, [contactId, contacts]);
+        useEffect(() => {
+                if (contactId && contacts.length) {
+                        const contact = contacts.find(c => c.id === contactId);
+                        if (contact) {
+                                setCurrentContact(contact);
+                        }
+                }
+        }, [contactId, contacts]);
+
+        useEffect(() => {
+                if (schedule.fileListId && fileLists.length) {
+                        const file = fileLists.find(f => f.id === schedule.fileListId);
+                        if (file) {
+                                setCurrentFileList(file);
+                        }
+                }
+        }, [schedule.fileListId, fileLists]);
 
 	useEffect(() => {
 		const { companyId } = user;
@@ -216,6 +229,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                         const { data: whatsappList } = await api.get('/whatsapp', { params: { companyId: companyId } });
                                         if (isArray(whatsappList)) {
                                                 setWhatsapps(whatsappList);
+                                        }
+
+                                        // Cargar listas de archivos
+                                        const { data: filesData } = await api.get('/files/', { params: { companyId } });
+                                        if (isArray(filesData.files)) {
+                                                setFileLists(filesData.files);
                                         }
 					
 					if (contactId) {
@@ -288,14 +307,15 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 		}
 	}, [open, scheduleId, contactId, ticketId, user]); // ✅ SOLO DEPENDENCIAS ESENCIALES
 
-	const handleClose = () => {
-		onClose();
-		setAttachment(null);
-		setSchedule(initialState);
-		// ✅ LIMPIAR ESTADOS DE CONFIRMACIÓN
-		setScheduleConfirmationOpen(false);
-		setScheduleToConfirm(null);
-	};
+        const handleClose = () => {
+                onClose();
+                setAttachment(null);
+                setSchedule(initialState);
+                setCurrentFileList(null);
+                // ✅ LIMPIAR ESTADOS DE CONFIRMACIÓN
+                setScheduleConfirmationOpen(false);
+                setScheduleToConfirm(null);
+        };
 
 	const handleAttachmentFile = (e) => {
 		const file = head(e.target.files);
@@ -352,7 +372,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                 intervalUnit: values.intervalUnit,
                                 intervalValue: values.intervalValue,
                                 repeatCount: values.repeatCount,
-                                useReminderSystem: values.useReminderSystem
+                                useReminderSystem: values.useReminderSystem,
+                                fileListId: values.fileListId
                         };
 
 			// ✅ PREPARAR DATOS PARA CONFIRMACIÓN
@@ -511,12 +532,12 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					{schedule.status === 'ERRO' ? 'Error de Envío' : `Mensaje ${capitalize(schedule.status)}`}
 				</DialogTitle>
 				<div style={{ display: "none" }}>
-					<input
-						type="file"
-						accept=".png,.jpg,.jpeg"
-						ref={attachmentFile}
-						onChange={(e) => handleAttachmentFile(e)}
-					/>
+                                        <input
+                                                type="file"
+                                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                                                ref={attachmentFile}
+                                                onChange={(e) => handleAttachmentFile(e)}
+                                        />
 				</div>
 				<Formik
 					initialValues={schedule}
@@ -620,11 +641,45 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 />
                                                                         </FormControl>
                                                                 </div>
-								<br />
-								<div className={classes.multFieldLine}>
-									<FormControl
-										variant="outlined"
-										fullWidth
+                                                                <br />
+                                                                <div className={classes.multFieldLine}>
+                                                                        <FormControl
+                                                                                variant="outlined"
+                                                                                fullWidth
+                                                                        >
+                                                                                <Autocomplete
+                                                                                        fullWidth
+                                                                                        value={currentFileList || null}
+                                                                                        options={fileLists}
+                                                                                        onChange={(e, file) => {
+                                                                                                const listId = file ? Number(file.id) : null;
+                                                                                                setFieldValue("fileListId", listId);
+                                                                                                setSchedule({ ...schedule, fileListId: listId });
+                                                                                                setCurrentFileList(file || null);
+                                                                                        }}
+                                                                                        getOptionLabel={(option) => {
+                                                                                                if (!option) return "";
+                                                                                                return option.name || "";
+                                                                                        }}
+                                                                                        getOptionSelected={(option, value) => {
+                                                                                                if (!option || !value) return false;
+                                                                                                return value.id === option.id;
+                                                                                        }}
+                                                                                        renderInput={(params) => (
+                                                                                                <TextField
+                                                                                                        {...params}
+                                                                                                        variant="outlined"
+                                                                                                        placeholder={i18n.t("scheduleModal.form.fileList")}
+                                                                                                />
+                                                                                        )}
+                                                                                />
+                                                                        </FormControl>
+                                                                </div>
+                                                                <br />
+                                                                <div className={classes.multFieldLine}>
+                                                                        <FormControl
+                                                                                variant="outlined"
+                                                                                fullWidth
 									>
 										<Autocomplete
 											fullWidth

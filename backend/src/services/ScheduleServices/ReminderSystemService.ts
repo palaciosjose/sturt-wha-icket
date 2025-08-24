@@ -19,6 +19,7 @@ interface CreateReminderSystemRequest {
   userId: number;
   whatsappId?: number; // Nueva opción para especificar WhatsApp
   contactListId?: number;
+  fileListId?: number;
 }
 
 const CreateReminderSystemService = async ({
@@ -28,7 +29,8 @@ const CreateReminderSystemService = async ({
   companyId,
   userId,
   whatsappId,
-  contactListId
+  contactListId,
+  fileListId
 }: CreateReminderSystemRequest): Promise<Schedule> => {
   
   const contact = await Contact.findByPk(contactId);
@@ -52,6 +54,7 @@ const CreateReminderSystemService = async ({
     userId,
     whatsappId,
     contactListId,
+    fileListId,
     status: 'PENDENTE',
     isReminderSystem: true,
     reminderType: 'start',
@@ -161,6 +164,7 @@ const CreateReminderSystemService = async ({
       userId,
       whatsappId,
       contactListId,
+      fileListId,
       status: 'PENDENTE',
       isReminderSystem: true,
       reminderType: 'reminder',

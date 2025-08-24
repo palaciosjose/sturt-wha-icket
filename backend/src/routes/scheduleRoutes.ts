@@ -11,9 +11,9 @@ const scheduleRoutes = express.Router();
 
 scheduleRoutes.get("/schedules", isAuth, ScheduleController.index);
 
-scheduleRoutes.post("/schedules", isAuth, ScheduleController.store);
+scheduleRoutes.post("/schedules", isAuth, upload.array("files"), ScheduleController.store);
 
-scheduleRoutes.put("/schedules/:scheduleId", isAuth, ScheduleController.update);
+scheduleRoutes.put("/schedules/:scheduleId", isAuth, upload.array("files"), ScheduleController.update);
 
 scheduleRoutes.get("/schedules/:scheduleId", isAuth, ScheduleController.show);
 

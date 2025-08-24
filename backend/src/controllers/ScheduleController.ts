@@ -22,6 +22,8 @@ import path from "path";
 import fs from "fs";
 import { head } from "lodash";
 import moment from "moment";
+import Files from "../models/Files";
+import FilesOptions from "../models/FilesOptions";
 
 type IndexQuery = {
   searchParam?: string;
@@ -57,9 +59,29 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     ticketId, // Nuevo parámetro para obtener WhatsApp específico del ticket
     intervalUnit,
     intervalValue,
-    repeatCount
+    repeatCount,
+    fileListId
   } = req.body;
   const { companyId } = req.user;
+  const uploadedFiles = req.files as Express.Multer.File[];
+
+  let finalFileListId: number | undefined = fileListId;
+  if (uploadedFiles && uploadedFiles.length) {
+    const newFileList = await Files.create({
+      companyId,
+      name: `schedule-${Date.now()}`,
+      message: ""
+    });
+    for (const file of uploadedFiles) {
+      await FilesOptions.create({
+        fileId: newFileList.id,
+        name: file.originalname,
+        path: file.filename,
+        mediaType: file.mimetype
+      });
+    }
+    finalFileListId = newFileList.id;
+  }
 
   // Buscar el ticket para obtener su whatsappId si no se proporciona explícitamente
   let finalWhatsappId: number | undefined = whatsappId;
@@ -100,7 +122,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           companyId,
           userId,
           whatsappId: finalWhatsappId,
-          contactListId
+          contactListId,
+          fileListId: finalFileListId
         });
       } else {
         schedule = await CreateService({
@@ -114,7 +137,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           intervalUnit,
           intervalValue,
           repeatCount,
-          useReminderSystem
+          useReminderSystem,
+          fileListId: finalFileListId
         });
 
         if (repeatCount && intervalUnit && intervalValue) {
@@ -132,7 +156,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
               intervalUnit,
               intervalValue,
               repeatCount: 0,
-              useReminderSystem: false
+              useReminderSystem: false,
+              fileListId: finalFileListId
             });
           }
         }
@@ -158,7 +183,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       contactId,
       companyId,
       userId,
-      whatsappId: finalWhatsappId
+      whatsappId: finalWhatsappId,
+      fileListId: finalFileListId
     });
   } else {
     schedule = await CreateService({
@@ -171,7 +197,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       intervalUnit,
       intervalValue,
       repeatCount,
-      useReminderSystem
+      useReminderSystem,
+      fileListId: finalFileListId
     });
 
     if (repeatCount && intervalUnit && intervalValue) {
@@ -188,7 +215,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
           intervalUnit,
           intervalValue,
           repeatCount: 0,
-          useReminderSystem: false
+          useReminderSystem: false,
+          fileListId: finalFileListId
         });
       }
     }
@@ -229,6 +257,26 @@ export const update = async (
   const { scheduleId } = req.params;
   const scheduleData = req.body;
   const { companyId, id: userId } = req.user;
+  const uploadedFiles = req.files as Express.Multer.File[];
+
+  let finalFileListId = scheduleData.fileListId;
+  if (uploadedFiles && uploadedFiles.length) {
+    const newFileList = await Files.create({
+      companyId,
+      name: `schedule-${Date.now()}`,
+      message: ""
+    });
+    for (const file of uploadedFiles) {
+      await FilesOptions.create({
+        fileId: newFileList.id,
+        name: file.originalname,
+        path: file.filename,
+        mediaType: file.mimetype
+      });
+    }
+    finalFileListId = newFileList.id;
+    scheduleData.fileListId = finalFileListId;
+  }
   
   console.log("🔍 [DEBUG] scheduleId:", scheduleId);
   console.log("🔍 [DEBUG] scheduleData:", scheduleData);
@@ -297,17 +345,40 @@ export const mediaUpload = async (
 ): Promise<Response> => {
   const { id } = req.params;
   const files = req.files as Express.Multer.File[];
-  const file = head(files);
 
   try {
     const schedule = await Schedule.findByPk(id);
-    schedule.mediaPath = file.filename;
-    schedule.mediaName = file.originalname;
+    let fileListId = schedule.fileListId;
+
+    if (!fileListId) {
+      const newFileList = await Files.create({
+        companyId: schedule.companyId,
+        name: `schedule-${id}`,
+        message: ""
+      });
+      fileListId = newFileList.id;
+      schedule.fileListId = fileListId;
+    }
+
+    for (const f of files) {
+      await FilesOptions.create({
+        fileId: fileListId,
+        name: f.originalname,
+        path: f.filename,
+        mediaType: f.mimetype
+      });
+    }
+
+    const first = head(files);
+    if (first) {
+      schedule.mediaPath = first.filename;
+      schedule.mediaName = first.originalname;
+    }
 
     await schedule.save();
-    return res.send({ mensagem: "Arquivo Anexado" });
-    } catch (err: any) {
-      throw new AppError(err.message);
+    return res.send({ mensagem: "Arquivos Anexados" });
+  } catch (err: any) {
+    throw new AppError(err.message);
   }
 };
 

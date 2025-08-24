@@ -351,6 +351,7 @@ const messages = {
           intervalUnit: "Unidade",
           intervalValue: "Valor",
           repeatCount: "Repetições",
+          fileList: "Lista de Arquivos",
           useReminderSystem: "Tipo",
           useReminderSystemOptions: {
             reminder: "Compromisso",
