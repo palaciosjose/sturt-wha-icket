@@ -90,7 +90,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       whatsappId: finalWhatsappId,
       intervalUnit,
       intervalValue,
-      repeatCount
+      repeatCount,
+      useReminderSystem
     });
   }
 
@@ -107,7 +108,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
         whatsappId: finalWhatsappId,
         intervalUnit,
         intervalValue,
-        repeatCount: 0
+        repeatCount: 0,
+        useReminderSystem: false
       });
     }
   }

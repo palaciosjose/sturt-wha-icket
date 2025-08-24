@@ -185,11 +185,42 @@ const messages = {
 					okEdit: "Save",
 					cancel: "Cancel",
 				},
-				success: "User saved successfully.",
-			},
-			chat: {
-				noTicketMessage: "Select a ticket to start chatting.",
-			},
+                                success: "User saved successfully.",
+                        },
+                        scheduleModal: {
+                                title: {
+                                        add: "New Schedule",
+                                        edit: "Edit Schedule",
+                                },
+                                form: {
+                                        body: "Message",
+                                        contact: "Contact",
+                                        sendAt: "Schedule Date",
+                                        sentAt: "Sent Date",
+                                        intervalUnit: "Unit",
+                                        intervalValue: "Value",
+                                        repeatCount: "Repetitions",
+                                        useReminderSystem: "Type",
+                                        useReminderSystemOptions: {
+                                                reminder: "Appointment",
+                                                recurring: "Recurring message"
+                                        },
+                                        intervalUnitOptions: {
+                                                days: "Days",
+                                                weeks: "Weeks",
+                                                months: "Months"
+                                        }
+                                },
+                                buttons: {
+                                        okAdd: "Add",
+                                        okEdit: "Save",
+                                        cancel: "Cancel",
+                                },
+                                success: "Schedule saved successfully.",
+                        },
+                        chat: {
+                                noTicketMessage: "Select a ticket to start chatting.",
+                        },
 			ticketsManager: {
 				buttons: {
 					newTicket: "New",

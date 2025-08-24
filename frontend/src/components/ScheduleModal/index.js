@@ -160,7 +160,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                 sentAt: "",
                 intervalUnit: "days",
                 intervalValue: 1,
-                repeatCount: 0
+                repeatCount: 0,
+                useReminderSystem: true
         };
 
 	const [schedule, setSchedule] = useState(initialState);
@@ -236,9 +237,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					if (!scheduleId) return;
 
 					const { data } = await api.get(`/schedules/${scheduleId}`);
-					setSchedule(prevState => {
-						return { ...prevState, ...data, sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm') };
-					});
+                                        setSchedule(prevState => {
+                                                return {
+                                                        ...prevState,
+                                                        ...data,
+                                                        sendAt: moment(data.sendAt).format('YYYY-MM-DDTHH:mm'),
+                                                        useReminderSystem: data.isReminderSystem
+                                                };
+                                        });
 					setCurrentContact(data.contact);
 					
 					// ✅ CORREGIR: Establecer la conexión WhatsApp DESPUÉS de cargar whatsapps
@@ -329,7 +335,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                 sentAt: null,
                                 intervalUnit: values.intervalUnit,
                                 intervalValue: values.intervalValue,
-                                repeatCount: values.repeatCount
+                                repeatCount: values.repeatCount,
+                                useReminderSystem: values.useReminderSystem
                         };
 
 			// ✅ PREPARAR DATOS PARA CONFIRMACIÓN
@@ -624,6 +631,25 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 variant="outlined"
                                                                                 fullWidth
                                                                         />
+                                                                </div>
+
+                                                                <br />
+                                                                <div className={classes.multFieldLine}>
+                                                                        <Field
+                                                                                as={TextField}
+                                                                                select
+                                                                                label={i18n.t("scheduleModal.form.useReminderSystem")}
+                                                                                name="useReminderSystem"
+                                                                                variant="outlined"
+                                                                                margin="dense"
+                                                                                SelectProps={{ native: true }}
+                                                                                fullWidth
+                                                                                value={values.useReminderSystem ? "true" : "false"}
+                                                                                onChange={e => setFieldValue("useReminderSystem", e.target.value === "true")}
+                                                                        >
+                                                                                <option value="true">{i18n.t("scheduleModal.form.useReminderSystemOptions.reminder")}</option>
+                                                                                <option value="false">{i18n.t("scheduleModal.form.useReminderSystemOptions.recurring")}</option>
+                                                                        </Field>
                                                                 </div>
 
                                                                 <br />

@@ -89,7 +89,7 @@ class Schedule extends Model<Schedule> {
   @Column(DataType.STRING)
   parentScheduleId: string; // ID del agendamiento principal
 
-  @Column(DataType.BOOLEAN)
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   isReminderSystem: boolean; // Indica si es parte del sistema de recordatorios
 
   @Column(DataType.STRING)

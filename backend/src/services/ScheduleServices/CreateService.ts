@@ -14,6 +14,7 @@ interface Request {
   intervalUnit?: string;
   intervalValue?: number;
   repeatCount?: number;
+  useReminderSystem?: boolean;
 }
 
 // ✅ FUNCIONES DE VALIDACIÓN PARA EL BACKEND
@@ -88,7 +89,8 @@ const CreateService = async ({
   whatsappId,
   intervalUnit,
   intervalValue,
-  repeatCount
+  repeatCount,
+  useReminderSystem
 }: Request): Promise<Schedule> => {
   const schema = Yup.object().shape({
     body: Yup.string().required().min(5),
@@ -116,7 +118,8 @@ const CreateService = async ({
       status: 'PENDENTE',
       intervalUnit,
       intervalValue,
-      repeatCount
+      repeatCount,
+      isReminderSystem: false
     }
   );
 
