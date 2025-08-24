@@ -879,6 +879,7 @@ const messages = {
         },
         buttons: {
           add: "Novo Agendamento",
+          delete: "Excluir agendamento",
         },
         toasts: {
           deleted: "Agendamento excluído com sucesso.",

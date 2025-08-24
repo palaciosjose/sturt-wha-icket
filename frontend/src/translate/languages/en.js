@@ -219,6 +219,19 @@ const messages = {
                                 },
                                 success: "Schedule saved successfully.",
                         },
+                        schedules: {
+                                confirmationModal: {
+                                        deleteTitle: "Delete schedule",
+                                        deleteMessage:
+                                                "Are you sure? This action cannot be reverted.",
+                                },
+                                buttons: {
+                                        delete: "Delete schedule",
+                                },
+                                toasts: {
+                                        deleted: "Schedule deleted successfully.",
+                                },
+                        },
                         chat: {
                                 noTicketMessage: "Select a ticket to start chatting.",
                         },
