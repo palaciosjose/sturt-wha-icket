@@ -360,6 +360,16 @@ const messages = {
             days: "Dias",
             weeks: "Semanas",
             months: "Meses"
+          },
+          helperText: {
+            useReminderSystem:
+              "Selecione lembrete único ou mensagem recorrente.",
+            intervalUnit:
+              "Define a unidade de tempo entre repetições.",
+            intervalValue:
+              "Valor do intervalo conforme a unidade escolhida.",
+            repeatCount:
+              "Número total de vezes que a mensagem será enviada."
           }
         },
         buttons: {

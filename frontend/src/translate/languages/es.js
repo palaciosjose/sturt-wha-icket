@@ -556,6 +556,16 @@ const messages = {
             days: "Días",
             weeks: "Semanas",
             months: "Meses"
+          },
+          helperText: {
+            useReminderSystem:
+              "Selecciona un recordatorio único o un mensaje recurrente.",
+            intervalUnit:
+              "Define la unidad de tiempo entre repeticiones.",
+            intervalValue:
+              "Valor del intervalo según la unidad seleccionada.",
+            repeatCount:
+              "Número total de veces que se enviará el mensaje."
           }
         },
         buttons: {
