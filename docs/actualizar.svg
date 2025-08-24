@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+  <rect width="400" height="200" fill="#f0ffe6"/>
+  <rect width="400" height="40" fill="#a5dc96"/>
+  <rect x="60" y="60" width="280" height="100" fill="#ffffff" stroke="#a5dc96"/>
+  <text x="70" y="85" font-family="Arial" font-size="14" fill="#000">Opciones de actualización</text>
+  <line x1="80" y1="100" x2="320" y2="100" stroke="#a5dc96"/>
+  <line x1="80" y1="120" x2="320" y2="120" stroke="#a5dc96"/>
+  <line x1="80" y1="140" x2="320" y2="140" stroke="#a5dc96"/>
+</svg>

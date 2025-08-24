@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+  <rect width="400" height="200" fill="#ffe6f0"/>
+  <rect width="400" height="40" fill="#dc96a5"/>
+  <rect x="60" y="60" width="280" height="100" fill="#ffffff" stroke="#dc96a5"/>
+  <circle cx="100" cy="110" r="20" fill="#ccc"/>
+  <rect x="150" y="90" width="150" height="40" fill="#f5f5f5" stroke="#ccc"/>
+  <text x="160" y="115" font-family="Arial" font-size="14" fill="#000">Adjuntos</text>
+</svg>

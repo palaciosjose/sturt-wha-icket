@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+  <rect width="400" height="200" fill="#e6f0ff"/>
+  <rect width="400" height="40" fill="#96b4dc"/>
+  <rect x="60" y="60" width="280" height="100" fill="#ffffff" stroke="#96b4dc"/>
+  <text x="70" y="85" font-family="Arial" font-size="14" fill="#000">Ejemplo de programación</text>
+</svg>
