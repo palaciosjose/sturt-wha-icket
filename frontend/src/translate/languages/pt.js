@@ -994,13 +994,27 @@ const messages = {
       messageOptionsMenu: {
         delete: "Deletar",
         reply: "Responder",
-		edit: 'Editar Mensagem',
-		forward: "Encaminhar",
+                edit: 'Editar Mensagem',
+                forward: "Encaminhar",
         toForward: "Encaminhar",
-		react: "Reagir",
+                react: "Reagir",
         confirmationModal: {
           title: "Apagar mensagem?",
           message: "Esta ação não pode ser revertida.",
+        },
+      },
+      updateVersion: {
+        buttons: {
+          basicUpdate: "Atualização Básica",
+          fullUpdate: "Atualização Completa",
+        },
+        tooltips: {
+          basic: "Atualiza apenas o código fonte.",
+          full: "Atualiza código, dependências, banco de dados e recompila tudo.",
+        },
+        help: {
+          basic: "Não reinicia os serviços.",
+          full: "Reinicia os serviços automaticamente.",
         },
       },
       backendErrors: {

@@ -10,7 +10,8 @@ import {
   Box,
   Paper,
   LinearProgress,
-  Divider
+  Divider,
+  Tooltip
 } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import { i18n } from "../../translate/i18n";
@@ -551,22 +552,42 @@ const UpdateVersionModal = ({ open, onClose }) => {
               </Paper>
               
               <Box style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handlePerformUpdate('basic')}
-                  className={classes.updateButton}
-                >
-                  <span role="img" aria-label="update">🚀</span> Actualización Básica
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={() => handlePerformUpdate('full')}
-                  className={classes.updateButton}
-                >
-                  <span role="img" aria-label="update">⚡</span> Actualización Completa
-                </Button>
+                <Box display="flex" flexDirection="column" alignItems="center">
+                  <Tooltip title={i18n.t("updateVersion.tooltips.basic")}
+                    aria-label="basic-update">
+                    <span>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handlePerformUpdate('basic')}
+                        className={classes.updateButton}
+                      >
+                        <span role="img" aria-label="update">🚀</span> {i18n.t("updateVersion.buttons.basicUpdate")}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Typography variant="caption" color="textSecondary">
+                    {i18n.t("updateVersion.help.basic")}
+                  </Typography>
+                </Box>
+                <Box display="flex" flexDirection="column" alignItems="center">
+                  <Tooltip title={i18n.t("updateVersion.tooltips.full")}
+                    aria-label="full-update">
+                    <span>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={() => handlePerformUpdate('full')}
+                        className={classes.updateButton}
+                      >
+                        <span role="img" aria-label="update">⚡</span> {i18n.t("updateVersion.buttons.fullUpdate")}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Typography variant="caption" color="textSecondary">
+                    {i18n.t("updateVersion.help.full")}
+                  </Typography>
+                </Box>
               </Box>
               
 

@@ -1516,6 +1516,14 @@ const messages = {
           stepsCompleted: "Pasos completados:",
           processMayTakeMinutes: "Este proceso puede tomar varios minutos...",
         },
+        tooltips: {
+          basic: "Actualiza solo el código fuente",
+          full: "Actualiza código, dependencias, base de datos y recompila todo",
+        },
+        help: {
+          basic: "No reinicia servicios",
+          full: "Reinicia servicios automáticamente",
+        },
         errors: {
           noUpdates: "No hay actualizaciones disponibles",
           updateFailed: "Error durante la actualización",

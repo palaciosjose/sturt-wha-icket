@@ -392,19 +392,33 @@ const messages = {
 					cancel: "Cancel",
 				},
 			},
-			messageOptionsMenu: {
-				delete: "Delete",
-				reply: "Reply",
-				confirmationModal: {
-					title: "Delete message?",
-					message: "This action cannot be reverted.",
-				},
-			},
-			backendErrors: {
-				ERR_NO_OTHER_WHATSAPP:
-					"There must be at lest one default WhatsApp connection.",
-				ERR_NO_DEF_WAPP_FOUND:
-					"No default WhatsApp found. Check connections page.",
+                        messageOptionsMenu: {
+                                delete: "Delete",
+                                reply: "Reply",
+                                confirmationModal: {
+                                        title: "Delete message?",
+                                        message: "This action cannot be reverted.",
+                                },
+                        },
+                        updateVersion: {
+                                buttons: {
+                                        basicUpdate: "Basic Update",
+                                        fullUpdate: "Full Update",
+                                },
+                                tooltips: {
+                                        basic: "Updates only the source code.",
+                                        full: "Updates code, dependencies, database and rebuilds everything.",
+                                },
+                                help: {
+                                        basic: "Does not restart services.",
+                                        full: "Restarts services automatically.",
+                                },
+                        },
+                        backendErrors: {
+                                ERR_NO_OTHER_WHATSAPP:
+                                        "There must be at lest one default WhatsApp connection.",
+                                ERR_NO_DEF_WAPP_FOUND:
+                                        "No default WhatsApp found. Check connections page.",
 				ERR_WAPP_NOT_INITIALIZED:
 					"This WhatsApp session is not initialized. Check connections page.",
 				ERR_WAPP_CHECK_CONTACT:
