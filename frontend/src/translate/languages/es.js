@@ -504,6 +504,7 @@ const messages = {
           },
           buttons: {
             add: "Nuevo Agendamiento",
+            delete: "Eliminar agendamiento",
           },
           toasts: {
             deleted: "Agendamiento eliminado con éxito.",

@@ -213,31 +213,13 @@ const Schedules = () => {
     setScheduleModalOpen(true);
   };
 
-  const handleDeleteSchedule = async (scheduleId) => {
+  const handleRemoveSchedule = async (scheduleId) => {
     try {
-      // Buscar el schedule para verificar su estado
-      const schedule = schedules.find(s => s.id === scheduleId);
-      
-      if (schedule && schedule.isReminderSystem) {
-        // Si es del sistema de recordatorios, usar la lógica de cancelar
-        await api.post(`/schedules/${scheduleId}/cancel-reminder`);
-        toast.success("Reunión cancelada exitosamente");
-      } else {
-        // Cancelar agendamiento normal (sin eliminar)
-        await api.post(`/schedules/${scheduleId}/cancel`);
-        toast.success("Agendamiento cancelado exitosamente");
-      }
-      
+      await api.delete(`/schedules/${scheduleId}`);
+      dispatch({ type: "DELETE_SCHEDULE", payload: scheduleId });
+      toast.success(i18n.t("schedules.toasts.deleted"));
       setDeletingSchedule(null);
-      setSearchParam("");
-      setPageNumber(1);
-
-      dispatch({ type: "RESET" });
-      setPageNumber(1);
-      await fetchSchedules();
-      
-      // Forzar actualización de página para eliminar residuos
-      window.location.reload();
+      setConfirmModalOpen(false);
     } catch (err) {
       toastError(err);
     }
@@ -281,20 +263,12 @@ const Schedules = () => {
   return (
     <MainContainer>
       <ConfirmationModal
-        title={
-          deletingSchedule &&
-          (deletingSchedule.isReminderSystem 
-            ? "¿Cancelar reunión?" 
-            : "¿Cancelar agendamiento?")
-        }
+        title={i18n.t("schedules.confirmationModal.deleteTitle")}
         open={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
-        onConfirm={() => handleDeleteSchedule(deletingSchedule.id)}
+        onConfirm={() => handleRemoveSchedule(deletingSchedule.id)}
       >
-        {deletingSchedule && deletingSchedule.isReminderSystem 
-          ? "¿Estás seguro de que deseas cancelar esta reunión? Se eliminarán todos los recordatorios asociados."
-          : "¿Estás seguro de que deseas cancelar este agendamiento? Se enviará un mensaje de cancelación al contacto."
-        }
+        {i18n.t("schedules.confirmationModal.deleteMessage")}
       </ConfirmationModal>
       <ScheduleModal
         open={scheduleModalOpen}
@@ -357,10 +331,7 @@ const Schedules = () => {
                     setConfirmModalOpen(true);
                   }}
                   className="delete-icon"
-                  style={{ 
-                    opacity: (schedule.sentAt || new Date(schedule.sendAt) < new Date()) ? 0.3 : 1,
-                    cursor: (schedule.sentAt || new Date(schedule.sendAt) < new Date()) ? 'not-allowed' : 'pointer'
-                  }}
+                  title={i18n.t("schedules.buttons.delete")}
                 />
                 <EditIcon
                   onClick={() => {
@@ -456,9 +427,8 @@ const Schedules = () => {
                           setDeletingSchedule(schedule);
                           setConfirmModalOpen(true);
                         }}
-                        disabled={Boolean(schedule.sentAt || scheduleDate < new Date() || schedule.status === "CANCELADO")}
                         size="small"
-                        title={schedule.status === "CANCELADO" ? "Ya cancelado" : "Cancelar agendamiento"}
+                        title={i18n.t("schedules.buttons.delete")}
                       >
                         <DeleteOutlineIcon />
                       </IconButton>
