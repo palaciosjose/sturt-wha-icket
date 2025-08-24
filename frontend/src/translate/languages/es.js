@@ -547,6 +547,11 @@ const messages = {
           intervalUnit: "Unidad",
           intervalValue: "Valor",
           repeatCount: "Repeticiones",
+          useReminderSystem: "Tipo",
+          useReminderSystemOptions: {
+            reminder: "Cita",
+            recurring: "Mensaje recurrente"
+          },
           intervalUnitOptions: {
             days: "Días",
             weeks: "Semanas",
