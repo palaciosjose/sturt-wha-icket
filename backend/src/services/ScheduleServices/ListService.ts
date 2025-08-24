@@ -3,6 +3,7 @@ import Contact from "../../models/Contact";
 import Schedule from "../../models/Schedule";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
+import ContactList from "../../models/ContactList";
 
 interface Request {
   searchParam?: string;
@@ -86,6 +87,7 @@ const ListService = async ({
       { model: Contact, as: "contact", attributes: ["id", "name"] },
       { model: User, as: "user", attributes: ["id", "name"] },
       { model: Whatsapp, as: "whatsapp", attributes: ["id", "name"] },
+      { model: ContactList, as: "contactList", attributes: ["id", "name"] }
     ]
   });
 

@@ -6,6 +6,9 @@ import AppError from "../errors/AppError";
 
 import CreateService from "../services/ScheduleServices/CreateService";
 import { CreateReminderSystemService } from "../services/ScheduleServices/ReminderSystemService";
+import ContactList from "../models/ContactList";
+import ContactListItem from "../models/ContactListItem";
+import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
 import { CancelReminderSystemService } from "../services/ScheduleServices/CancelReminderSystemService";
 import { RescheduleReminderSystemService } from "../services/ScheduleServices/RescheduleReminderSystemService";
 import { CancelScheduleService } from "../services/ScheduleServices/CancelScheduleService";
@@ -47,6 +50,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     body,
     sendAt,
     contactId,
+    contactListId,
     userId,
     whatsappId, // Nuevo parámetro para especificar WhatsApp
     useReminderSystem = true, // Nuevo parámetro para activar el sistema de recordatorios
@@ -67,10 +71,87 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     }
   }
 
+  if (contactListId) {
+    const list = await ContactList.findByPk(contactListId, {
+      include: [{ model: ContactListItem, as: "contacts" }]
+    });
+    if (!list) {
+      throw new AppError("ERR_NO_CONTACTLIST_FOUND");
+    }
+
+    const createdSchedules: Schedule[] = [];
+
+    for (const item of list.contacts) {
+      const contact = await CreateOrUpdateContactService({
+        name: item.name,
+        number: item.number,
+        email: item.email,
+        isGroup: false,
+        companyId,
+        whatsappId: finalWhatsappId
+      });
+
+      let schedule;
+      if (useReminderSystem) {
+        schedule = await CreateReminderSystemService({
+          body,
+          sendAt,
+          contactId: contact.id,
+          companyId,
+          userId,
+          whatsappId: finalWhatsappId,
+          contactListId
+        });
+      } else {
+        schedule = await CreateService({
+          body,
+          sendAt,
+          contactId: contact.id,
+          contactListId,
+          companyId,
+          userId,
+          whatsappId: finalWhatsappId,
+          intervalUnit,
+          intervalValue,
+          repeatCount,
+          useReminderSystem
+        });
+
+        if (repeatCount && intervalUnit && intervalValue) {
+          const baseDate = moment(sendAt);
+          for (let i = 1; i <= repeatCount; i++) {
+            const nextSendAt = baseDate.clone().add(intervalValue * i, intervalUnit).toDate();
+            await CreateService({
+              body,
+              sendAt: nextSendAt.toISOString(),
+              contactId: contact.id,
+              contactListId,
+              companyId,
+              userId,
+              whatsappId: finalWhatsappId,
+              intervalUnit,
+              intervalValue,
+              repeatCount: 0,
+              useReminderSystem: false
+            });
+          }
+        }
+      }
+
+      createdSchedules.push(schedule);
+      const io = getIO();
+      io.to(`company-${companyId}-mainchannel`).emit("schedule", {
+        action: "create",
+        schedule
+      });
+    }
+
+    return res.status(200).json(createdSchedules);
+  }
+
   let schedule;
 
   if (useReminderSystem) {
-    // Usar el nuevo sistema de recordatorios
     schedule = await CreateReminderSystemService({
       body,
       sendAt,
@@ -80,7 +161,6 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       whatsappId: finalWhatsappId
     });
   } else {
-    // Usar el sistema original
     schedule = await CreateService({
       body,
       sendAt,
@@ -93,24 +173,24 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       repeatCount,
       useReminderSystem
     });
-  }
 
-  if (repeatCount && intervalUnit && intervalValue) {
-    const baseDate = moment(sendAt);
-    for (let i = 1; i <= repeatCount; i++) {
-      const nextSendAt = baseDate.clone().add(intervalValue * i, intervalUnit).toDate();
-      await CreateService({
-        body,
-        sendAt: nextSendAt.toISOString(),
-        contactId,
-        companyId,
-        userId,
-        whatsappId: finalWhatsappId,
-        intervalUnit,
-        intervalValue,
-        repeatCount: 0,
-        useReminderSystem: false
-      });
+    if (repeatCount && intervalUnit && intervalValue) {
+      const baseDate = moment(sendAt);
+      for (let i = 1; i <= repeatCount; i++) {
+        const nextSendAt = baseDate.clone().add(intervalValue * i, intervalUnit).toDate();
+        await CreateService({
+          body,
+          sendAt: nextSendAt.toISOString(),
+          contactId,
+          companyId,
+          userId,
+          whatsappId: finalWhatsappId,
+          intervalUnit,
+          intervalValue,
+          repeatCount: 0,
+          useReminderSystem: false
+        });
+      }
     }
   }
 

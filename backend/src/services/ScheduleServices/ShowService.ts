@@ -2,12 +2,14 @@ import Schedule from "../../models/Schedule";
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import User from "../../models/User";
+import ContactList from "../../models/ContactList";
 
 const ScheduleService = async (id: string | number, companyId: number): Promise<Schedule> => {
   const schedule = await Schedule.findByPk(id, {
     include: [
       { model: Contact, as: "contact", attributes: ["id", "name"] },
       { model: User, as: "user", attributes: ["id", "name"] },
+      { model: ContactList, as: "contactList", attributes: ["id", "name"] }
     ]
   });
 
