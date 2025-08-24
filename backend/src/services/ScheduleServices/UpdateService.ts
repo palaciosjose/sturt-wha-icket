@@ -15,6 +15,9 @@ interface ScheduleData {
   ticketId?: number;
   userId?: number;
   whatsappId?: number;
+  intervalUnit?: string;
+  intervalValue?: number;
+  repeatCount?: number;
 }
 
 interface Request {
@@ -116,6 +119,9 @@ const UpdateUserService = async ({
     ticketId,
     userId,
     whatsappId,
+    intervalUnit,
+    intervalValue,
+    repeatCount,
   } = scheduleData;
 
   console.log("🔍 [DEBUG] Validando schema...");
@@ -144,6 +150,9 @@ const UpdateUserService = async ({
     ticketId,
     userId,
     whatsappId,
+    intervalUnit,
+    intervalValue,
+    repeatCount,
   });
 
   console.log("🔍 [DEBUG] Recargando schedule...");

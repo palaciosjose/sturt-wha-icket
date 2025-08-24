@@ -18,6 +18,7 @@ import Ticket from "../models/Ticket";
 import path from "path";
 import fs from "fs";
 import { head } from "lodash";
+import moment from "moment";
 
 type IndexQuery = {
   searchParam?: string;
@@ -49,7 +50,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     userId,
     whatsappId, // Nuevo parámetro para especificar WhatsApp
     useReminderSystem = true, // Nuevo parámetro para activar el sistema de recordatorios
-    ticketId // Nuevo parámetro para obtener WhatsApp específico del ticket
+    ticketId, // Nuevo parámetro para obtener WhatsApp específico del ticket
+    intervalUnit,
+    intervalValue,
+    repeatCount
   } = req.body;
   const { companyId } = req.user;
 
@@ -82,8 +86,30 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       sendAt,
       contactId,
       companyId,
-      userId
+      userId,
+      whatsappId: finalWhatsappId,
+      intervalUnit,
+      intervalValue,
+      repeatCount
     });
+  }
+
+  if (repeatCount && intervalUnit && intervalValue) {
+    const baseDate = moment(sendAt);
+    for (let i = 1; i <= repeatCount; i++) {
+      const nextSendAt = baseDate.clone().add(intervalValue * i, intervalUnit).toDate();
+      await CreateService({
+        body,
+        sendAt: nextSendAt.toISOString(),
+        contactId,
+        companyId,
+        userId,
+        whatsappId: finalWhatsappId,
+        intervalUnit,
+        intervalValue,
+        repeatCount: 0
+      });
+    }
   }
 
   const io = getIO();

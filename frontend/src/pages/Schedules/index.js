@@ -390,6 +390,7 @@ const Schedules = () => {
                 <TableCell align="center">Contacto</TableCell>
                 <TableCell align="center">Conexión</TableCell>
                 <TableCell align="center">Mensaje</TableCell>
+                <TableCell align="center">Recurrencia</TableCell>
                 <TableCell align="center">Estado</TableCell>
                 <TableCell align="center">Acciones</TableCell>
               </TableRow>
@@ -416,16 +417,19 @@ const Schedules = () => {
                     <TableCell align="center">
                       {schedule.contact?.name || 'N/A'}
                     </TableCell>
-                    <TableCell align="center">
-                      {schedule.whatsapp?.name || 'N/A'}
-                    </TableCell>
-                    <TableCell align="center">
-                      {truncate(schedule.body, 50)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <span style={{ 
-                        color: status.color, 
-                        fontWeight: 'bold',
+                <TableCell align="center">
+                  {schedule.whatsapp?.name || 'N/A'}
+                </TableCell>
+                <TableCell align="center">
+                  {truncate(schedule.body, 50)}
+                </TableCell>
+                <TableCell align="center">
+                  {schedule.repeatCount ? `${schedule.repeatCount}x cada ${schedule.intervalValue} ${schedule.intervalUnit}` : '-'}
+                </TableCell>
+                <TableCell align="center">
+                  <span style={{
+                    color: status.color,
+                    fontWeight: 'bold',
                         padding: '4px 8px',
                         borderRadius: '4px',
                         backgroundColor: status.color === 'green' ? '#e8f5e8' : 

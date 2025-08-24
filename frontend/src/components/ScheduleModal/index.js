@@ -137,25 +137,31 @@ const useStyles = makeStyles(theme => ({
 }));
 
 const ScheduleSchema = Yup.object().shape({
-	body: Yup.string()
-		.min(5, "Mensaje muy corto")
-		.required("Obligatorio"),
-	contactId: Yup.number().nullable().required("Obligatorio"),
-	whatsappId: Yup.number().nullable().required("Obligatorio"),
-	sendAt: Yup.string().required("Obligatorio")
+        body: Yup.string()
+                .min(5, "Mensaje muy corto")
+                .required("Obligatorio"),
+        contactId: Yup.number().nullable().required("Obligatorio"),
+        whatsappId: Yup.number().nullable().required("Obligatorio"),
+        sendAt: Yup.string().required("Obligatorio"),
+        intervalUnit: Yup.string().nullable(),
+        intervalValue: Yup.number().nullable(),
+        repeatCount: Yup.number().nullable()
 });
 
 const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload, ticketId }) => {
 	const classes = useStyles();
 	const { user } = useContext(AuthContext);
 
-	const initialState = {
-		body: "",
-		contactId: null,
-		whatsappId: null,
-		sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
-		sentAt: ""
-	};
+        const initialState = {
+                body: "",
+                contactId: null,
+                whatsappId: null,
+                sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
+                sentAt: "",
+                intervalUnit: "days",
+                intervalValue: 1,
+                repeatCount: 0
+        };
 
 	const [schedule, setSchedule] = useState(initialState);
 	const [currentContact, setCurrentContact] = useState(null);
@@ -314,14 +320,17 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 				}
 			}
 
-			// ✅ MOSTRAR CONFIRMACIÓN ANTES DE GUARDAR
-			const scheduleData = {
-				contactId: values.contactId,
-				whatsappId: values.whatsappId,
-				body: values.body,
-				sendAt: values.sendAt,
-				sentAt: null
-			};
+                        // ✅ MOSTRAR CONFIRMACIÓN ANTES DE GUARDAR
+                        const scheduleData = {
+                                contactId: values.contactId,
+                                whatsappId: values.whatsappId,
+                                body: values.body,
+                                sendAt: values.sendAt,
+                                sentAt: null,
+                                intervalUnit: values.intervalUnit,
+                                intervalValue: values.intervalValue,
+                                repeatCount: values.repeatCount
+                        };
 
 			// ✅ PREPARAR DATOS PARA CONFIRMACIÓN
 			const contact = contacts.find(c => c.id === values.contactId);
@@ -601,26 +610,62 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 								</div>
 
 								<br />
-								<div className={classes.multFieldLine}>
-									<Field
-										as={TextField}
-										label={i18n.t("scheduleModal.form.sendAt")}
-										type="datetime-local"
-										name="sendAt"
-										InputLabelProps={{
-											shrink: true,
-										}}
-										error={touched.sendAt && Boolean(errors.sendAt)}
-										helperText={touched.sendAt && errors.sendAt}
-										variant="outlined"
-										fullWidth
-									/>
-								</div>
-								{(schedule.mediaPath || attachment) && (
-									<Grid xs={12} item>
-										<Button startIcon={<AttachFile />}>
-											{attachment ? attachment.name : schedule.mediaName}
-										</Button>
+                                                                <div className={classes.multFieldLine}>
+                                                                        <Field
+                                                                                as={TextField}
+                                                                                label={i18n.t("scheduleModal.form.sendAt")}
+                                                                                type="datetime-local"
+                                                                                name="sendAt"
+                                                                                InputLabelProps={{
+                                                                                        shrink: true,
+                                                                                }}
+                                                                                error={touched.sendAt && Boolean(errors.sendAt)}
+                                                                                helperText={touched.sendAt && errors.sendAt}
+                                                                                variant="outlined"
+                                                                                fullWidth
+                                                                        />
+                                                                </div>
+
+                                                                <br />
+                                                                <div className={classes.multFieldLine}>
+                                                                        <Field
+                                                                                as={TextField}
+                                                                                select
+                                                                                label={i18n.t("scheduleModal.form.intervalUnit")}
+                                                                                name="intervalUnit"
+                                                                                variant="outlined"
+                                                                                margin="dense"
+                                                                                SelectProps={{ native: true }}
+                                                                                fullWidth
+                                                                        >
+                                                                                <option value="days">{i18n.t("scheduleModal.form.intervalUnitOptions.days")}</option>
+                                                                                <option value="weeks">{i18n.t("scheduleModal.form.intervalUnitOptions.weeks")}</option>
+                                                                                <option value="months">{i18n.t("scheduleModal.form.intervalUnitOptions.months")}</option>
+                                                                        </Field>
+                                                                        <Field
+                                                                                as={TextField}
+                                                                                label={i18n.t("scheduleModal.form.intervalValue")}
+                                                                                type="number"
+                                                                                name="intervalValue"
+                                                                                variant="outlined"
+                                                                                margin="dense"
+                                                                                fullWidth
+                                                                        />
+                                                                        <Field
+                                                                                as={TextField}
+                                                                                label={i18n.t("scheduleModal.form.repeatCount")}
+                                                                                type="number"
+                                                                                name="repeatCount"
+                                                                                variant="outlined"
+                                                                                margin="dense"
+                                                                                fullWidth
+                                                                        />
+                                                                </div>
+                                                                {(schedule.mediaPath || attachment) && (
+                                                                        <Grid xs={12} item>
+                                                                                <Button startIcon={<AttachFile />}>
+                                                                                        {attachment ? attachment.name : schedule.mediaName}
+                                                                                </Button>
 										<IconButton
 											onClick={() => setConfirmationOpen(true)}
 											color="secondary"
