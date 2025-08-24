@@ -209,6 +209,16 @@ const messages = {
                                                 days: "Days",
                                                 weeks: "Weeks",
                                                 months: "Months"
+                                        },
+                                        helperText: {
+                                                useReminderSystem:
+                                                        "Select a reminder (one-time) or a recurring message.",
+                                                intervalUnit:
+                                                        "Defines the time unit between repetitions.",
+                                                intervalValue:
+                                                        "Value for the interval based on the chosen unit.",
+                                                repeatCount:
+                                                        "Total number of times the message will be sent."
                                         }
                                 },
                                 buttons: {

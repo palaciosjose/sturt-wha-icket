@@ -699,6 +699,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 name="useReminderSystem"
                                                                                 variant="outlined"
                                                                                 margin="dense"
+                                                                                helperText={i18n.t("scheduleModal.form.helperText.useReminderSystem")}
                                                                                 SelectProps={{ native: true }}
                                                                                 fullWidth
                                                                                 value={values.useReminderSystem ? "true" : "false"}
@@ -718,6 +719,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 name="intervalUnit"
                                                                                 variant="outlined"
                                                                                 margin="dense"
+                                                                                helperText={i18n.t("scheduleModal.form.helperText.intervalUnit")}
                                                                                 SelectProps={{ native: true }}
                                                                                 fullWidth
                                                                         >
@@ -732,6 +734,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 name="intervalValue"
                                                                                 variant="outlined"
                                                                                 margin="dense"
+                                                                                helperText={i18n.t("scheduleModal.form.helperText.intervalValue")}
                                                                                 fullWidth
                                                                         />
                                                                         <Field
@@ -741,6 +744,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 name="repeatCount"
                                                                                 variant="outlined"
                                                                                 margin="dense"
+                                                                                helperText={i18n.t("scheduleModal.form.helperText.repeatCount")}
                                                                                 fullWidth
                                                                         />
                                                                 </div>
