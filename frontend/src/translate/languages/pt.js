@@ -348,6 +348,14 @@ const messages = {
           contact: "Contato",
           sendAt: "Data de Agendamento",
           sentAt: "Data de Envio",
+          intervalUnit: "Unidade",
+          intervalValue: "Valor",
+          repeatCount: "Repetições",
+          intervalUnitOptions: {
+            days: "Dias",
+            weeks: "Semanas",
+            months: "Meses"
+          }
         },
         buttons: {
           okAdd: "Adicionar",

@@ -94,6 +94,15 @@ class Schedule extends Model<Schedule> {
 
   @Column(DataType.STRING)
   reminderStatus: string; // "pending", "sent", "error"
+
+  @Column(DataType.STRING)
+  intervalUnit: string; // "days", "weeks", "months"
+
+  @Column(DataType.INTEGER)
+  intervalValue: number; // Interval value for recurrence
+
+  @Column(DataType.INTEGER)
+  repeatCount: number; // Number of times to repeat
 }
 
 export default Schedule;

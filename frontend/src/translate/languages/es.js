@@ -544,6 +544,14 @@ const messages = {
           contact: "Contacto",
           sendAt: "Fecha de Agendamiento",
           sentAt: "Fecha de Envío",
+          intervalUnit: "Unidad",
+          intervalValue: "Valor",
+          repeatCount: "Repeticiones",
+          intervalUnitOptions: {
+            days: "Días",
+            weeks: "Semanas",
+            months: "Meses"
+          }
         },
         buttons: {
           okAdd: "Agregar",

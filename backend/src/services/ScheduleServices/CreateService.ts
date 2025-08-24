@@ -11,6 +11,9 @@ interface Request {
   companyId: number | string;
   userId?: number | string;
   whatsappId?: number | string;
+  intervalUnit?: string;
+  intervalValue?: number;
+  repeatCount?: number;
 }
 
 // ✅ FUNCIONES DE VALIDACIÓN PARA EL BACKEND
@@ -82,7 +85,10 @@ const CreateService = async ({
   contactId,
   companyId,
   userId,
-  whatsappId
+  whatsappId,
+  intervalUnit,
+  intervalValue,
+  repeatCount
 }: Request): Promise<Schedule> => {
   const schema = Yup.object().shape({
     body: Yup.string().required().min(5),
@@ -107,7 +113,10 @@ const CreateService = async ({
       companyId,
       userId,
       whatsappId,
-      status: 'PENDENTE'
+      status: 'PENDENTE',
+      intervalUnit,
+      intervalValue,
+      repeatCount
     }
   );
 
