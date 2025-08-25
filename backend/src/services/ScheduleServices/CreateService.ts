@@ -9,6 +9,7 @@ interface Request {
   sendAt: string;
   contactId: number | string;
   contactListId?: number | string;
+  nestedListId?: number | string;
   companyId: number | string;
   userId?: number | string;
   whatsappId?: number | string;
@@ -87,6 +88,7 @@ const CreateService = async ({
   sendAt,
   contactId,
   contactListId,
+  nestedListId,
   companyId,
   userId,
   whatsappId,
@@ -117,6 +119,7 @@ const CreateService = async ({
       sendAt,
       contactId,
       contactListId,
+      nestedListId,
       companyId,
       userId,
       whatsappId,

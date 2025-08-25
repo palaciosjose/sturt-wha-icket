@@ -19,6 +19,7 @@ interface CreateReminderSystemRequest {
   userId: number;
   whatsappId?: number; // Nueva opción para especificar WhatsApp
   contactListId?: number;
+  nestedListId?: number;
   fileListId?: number;
 }
 
@@ -30,6 +31,7 @@ const CreateReminderSystemService = async ({
   userId,
   whatsappId,
   contactListId,
+  nestedListId,
   fileListId
 }: CreateReminderSystemRequest): Promise<Schedule> => {
   
@@ -54,6 +56,7 @@ const CreateReminderSystemService = async ({
     userId,
     whatsappId,
     contactListId,
+    nestedListId,
     fileListId,
     status: 'PENDENTE',
     isReminderSystem: true,
@@ -164,6 +167,7 @@ const CreateReminderSystemService = async ({
       userId,
       whatsappId,
       contactListId,
+      nestedListId,
       fileListId,
       status: 'PENDENTE',
       isReminderSystem: true,

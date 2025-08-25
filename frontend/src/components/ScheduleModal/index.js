@@ -142,6 +142,7 @@ const ScheduleSchema = Yup.object().shape({
                 .required("Obligatorio"),
         contactId: Yup.number().nullable(),
         contactListId: Yup.number().nullable(),
+        nestedListId: Yup.number().nullable(),
         fileListId: Yup.number().nullable(),
         whatsappId: Yup.number().nullable().required("Obligatorio"),
         sendAt: Yup.string().required("Obligatorio"),
@@ -149,7 +150,7 @@ const ScheduleSchema = Yup.object().shape({
         intervalValue: Yup.number().nullable(),
         repeatCount: Yup.number().nullable()
 }).test("contact-or-list", "Seleccione un contacto o una lista", value => {
-        return !!(value.contactId || value.contactListId);
+        return !!(value.contactId || value.contactListId || value.nestedListId);
 });
 
 const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, reload, ticketId }) => {
@@ -160,6 +161,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                 body: "",
                 contactId: null,
                 contactListId: null,
+                nestedListId: null,
                 whatsappId: null,
                 sendAt: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
                 sentAt: "",
@@ -175,6 +177,8 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
         const [contacts, setContacts] = useState([]);
         const [contactLists, setContactLists] = useState([]);
         const [currentContactList, setCurrentContactList] = useState(null);
+        const [nestedLists, setNestedLists] = useState([]);
+        const [currentNestedList, setCurrentNestedList] = useState(null);
         const [whatsapps, setWhatsapps] = useState([]);
         const [currentWhatsapp, setCurrentWhatsapp] = useState(null);
         const [fileLists, setFileLists] = useState([]);
@@ -207,6 +211,15 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                 }
         }, [schedule.fileListId, fileLists]);
 
+        useEffect(() => {
+                if (schedule.nestedListId && nestedLists.length) {
+                        const list = nestedLists.find(l => l.id === schedule.nestedListId);
+                        if (list) {
+                                setCurrentNestedList(list);
+                        }
+                }
+        }, [schedule.nestedListId, nestedLists]);
+
 	useEffect(() => {
 		const { companyId } = user;
 		if (open) {
@@ -223,6 +236,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                         const { data: listData } = await api.get('/contact-lists/list', { params: { companyId } });
                                         if (isArray(listData)) {
                                                 setContactLists(listData);
+                                                setNestedLists(listData);
                                         }
 
                                         // Cargar conexiones WhatsApp
@@ -312,6 +326,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                 setAttachment(null);
                 setSchedule(initialState);
                 setCurrentFileList(null);
+                setCurrentNestedList(null);
                 // ✅ LIMPIAR ESTADOS DE CONFIRMACIÓN
                 setScheduleConfirmationOpen(false);
                 setScheduleToConfirm(null);
@@ -327,7 +342,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const handleSaveSchedule = async (values) => {
 		try {
                         // ✅ VALIDACIÓN 1: CAMPOS OBLIGATORIOS
-                        if ((!values.contactId && !values.contactListId) || !values.whatsappId || !values.body || !values.sendAt) {
+                        if ((!values.contactId && !values.contactListId && !values.nestedListId) || !values.whatsappId || !values.body || !values.sendAt) {
                                 toast.error("❌ Debe seleccionar un contacto o una lista, además de Conexión, Mensaje y Fecha/Hora");
                                 return;
                         }
@@ -365,6 +380,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                         const scheduleData = {
                                 contactId: values.contactId,
                                 contactListId: values.contactListId,
+                                nestedListId: values.nestedListId,
                                 whatsappId: values.whatsappId,
                                 body: values.body,
                                 sendAt: values.sendAt,
@@ -379,12 +395,13 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 			// ✅ PREPARAR DATOS PARA CONFIRMACIÓN
                         const contact = contacts.find(c => c.id === values.contactId);
                         const list = contactLists.find(l => l.id === values.contactListId);
-			const whatsapp = whatsapps.find(w => w.id === values.whatsappId);
-			const formattedDateTime = moment(values.sendAt).format('DD/MM/YYYY HH:mm');
+                        const nested = nestedLists.find(l => l.id === values.nestedListId);
+                        const whatsapp = whatsapps.find(w => w.id === values.whatsappId);
+                        const formattedDateTime = moment(values.sendAt).format('DD/MM/YYYY HH:mm');
 
 			setScheduleToConfirm({
 				...scheduleData,
-                                contactName: contact ? contact.name : list ? list.name : 'Contacto no encontrado',
+                                contactName: contact ? contact.name : list ? list.name : nested ? nested.name : 'Contacto no encontrado',
 				whatsappName: whatsapp ? whatsapp.name : 'Conexión no encontrada',
 				formattedDateTime: formattedDateTime
 			});
@@ -557,7 +574,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 					{({ touched, errors, isSubmitting, values, setFieldValue, handleSubmit }) => {
 						// ✅ VERIFICAR SI HAY ERRORES DE VALIDACIÓN (solo campos obligatorios)
                                                 const hasValidationErrors = Boolean(
-                                                        (!values.contactId && !values.contactListId) ||
+                                                        (!values.contactId && !values.contactListId && !values.nestedListId) ||
                                                         !values.whatsappId ||
                                                         !values.body ||
                                                         !values.sendAt
@@ -575,13 +592,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                         fullWidth
                                                                                         value={currentContact || null}
                                                                                         options={contacts}
-                                                                                        disabled={Boolean(values.contactListId)}
+                                                                                        disabled={Boolean(values.contactListId) || Boolean(values.nestedListId)}
                                                                                         onChange={(e, contact) => {
                                                                                                 const contactId = contact ? Number(contact.id) : null;
                                                                                                 setFieldValue("contactId", contactId);
-                                                                                                setSchedule({ ...schedule, contactId, contactListId: null });
+                                                                                                setSchedule({ ...schedule, contactId, contactListId: null, nestedListId: null });
                                                                                                 setCurrentContact(contact || null);
                                                                                                 setCurrentContactList(null);
+                                                                                                setCurrentNestedList(null);
                                                                                         }}
                                                                                         getOptionLabel={(option) => {
                                                                                                 if (!option) return "";
@@ -613,13 +631,14 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                         fullWidth
                                                                                         value={currentContactList || null}
                                                                                         options={contactLists}
-                                                                                        disabled={Boolean(values.contactId)}
+                                                                                        disabled={Boolean(values.contactId) || Boolean(values.nestedListId)}
                                                                                         onChange={(e, list) => {
                                                                                                 const listId = list ? Number(list.id) : null;
                                                                                                 setFieldValue("contactListId", listId);
-                                                                                                setSchedule({ ...schedule, contactListId: listId, contactId: null });
+                                                                                                setSchedule({ ...schedule, contactListId: listId, contactId: null, nestedListId: null });
                                                                                                 setCurrentContactList(list || null);
                                                                                                 setCurrentContact(null);
+                                                                                                setCurrentNestedList(null);
                                                                                         }}
                                                                                         getOptionLabel={(option) => {
                                                                                                 if (!option) return "";
@@ -636,6 +655,45 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                                         placeholder="Lista de Contactos"
                                                                                                         error={touched.contactListId && Boolean(errors.contactListId)}
                                                                                                         helperText={touched.contactListId && errors.contactListId}
+                                                                                                />
+                                                                                        )}
+                                                                                />
+                                                                        </FormControl>
+                                                                </div>
+                                                                <br />
+                                                                <div className={classes.multFieldLine}>
+                                                                        <FormControl
+                                                                                variant="outlined"
+                                                                                fullWidth
+                                                                        >
+                                                                                <Autocomplete
+                                                                                        fullWidth
+                                                                                        value={currentNestedList || null}
+                                                                                        options={nestedLists}
+                                                                                        disabled={Boolean(values.contactId) || Boolean(values.contactListId)}
+                                                                                        onChange={(e, list) => {
+                                                                                                const listId = list ? Number(list.id) : null;
+                                                                                                setFieldValue("nestedListId", listId);
+                                                                                                setSchedule({ ...schedule, nestedListId: listId, contactId: null, contactListId: null });
+                                                                                                setCurrentNestedList(list || null);
+                                                                                                setCurrentContact(null);
+                                                                                                setCurrentContactList(null);
+                                                                                        }}
+                                                                                        getOptionLabel={(option) => {
+                                                                                                if (!option) return "";
+                                                                                                return option.name || "";
+                                                                                        }}
+                                                                                        getOptionSelected={(option, value) => {
+                                                                                                if (!option || !value) return false;
+                                                                                                return value.id === option.id;
+                                                                                        }}
+                                                                                        renderInput={(params) => (
+                                                                                                <TextField
+                                                                                                        {...params}
+                                                                                                        variant="outlined"
+                                                                                                        placeholder="Lista Anidada"
+                                                                                                        error={touched.nestedListId && Boolean(errors.nestedListId)}
+                                                                                                        helperText={touched.nestedListId && errors.nestedListId}
                                                                                                 />
                                                                                         )}
                                                                                 />
