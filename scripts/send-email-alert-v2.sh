@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/send-email-alert-v2.sh
+# /home/sturt-wha-icket/scripts/send-email-alert-v2.sh
 # Script para enviar alertas por email usando Gmail SMTP directo
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 17 de Agosto 2025
@@ -8,7 +8,7 @@
 # Configuración
 ALERT_FILE="/tmp/watoolx-alerts.log"
 LOG_FILE="/var/log/watoolx-email-alerts.log"
-CONFIG_FILE="/home/watoolxoficial/.email-config"
+CONFIG_FILE="/home/sturt-wha-icket/.email-config"
 
 # Colores para output
 RED='\033[0;31m'

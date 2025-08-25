@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/install-monitoring-system-v2.sh
+# /home/sturt-wha-icket/scripts/install-monitoring-system-v2.sh
 # Script de instalación automática del sistema de monitoreo WATOOLX v2.0
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 17 de Agosto 2025

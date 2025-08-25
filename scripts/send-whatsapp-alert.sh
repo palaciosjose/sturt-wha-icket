@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/send-whatsapp-alert.sh
+# /home/sturt-wha-icket/scripts/send-whatsapp-alert.sh
 # Script para enviar alertas por WhatsApp usando el API del sistema WATOOLX
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 16 de Agosto 2025
@@ -9,7 +9,7 @@
 ALERT_FILE="/tmp/watoolx-alerts.log"
 LOG_FILE="/var/log/watoolx-whatsapp-alerts.log"
 API_ENDPOINT="https://waapi.powerwapp.net/api/messages/send"
-TOKEN_FILE="/home/watoolxoficial/.whatsapp-token"
+TOKEN_FILE="/home/sturt-wha-icket/.whatsapp-token"
 ADMIN_NUMBER="51959858768"  # Cambiar por tu número
 
 # Colores para output

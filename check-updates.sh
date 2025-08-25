@@ -94,7 +94,7 @@ check_updates() {
         print_message "   git remote set-url origin https://TOKEN@github.com/USER/REPO.git" $YELLOW
         print_message "" $YELLOW
         print_message "   Ejemplo:" $YELLOW
-        print_message "   git remote set-url origin https://ghp_1234567890abcdef@github.com/leopoldohuacasiv/watoolxoficial.git" $YELLOW
+        print_message "   git remote set-url origin https://ghp_1234567890abcdef@github.com/leopoldohuacasiv/sturt-wha-icket.git" $YELLOW
         return 1
     fi
     
