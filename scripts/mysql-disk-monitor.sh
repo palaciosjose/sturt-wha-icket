@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/mysql-disk-monitor.sh
+# /home/sturt-wha-icket/scripts/mysql-disk-monitor.sh
 # Script de monitoreo y limpieza automática para MySQL + Performance
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 16 de Agosto 2025
@@ -10,7 +10,7 @@ THRESHOLD_DISK=80
 THRESHOLD_MYSQL_SIZE=50
 LOG_FILE="/var/log/watoolx-mysql-monitor.log"
 ALERT_EMAIL="leowin8@gmail.com"
-BACKUP_DIR="/home/watoolxoficial/backups/mysql"
+BACKUP_DIR="/home/sturt-wha-icket/backups/mysql"
 
 # Credenciales MySQL
 MYSQL_USER="root"
@@ -55,8 +55,8 @@ send_alert() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ALERTA: $subject - $message" >> /tmp/watoolx-alerts.log
     
     # Enviar alerta por WhatsApp si está disponible
-    if command -v /home/watoolxoficial/scripts/send-whatsapp-alert.sh &> /dev/null; then
-        /home/watoolxoficial/scripts/send-whatsapp-alert.sh send "$subject" "$message" >/dev/null 2>&1 &
+    if command -v /home/sturt-wha-icket/scripts/send-whatsapp-alert.sh &> /dev/null; then
+        /home/sturt-wha-icket/scripts/send-whatsapp-alert.sh send "$subject" "$message" >/dev/null 2>&1 &
         log_message "INFO" "📱 Alerta enviada por WhatsApp en segundo plano"
     fi
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/install-monitoring-system.sh
+# /home/sturt-wha-icket/scripts/install-monitoring-system.sh
 # Script de instalación automática del sistema de monitoreo WATOOLX
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 16 de Agosto 2025
@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuración
-SCRIPTS_DIR="/home/watoolxoficial/scripts"
+SCRIPTS_DIR="/home/sturt-wha-icket/scripts"
 SERVICE_USER="root"
 SERVICE_GROUP="root"
 
@@ -105,7 +105,7 @@ create_directories() {
     
     local directories=(
         "/var/log/watoolx"
-        "/home/watoolxoficial/backups/mysql"
+        "/home/sturt-wha-icket/backups/mysql"
         "/etc/watoolx"
         "/var/lib/watoolx"
     )
@@ -317,7 +317,7 @@ setup_mysql_config() {
     
     # Crear backup de configuración actual
     local config_file="/etc/mysql/mysql.conf.d/mysqld.cnf"
-    local backup_file="/home/watoolxoficial/backups/mysql/mysqld.cnf.backup.$(date +%Y%m%d_%H%M%S)"
+    local backup_file="/home/sturt-wha-icket/backups/mysql/mysqld.cnf.backup.$(date +%Y%m%d_%H%M%S)"
     
     if [ -f "$config_file" ]; then
         cp "$config_file" "$backup_file"
@@ -417,7 +417,7 @@ verify_installation() {
 # Función de generación de reporte de instalación
 generate_install_report() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local report_file="/home/watoolxoficial/backups/install-report-$(date +%Y%m%d_%H%M%S).txt"
+    local report_file="/home/sturt-wha-icket/backups/install-report-$(date +%Y%m%d_%H%M%S).txt"
     
     cat > "$report_file" << EOF
 ╔══════════════════════════════════════════════════════════════╗
@@ -445,7 +445,7 @@ generate_install_report() {
 
 📁 DIRECTORIOS CREADOS:
    - /var/log/watoolx
-   - /home/watoolxoficial/backups/mysql
+   - /home/sturt-wha-icket/backups/mysql
    - /etc/watoolx
    - /var/lib/watoolx
 

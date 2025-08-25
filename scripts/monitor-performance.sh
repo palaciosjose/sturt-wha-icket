@@ -1,5 +1,5 @@
 #!/bin/bash
-# /home/watoolxoficial/scripts/monitor-performance.sh
+# /home/sturt-wha-icket/scripts/monitor-performance.sh
 # Script de monitoreo inteligente de performance para WATOOLX
 # Autor: Asistente AI + Equipo de Desarrollo
 # Fecha: 16 de Agosto 2025
@@ -240,7 +240,7 @@ install_service() {
     log_message "INFO" "🔧 Instalando script como servicio systemd..."
     
     # Crear directorio de scripts si no existe
-    mkdir -p /home/watoolxoficial/scripts
+    mkdir -p /home/sturt-wha-icket/scripts
     
     # Crear servicio systemd
     cat > /etc/systemd/system/watoolx-monitor.service << EOF
@@ -251,8 +251,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/watoolxoficial
-ExecStart=/home/watoolxoficial/scripts/monitor-performance.sh continuous
+WorkingDirectory=/home/sturt-wha-icket
+ExecStart=/home/sturt-wha-icket/scripts/monitor-performance.sh continuous
 Restart=always
 RestartSec=10
 StandardOutput=journal

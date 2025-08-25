@@ -53,8 +53,8 @@
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/leopoldohuacasiv/watoolxoficial.git
-cd watoolxoficial
+git clone https://github.com/leopoldohuacasiv/sturt-wha-icket.git
+cd sturt-wha-icket
 
 # 2. Instalar dependencias
 cd backend && npm install
@@ -291,7 +291,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 - **WhatsApp**: +51936450940
 - **Documentación técnoca**: [Guias técnicas](./guias/)
-- **Issues**: [GitHub Issues](https://github.com/leopoldohuacasiv/watoolxoficial/issues)
+- **Issues**: [GitHub Issues](https://github.com/leopoldohuacasiv/sturt-wha-icket/issues)
 
 ## 🎯 Roadmap
 

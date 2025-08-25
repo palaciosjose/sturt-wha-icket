@@ -919,7 +919,7 @@ get_instancia_add() {
 get_link_git() {
     print_banner
     
-    default_link="https://github.com/leopoldohuacasiv/watoolxoficial.git"
+    default_link="https://github.com/leopoldohuacasiv/sturt-wha-icket.git"
     printf "${WHITE} 💻 Ingresa el enlace de ${YELLOW}GITHUB${WHITE} de Watoolx que deseas instalar:${GRAY_LIGHT}\n"
     printf "  Presiona Enter para usar el valor por defecto:\n\n"
     printf "  ${default_link}\n\n"

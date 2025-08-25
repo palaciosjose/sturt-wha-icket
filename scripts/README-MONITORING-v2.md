@@ -19,7 +19,7 @@ Sistema de monitoreo y mantenimiento automático para WATOOLX, completamente reo
 
 ### **PASO 1: Preparar el sistema**
 ```bash
-cd /home/watoolxoficial/scripts
+cd /home/sturt-wha-icket/scripts
 chmod +x *.sh
 ```
 
@@ -41,9 +41,9 @@ chmod +x *.sh
 
 ```bash
 # Directorios
-WATOOLX_HOME="/home/watoolxoficial"
-SCRIPTS_DIR="/home/watoolxoficial/scripts"
-BACKUP_DIR="/home/watoolxoficial/backups/mysql"
+WATOOLX_HOME="/home/sturt-wha-icket"
+SCRIPTS_DIR="/home/sturt-wha-icket/scripts"
+BACKUP_DIR="/home/sturt-wha-icket/backups/mysql"
 
 # MySQL
 BINARY_LOG_RETENTION_DAYS="14"           # ← RETENCIÓN DE 14 DÍAS
@@ -137,7 +137,7 @@ innodb_compression_level = 6
 ## 📁 **ESTRUCTURA DE DIRECTORIOS**
 
 ```
-/home/watoolxoficial/
+/home/sturt-wha-icket/
 ├── scripts/
 │   ├── watoolx-monitoring.conf          # Configuración
 │   ├── install-monitoring-system-v2.sh  # Instalador
@@ -235,7 +235,7 @@ mysql -u root -p -e "SHOW VARIABLES LIKE 'innodb_compression%';"
 journalctl -u watoolx-performance-monitor --since "1 hour ago"
 
 # Verificar permisos
-ls -la /home/watoolxoficial/scripts/
+ls -la /home/sturt-wha-icket/scripts/
 
 # Reiniciar servicio
 systemctl restart watoolx-performance-monitor
@@ -256,7 +256,7 @@ systemctl restart mysql
 ### **Alertas no funcionan:**
 ```bash
 # Verificar token de WhatsApp
-cat /home/watoolxoficial/.whatsapp-token
+cat /home/sturt-wha-icket/.whatsapp-token
 
 # Ver logs de alertas
 tail -f /var/log/watoolx/watoolx-alerts.log
