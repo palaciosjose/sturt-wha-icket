@@ -97,6 +97,8 @@ show_installation_summary() {
         echo -e "${WHITE}Credenciales de acceso web:${NC}"
         echo -e "${CYAN}Email:${NC} admin@admin.com"
         echo -e "${CYAN}Contraseña:${NC} 123456"
+        echo ""
+        echo -e "${WHITE}Para verificar actualizaciones en el futuro, ejecuta:${NC} check-updates.sh"
     else
         echo -e "${YELLOW}⚠️  Instalación terminada pero con $ERROR_COUNT fallo(s):${NC}"
         for error in "${INSTALLATION_ERRORS[@]}"; do
@@ -104,6 +106,25 @@ show_installation_summary() {
         done
         echo -e "\n${YELLOW}Por favor, resuelve estos errores manualmente antes de continuar.${NC}"
     fi
+}
+
+# Función para instalar el verificador de actualizaciones
+install_check_updates_script() {
+    log_message "STEP" "=== INSTALANDO SCRIPT check-updates.sh ==="
+    local target="/usr/local/bin/check-updates.sh"
+
+    if ! sudo cp "$SCRIPT_DIR/check-updates.sh" "$target"; then
+        register_error "No se pudo copiar check-updates.sh a $target"
+        return 1
+    fi
+
+    if ! sudo chmod +x "$target"; then
+        register_error "No se pudo establecer permisos ejecutables en $target"
+        return 1
+    fi
+
+    log_message "SUCCESS" "✅ check-updates.sh instalado en $target"
+    return 0
 }
 
 # Función para configurar npm de manera segura
@@ -4357,10 +4378,15 @@ run_complete_installation() {
     
     # Verificación final
     verify_installation
-    
+
     # Crear script de recuperación rápida
     create_recovery_script
-    
+
+    # Instalar script de verificación de actualizaciones
+    if ! install_check_updates_script; then
+        register_error "Error al instalar script de verificación de actualizaciones"
+    fi
+
     # Mostrar resumen final
     show_installation_summary
 }

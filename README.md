@@ -204,6 +204,12 @@ chmod +x install.sh
 ./install.sh
 ```
 
+Después de la instalación, puedes comprobar si existen nuevas versiones con:
+
+```bash
+check-updates.sh
+```
+
 ### Configuración Manual
 1. **Configurar servidor VPS** con Ubuntu 22+
 2. **Instalar dependencias**: PM2, Nginx, MySQL, Redis
