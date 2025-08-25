@@ -357,16 +357,19 @@ const messages = {
             reminder: "Compromisso",
             recurring: "Mensagem recorrente"
           },
-          intervalUnitOptions: {
-            days: "Dias",
-            weeks: "Semanas",
-            months: "Meses"
-          }
-        },
-        buttons: {
-          okAdd: "Adicionar",
-          okEdit: "Salvar",
-          cancel: "Cancelar",
+           intervalUnitOptions: {
+             days: "Dias",
+             weeks: "Semanas",
+             months: "Meses"
+           },
+           intervalUnitHelper: "Unidade de tempo entre as mensagens",
+           intervalValueHelper: "Quantidade de unidades entre as mensagens",
+           repeatCountHelper: "Número de vezes que a mensagem será repetida",
+         },
+         buttons: {
+           okAdd: "Adicionar",
+           okEdit: "Salvar",
+           cancel: "Cancelar",
         },
         success: "Agendamento salvo com sucesso.",
       },
