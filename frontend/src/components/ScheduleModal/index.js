@@ -775,6 +775,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 margin="dense"
                                                                                 SelectProps={{ native: true }}
                                                                                 fullWidth
+                                                                                helperText={i18n.t("scheduleModal.form.intervalUnitHelper")}
                                                                         >
                                                                                 <option value="days">{i18n.t("scheduleModal.form.intervalUnitOptions.days")}</option>
                                                                                 <option value="weeks">{i18n.t("scheduleModal.form.intervalUnitOptions.weeks")}</option>
@@ -788,6 +789,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 variant="outlined"
                                                                                 margin="dense"
                                                                                 fullWidth
+                                                                                helperText={i18n.t("scheduleModal.form.intervalValueHelper")}
                                                                         />
                                                                         <Field
                                                                                 as={TextField}
@@ -797,6 +799,7 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
                                                                                 variant="outlined"
                                                                                 margin="dense"
                                                                                 fullWidth
+                                                                                helperText={i18n.t("scheduleModal.form.repeatCountHelper")}
                                                                         />
                                                                 </div>
                                                                 {(schedule.mediaPath || attachment) && (

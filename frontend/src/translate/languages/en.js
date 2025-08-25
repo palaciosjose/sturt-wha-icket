@@ -206,16 +206,19 @@ const messages = {
                                                 reminder: "Appointment",
                                                 recurring: "Recurring message"
                                         },
-                                        intervalUnitOptions: {
-                                                days: "Days",
-                                                weeks: "Weeks",
-                                                months: "Months"
-                                        }
-                                },
-                                buttons: {
-                                        okAdd: "Add",
-                                        okEdit: "Save",
-                                        cancel: "Cancel",
+                                       intervalUnitOptions: {
+                                               days: "Days",
+                                               weeks: "Weeks",
+                                               months: "Months"
+                                       },
+                                       intervalUnitHelper: "Time unit between messages",
+                                       intervalValueHelper: "Number of units between messages",
+                                       repeatCountHelper: "Number of times the message will be repeated"
+                               },
+                               buttons: {
+                                       okAdd: "Add",
+                                       okEdit: "Save",
+                                       cancel: "Cancel",
                                 },
                                 success: "Schedule saved successfully.",
                         },

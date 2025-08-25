@@ -558,7 +558,10 @@ const messages = {
             days: "Días",
             weeks: "Semanas",
             months: "Meses"
-          }
+          },
+          intervalUnitHelper: "Unidad de tiempo entre los mensajes",
+          intervalValueHelper: "Cantidad de unidades entre los mensajes",
+          repeatCountHelper: "Número de veces que se repetirá el mensaje",
         },
         buttons: {
           okAdd: "Agregar",
