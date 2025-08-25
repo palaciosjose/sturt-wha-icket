@@ -12,6 +12,7 @@ interface ScheduleData {
   sentAt?: string;
   contactId?: number;
   contactListId?: number;
+  nestedListId?: number;
   companyId?: number;
   ticketId?: number;
   userId?: number;
@@ -119,6 +120,7 @@ const UpdateUserService = async ({
     sentAt,
     contactId,
     contactListId,
+    nestedListId,
     ticketId,
     userId,
     whatsappId,
@@ -152,6 +154,7 @@ const UpdateUserService = async ({
     sentAt,
     contactId,
     contactListId,
+    nestedListId,
     ticketId,
     userId,
     whatsappId,
